@@ -3703,6 +3703,12 @@ If you don't accept this request, VPN will not reconnect and your internet conne
     <message name="IDS_PRIVATE_TAB_SCREENSHOT_TITLE" desc="A title to show private tab screenshot">
       Allow screenshots in private tabs
     </message>
+    <message name="IDS_SETTINGS_PRIVATE_BROWSING_ONLY_LABEL" desc="Label for the private browsing only mode toggle">
+      Private Browsing Only
+    </message>
+    <message name="IDS_SETTINGS_PRIVATE_BROWSING_ONLY_SUMMARY" desc="Summary explaining that enabling this clears current session">
+      Always open tabs in private mode
+    </message>
     <message name="IDS_PRIVATE_TAB_SCREENSHOT_SUMMARY" desc="A summary to show private tab screenshot">
       If allowed, private tabs will also be visible when multiple apps are open.
     </message>
