@@ -132,6 +132,7 @@ public class BravePrivacySettings extends PrivacySettings {
     private static final String PREF_ENS = "ens";
     private static final String PREF_SNS = "sns";
     private static final String PREF_REQUEST_OTR = "request_otr";
+    private static final String PREF_PRIVATE_BROWSING_ONLY = "private_browsing_only";
 
     public static final String PREF_BLOCK_TRACKERS_ADS = "block_trackers_ads";
     private static final String PREF_BLOCK_CROSS_SITE_COOKIES = "block_cross_site_cookies";
@@ -178,6 +179,7 @@ public class BravePrivacySettings extends PrivacySettings {
         PREF_SAFE_BROWSING,
         PREF_APP_LINKS,
         PREF_WEBRTC_POLICY,
+        PREF_PRIVATE_BROWSING_ONLY,
         PREF_INCOGNITO_SCREENSHOT,
         PREF_INCOGNITO_LOCK,
         PREF_CAN_MAKE_PAYMENT,
@@ -245,6 +247,7 @@ public class BravePrivacySettings extends PrivacySettings {
     private Preference mUstoppableDomains;
     private ChromeSwitchPreference mFingerprntLanguagePref;
     private ChromeSwitchPreference mBraveShieldsSaveContactInfoPref;
+    private ChromeSwitchPreference mPrivateBrowsingOnlyPref;
     private @Nullable FilterListAndroidHandler mFilterListAndroidHandler;
 
     private void initFilterListAndroidHandler() {
@@ -495,6 +498,10 @@ public class BravePrivacySettings extends PrivacySettings {
 
         mWebrtcPolicy = (ChromeBasePreference) findPreference(PREF_WEBRTC_POLICY);
 
+        mPrivateBrowsingOnlyPref =
+                (ChromeSwitchPreference) findPreference(PREF_PRIVATE_BROWSING_ONLY);
+        mPrivateBrowsingOnlyPref.setOnPreferenceChangeListener(this);
+
         removePreferenceIfPresent(PREF_AD_BLOCK);
         removePreferenceIfPresent(PREF_SYNC_AND_SERVICES_LINK);
         removePreferenceIfPresent(PREF_NETWORK_PREDICTIONS);
@@ -716,6 +723,9 @@ public class BravePrivacySettings extends PrivacySettings {
             BraveFeatureUtil.enableFeature(
                     BraveFeatureList.BRAVE_INCOGNITO_SCREENSHOT, (boolean) newValue, false);
             BraveRelaunchUtils.askForRelaunch(getActivity());
+        } else if (PREF_PRIVATE_BROWSING_ONLY.equals(key)) {
+            preferencesManager.writeBoolean(
+                    BravePreferenceKeys.BRAVE_PRIVATE_BROWSING_ONLY, (boolean) newValue);
         } else if (PREF_BLOCK_TRACKERS_ADS.equals(key)) {
             if (newValue instanceof String) {
                 final String newStringValue = String.valueOf(newValue);
@@ -946,6 +956,11 @@ public class BravePrivacySettings extends PrivacySettings {
                     UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                             .getBoolean(BravePref.DE_AMP_PREF_ENABLED));
         }
+
+        // Private Browsing Only mode
+        mPrivateBrowsingOnlyPref.setChecked(
+                preferencesManager.readBoolean(
+                        BravePreferenceKeys.BRAVE_PRIVATE_BROWSING_ONLY, false));
 
         if (!ChromeFeatureList.isEnabled(BraveFeatureList.BRAVE_REQUEST_OTR_TAB)) {
             removePreferenceIfPresent(PREF_REQUEST_OTR);
