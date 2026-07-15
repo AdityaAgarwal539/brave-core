@@ -141,13 +141,21 @@ YAML).
 
 ### Rewriters
 
-The keyed rewrite (`regex:` above) is a **rewriter**. `regex` is the default and
-most flexible one, and more will be added over time. To discover the available
-rewriters use `plaster --help`:
+The keyed rewrite (`regex:` above) is a **rewriter**. There is on-going work to
+introduce more rewriters. These are the ones we have supported for now.
+
+| Rewriter       | Kind | Description                                       |
+| -------------- | ---- | ------------------------------------------------- |
+| `regex`        | text | A Python `re.subn` substitution (the default).    |
+| `make_virtual` | AST  | Prepends `virtual ` to a C++ method declaration.  |
+| `add_friend`   | AST  | Adds a `friend` declaration to a private section. |
+| `drop_final`   | AST  | Removes `final` from a C++ class declaration.     |
+
+Use `plaster --help` to discover rewriters and read their full docs:
 
 ```sh
-tools/cr/plaster.py --help         # overview of commands and rewriters
-tools/cr/plaster.py --help regex   # full docs for a specific rewriter
+tools/cr/plaster.py --help                # overview of commands and rewriters
+tools/cr/plaster.py --help make_virtual   # full docs for a specific rewriter
 ```
 
 ### Applying a plaster

@@ -91,7 +91,7 @@ as a `friend class` on the base so we can reach `observer_list_` and
 
 - **`brave_passage_embeddings_service_controller.{h,cc}`** — Singleton subclass
   of `PassageEmbeddingsServiceController`. Observes `LocalModelsUpdaterState` so
-  it knows when the EmbeddingGemma component is installed; `EmbedderReady()`
+  it knows when the EmbeddingGemma component is installed; `IsModelAvailable()`
   returns true iff the component is present, and `OnLocalModelsReady` fires
   `EmbedderMetadataUpdated` on observer*list* so SchedulingEmbedder retries.
   Overrides `MaybeLaunchService()`/`ResetServiceRemote()` to construct/destroy
@@ -99,6 +99,14 @@ as a `friend class` on the base so we can reach `observer_list_` and
   `kModelUnavailable` when not ready, otherwise post the disk read for the five
   EmbeddingGemma files and hand them to `service_->BindPassageEmbedder()` once
   loaded.
+
+- **`open_tab_search.{h,cc}`** — Standalone util, unrelated to the embedder
+  above: it powers on-device "search my open tabs by content".
+  `SearchOpenTabsByContent` snapshots a profile's open HTTP(S) tabs, resolves
+  their URLs to URLIDs via `HistoryService`, then ranks them against a query
+  with `HistoryEmbeddingsSearch::Search`. Shared by the tab_search WebUI page
+  handler and the semantic tab search chat tool. Builds regardless of
+  `enable_local_ai` since it only wraps upstream Chromium APIs.
 
 ## Related Files
 
@@ -114,7 +122,7 @@ as a `friend class` on the base so we can reach `observer_list_` and
 
 - **`chromium_src/components/passage_embeddings/core/passage_embeddings_service_controller.h`**
   — Chromium_src include shim. Adds `virtual` to
-  `EmbedderReady`/`GetEmbedderMetadata`/`GetEmbeddings` via `#define`s, and
+  `IsModelAvailable`/`GetEmbedderMetadata`/`GetEmbeddings` via `#define`s, and
   declares `friend class BravePassageEmbeddingsServiceController` by
   macro-injecting it through the `EmbedderRunning` anchor (same idiom as
   `chromium_src/ui/android/view_android.h`).
@@ -137,7 +145,7 @@ PageContentAnnotationsWebContentsObserver (upstream)
       → PageEmbeddingsService (chunks text into passages)
         → SchedulingEmbedder (upstream; queues, reorders by priority)
           → BravePassageEmbeddingsServiceController::GetEmbeddings
-            → !EmbedderReady() → kModelUnavailable (SchedulingEmbedder
+            → !IsModelAvailable() → kModelUnavailable (SchedulingEmbedder
               retries on the next EmbedderMetadataUpdated)
             → PostTask: read five EmbeddingGemma files from disk
               → service_->BindPassageEmbedder(receiver, model_files, cb)
