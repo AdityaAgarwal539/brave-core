@@ -24,7 +24,6 @@ import("//brave/ios/browser/api/brave_wallet/headers.gni")
 import("//brave/ios/browser/api/certificate/headers.gni")
 import("//brave/ios/browser/api/content_settings/headers.gni")
 import("//brave/ios/browser/api/credential_provider/headers.gni")
-import("//brave/ios/browser/api/de_amp/headers.gni")
 import("//brave/ios/browser/api/developer_options_code/headers.gni")
 import("//brave/ios/browser/api/favicon/headers.gni")
 import("//brave/ios/browser/api/features/headers.gni")
@@ -98,6 +97,7 @@ brave_core_public_headers = [
   "//brave/ios/browser/brave_news/brave_news_pref_names_bridge.h",
   "//brave/ios/browser/brave_vpn/brave_vpn_pref_names_bridge.h",
   "//brave/ios/browser/brave_wallet/brave_wallet_factory_wrappers.h",
+  "//brave/ios/browser/brave_wallet/wallet_pref_names_bridge.h",
   "//brave/ios/browser/skus/skus_sdk_factory_wrappers.h",
   "//brave/ios/browser/playlist/playlist_exclusions_bridge.h",
   "//brave/ios/browser/playlist/playlist_exclusions_factory.h",
@@ -130,6 +130,7 @@ brave_core_public_headers = [
   "//ui/base/l10n/l10n_util_mac_bridge.h",
   "$root_gen_dir/brave/components/brave_account/mojom/brave_account.mojom.objc.h",
   "$root_gen_dir/brave/components/brave_account/mojom/change_password.mojom.objc.h",
+  "$root_gen_dir/brave/components/brave_account/mojom/register.mojom.objc.h",
   "$root_gen_dir/brave/components/brave_account/mojom/reset_password.mojom.objc.h",
   "$root_gen_dir/components/grit/brave_components_swift_strings.h",
   "//brave/ios/browser/web/logins/logins_tab_helper_bridge.h",
@@ -139,6 +140,7 @@ brave_core_public_headers = [
   "//brave/ios/browser/brave_shields/protection_stats_tab_helper_bridge.h",
   "//ios/chrome/browser/web/model/print/print_handler.h",
   "//brave/ios/browser/youtube/youtube_pref_names_bridge.h",
+  "//brave/ios/browser/web/de_amp/de_amp_pref_names_bridge.h",
   "//brave/ios/browser/global_privacy_control/gpc_pref_names_bridge.h",
   "//brave/ios/browser/shared/prefs/shared_pref_names_bridge.h",
   "//brave/ios/browser/brave_shields/request_blocking/request_blocking_tab_helper_bridge.h",
@@ -154,7 +156,6 @@ brave_core_public_headers += brave_user_agent_component_public_headers
 brave_core_public_headers += content_settings_component_public_headers
 brave_core_public_headers += url_sanitizer_component_public_headers
 brave_core_public_headers += browser_url_sanitizer_public_headers
-brave_core_public_headers += browser_api_de_amp_public_headers
 brave_core_public_headers += debounce_component_public_headers
 brave_core_public_headers +=
     browser_api_https_upgrade_exceptions_service_public_headers

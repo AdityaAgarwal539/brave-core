@@ -1149,10 +1149,10 @@ class PlasterTest(unittest.TestCase):
 
 
 class RewriterFormsTest(unittest.TestCase):
-    """End-to-end tests for the substitution envelope and the `regex` rewriter.
+    """End-to-end tests for the substitution envelope and its rewriters.
 
     Rewriters apply through `PlasterFile` against a fake Chromium repo, just
-    like real usage. Only the `regex` rewriter exists for now; further
+    like real usage; `make_virtual` runs the real ast-grep binary. Further
     rewriters attach to the same envelope later.
     """
 
@@ -1208,7 +1208,135 @@ class RewriterFormsTest(unittest.TestCase):
             "    replace: 'Brave'\n")
         self.assertEqual(result, 'A Brave thing.')
 
+    # -- make_virtual op (real ast-grep binary) -----------------------------
+
+    def test_make_virtual_op(self):
+        result = self._apply(
+            'virt.h', 'class C {\n  void Foo();\n};\n', 'substitutions:\n'
+            '  - description: make Foo virtual\n'
+            '    make_virtual:\n'
+            '      class_name: C\n'
+            '      method_name: Foo\n')
+        self.assertEqual(result, 'class C {\n  virtual void Foo();\n};\n')
+
+    def test_make_virtual_destructor_quoted(self):
+        result = self._apply(
+            'dtor.h', 'class C {\n public:\n  ~C();\n};\n', 'substitutions:\n'
+            '  - description: make the destructor virtual\n'
+            '    make_virtual:\n'
+            '      class_name: C\n'
+            "      method_name: '~C'\n")
+        self.assertEqual(result, 'class C {\n public:\n  virtual ~C();\n};\n')
+
+    def test_make_virtual_overloads_need_count(self):
+        result = self._apply(
+            'ovl.h', 'class C {\n  void Foo();\n  void Foo(int x);\n};\n',
+            'substitutions:\n'
+            '  - description: make both overloads virtual\n'
+            '    count: 2\n'
+            '    make_virtual:\n'
+            '      class_name: C\n'
+            '      method_name: Foo\n')
+        self.assertEqual(
+            result, 'class C {\n  virtual void Foo();\n'
+            '  virtual void Foo(int x);\n};\n')
+
+    def test_make_virtual_count_mismatch_fails(self):
+        # Two overloads match, but the default count is 1.
+        with self.assertRaises(plaster.PlasterApplyError):
+            self._apply(
+                'ovl2.h', 'class C {\n  void Foo();\n  void Foo(int x);\n};\n',
+                'substitutions:\n'
+                '  - description: forgot the count\n'
+                '    make_virtual:\n'
+                '      class_name: C\n'
+                '      method_name: Foo\n')
+
+    def test_make_virtual_unknown_arg_rejected(self):
+        self._expect_value_error(
+            'substitutions:\n'
+            '  - description: typo arg\n'
+            '    make_virtual:\n'
+            '      class_name: C\n'
+            '      method_nam: Foo\n', 'Unrecognised make_virtual arg')
+
+    def test_make_virtual_missing_arg_rejected(self):
+        self._expect_value_error(
+            'substitutions:\n'
+            '  - description: missing arg\n'
+            '    make_virtual:\n'
+            '      class_name: C\n', 'make_virtual requires arg')
+
+    # -- add_friend op (real ast-grep binary) -------------------------------
+
+    def test_add_friend_op(self):
+        result = self._apply(
+            'friend.h',
+            'class C {\n public:\n  void Foo();\n private:\n  int x_;\n};\n',
+            'substitutions:\n'
+            '  - description: friend the Brave subclass\n'
+            '    add_friend:\n'
+            '      class_name: C\n'
+            '      friend_type: class BraveC\n')
+        self.assertEqual(
+            result, 'class C {\n public:\n  void Foo();\n'
+            ' private:\n  friend class BraveC;\n  int x_;\n};\n')
+
+    def test_add_friend_no_private_section_fails(self):
+        with self.assertRaises(plaster.PlasterApplyError):
+            self._apply(
+                'nofriend.h', 'class C {\n public:\n  void Foo();\n};\n',
+                'substitutions:\n'
+                '  - description: no private section to insert into\n'
+                '    add_friend:\n'
+                '      class_name: C\n'
+                '      friend_type: class BraveC\n')
+
+    def test_add_friend_unknown_arg_rejected(self):
+        self._expect_value_error(
+            'substitutions:\n'
+            '  - description: typo arg\n'
+            '    add_friend:\n'
+            '      class_name: C\n'
+            '      freind: class BraveC\n', 'Unrecognised add_friend arg')
+
+    # -- drop_final op (real ast-grep binary) -----------------------------
+
+    def test_drop_final_op(self):
+        result = self._apply(
+            'final.h', 'class C final : public Base {\n};\n',
+            'substitutions:\n'
+            '  - description: drop final so Brave can subclass\n'
+            '    drop_final:\n'
+            '      class_name: C\n')
+        self.assertEqual(result, 'class C : public Base {\n};\n')
+
+    def test_drop_final_absent_fails(self):
+        with self.assertRaises(plaster.PlasterApplyError):
+            self._apply(
+                'nofinal.h', 'class C {\n};\n', 'substitutions:\n'
+                '  - description: nothing to remove\n'
+                '    drop_final:\n'
+                '      class_name: C\n')
+
+    def test_drop_final_missing_arg_rejected(self):
+        self._expect_value_error(
+            'substitutions:\n'
+            '  - description: missing arg\n'
+            '    drop_final: {}\n', 'drop_final requires arg')
+
     # -- validation ---------------------------------------------------------
+
+    def test_two_op_keys_rejected(self):
+        self._expect_value_error(
+            'substitutions:\n'
+            '  - description: two ops\n'
+            '    regex:\n'
+            "      re_pattern: 'x'\n"
+            "      replace: 'y'\n"
+            '    make_virtual:\n'
+            '      class_name: C\n'
+            '      method_name: Foo\n', 'Only one rewriter')
 
     def test_cannot_mix_op_and_bare_regex(self):
         self._expect_value_error(
@@ -1241,13 +1369,12 @@ class RewriterFormsTest(unittest.TestCase):
             self._apply(
                 'unknown_rw.h', 'class C {};\n', 'substitutions:\n'
                 '  - description: not a real rewriter\n'
-                '    make_virtual:\n'
-                '      class_name: C\n'
-                '      method_name: Foo\n')
+                '    make_final:\n'
+                '      class_name: C\n')
         message = str(ctx.exception)
         self.assertIn('Unknown rewriter', message)
-        self.assertIn("'make_virtual'", message)
-        self.assertIn('regex', message)
+        self.assertIn("'make_final'", message)
+        self.assertIn('make_virtual', message)
 
     def test_stray_scalar_key_is_unrecognised(self):
         # A non-mapping stray key is a bare-field typo, not a rewriter attempt,
@@ -1277,6 +1404,475 @@ class RewriterRegistryTest(unittest.TestCase):
             self.assertEqual(cls.NAME, name)
             self.assertTrue(cls.SUMMARY, f'{name} is missing a SUMMARY')
             self.assertTrue(cls.help_text(), f'{name} is missing help text')
+
+
+class RewritersEvalTest(unittest.TestCase):
+    """Schema evaluation and access tests for plaster.RewritersEval."""
+
+    def setUp(self):
+        # load() memoises a process-wide instance; clear it so tests that
+        # exercise the singleton start from a clean slate.
+        plaster.RewritersEval._instance = None
+        self.addCleanup(setattr, plaster.RewritersEval, '_instance', None)
+
+    @staticmethod
+    def _valid_spec() -> dict:
+        """A minimal, schema-valid rewriters spec as a Python dict."""
+        return {
+            'ast.matcher': {
+                'cxx.find_class_method_decl': {
+                    'args': ['class_name', 'method_name'],
+                    'template': ('kind: field_declaration\n'
+                                 'has:\n'
+                                 '  regex: ^{method_name}$\n'
+                                 'inside:\n'
+                                 '  regex: ^{class_name}$\n'),
+                    'result': {
+                        'node': 'field_declaration',
+                    },
+                },
+            },
+            'ast.rewriter': {
+                'cxx.make_virtual': {
+                    'matcher': 'cxx.find_class_method_decl',
+                    'replace': {
+                        're_pattern': '^',
+                        'replace': 'virtual '
+                    },
+                    'result': {
+                        'node': 'field_declaration',
+                    },
+                },
+            },
+        }
+
+    def _eval_valid(self) -> plaster.RewritersEval:
+        return plaster.RewritersEval(repr(self._valid_spec()))
+
+    def _assert_invalid(self, mutate, expected_substr=None):
+        """Apply `mutate` to a valid spec and assert it fails validation."""
+        spec = self._valid_spec()
+        mutate(spec)
+        with self.assertRaises(plaster.RewritersSchemaError) as cm:
+            plaster.RewritersEval(repr(spec))
+        if expected_substr is not None:
+            self.assertIn(expected_substr, str(cm.exception))
+
+    # -- the real on-disk spec ---------------------------------------------
+
+    def test_load_real_rewriters_file(self):
+        """The shipped rewriters.pyl validates and exposes its ops."""
+        rewriters = plaster.RewritersEval.load()
+        self.assertIn('cxx.find_class_method_decl', rewriters.matchers)
+        for op in ('cxx.make_virtual', 'cxx.add_friend', 'cxx.drop_final'):
+            self.assertIn(op, rewriters.rewriters)
+
+    def test_load_is_a_singleton(self):
+        """load() reads the file once and returns the same instance."""
+        first = plaster.RewritersEval.load()
+        second = plaster.RewritersEval.load()
+        self.assertIs(first, second)
+
+    # -- access -------------------------------------------------------------
+
+    def test_accessors_return_specs(self):
+        rewriters = self._eval_valid()
+        self.assertEqual(
+            rewriters.matcher('cxx.find_class_method_decl')['args'],
+            ['class_name', 'method_name'])
+        self.assertEqual(
+            rewriters.rewriter('cxx.make_virtual')['matcher'],
+            'cxx.find_class_method_decl')
+
+    def test_unknown_op_access_raises(self):
+        rewriters = self._eval_valid()
+        with self.assertRaises(plaster.RewritersSchemaError):
+            rewriters.matcher('cxx.nope')
+        with self.assertRaises(plaster.RewritersSchemaError):
+            rewriters.rewriter('cxx.nope')
+
+    def test_language_of(self):
+        self.assertEqual(
+            plaster.RewritersEval.language_of('cxx.find_class_method_decl'),
+            'cpp')
+        with self.assertRaises(plaster.RewritersSchemaError):
+            plaster.RewritersEval.language_of('py.find_class_method_decl')
+
+    def test_exposed_mappings_are_read_only(self):
+        rewriters = self._eval_valid()
+        with self.assertRaises(TypeError):
+            rewriters.matchers['x'] = {}
+        with self.assertRaises(TypeError):
+            rewriters.rewriters['x'] = {}
+
+    def test_valid_spec_round_trips(self):
+        rewriters = self._eval_valid()
+        self.assertEqual(list(rewriters.matchers),
+                         ['cxx.find_class_method_decl'])
+        self.assertEqual(list(rewriters.rewriters), ['cxx.make_virtual'])
+
+    # -- top-level / parsing failures --------------------------------------
+
+    def test_not_a_literal(self):
+        with self.assertRaises(plaster.RewritersSchemaError):
+            plaster.RewritersEval('this is not a literal (((')
+
+    def test_top_level_not_a_dict(self):
+        with self.assertRaises(plaster.RewritersSchemaError):
+            plaster.RewritersEval('[1, 2, 3]')
+
+    def test_present_but_empty_groups_are_valid(self):
+        # A group may be present with no ops yet (as the shipped file is).
+        rewriters = plaster.RewritersEval(
+            "{'ast.matcher': {}, 'ast.rewriter': {}}")
+        self.assertEqual(dict(rewriters.matchers), {})
+        self.assertEqual(dict(rewriters.rewriters), {})
+
+    def test_unknown_category(self):
+        # schema rejects keys outside the top-level matcher/rewriter set.
+        self._assert_invalid(lambda s: s.update({'mangler': {}}), 'Wrong keys')
+
+    def test_category_not_a_mapping(self):
+        self._assert_invalid(lambda s: s.__setitem__('ast.matcher', []),
+                             "should be instance of 'dict'")
+
+    # -- op id --------------------------------------------------------------
+
+    def test_op_id_without_prefix(self):
+        # An id that does not match the _OP_ID key schema is an unexpected key.
+        def mutate(s):
+            s['ast.matcher']['nodothere'] = s['ast.matcher'].pop(
+                'cxx.find_class_method_decl')
+
+        self._assert_invalid(mutate, 'Wrong keys')
+
+    def test_op_id_unknown_prefix(self):
+
+        def mutate(s):
+            s['ast.matcher']['py.find_class_method_decl'] = s[
+                'ast.matcher'].pop('cxx.find_class_method_decl')
+
+        self._assert_invalid(mutate, 'Wrong keys')
+
+    # -- matcher schema ------------------------------------------------------
+
+    def test_matcher_missing_required_key(self):
+        self._assert_invalid(
+            lambda s: s['ast.matcher']['cxx.find_class_method_decl'].pop(
+                'template'), 'Missing keys')
+
+    def test_matcher_unknown_key(self):
+        self._assert_invalid(
+            lambda s: s['ast.matcher']['cxx.find_class_method_decl'].update(
+                {'language': 'cpp'}), 'Wrong keys')
+
+    def test_matcher_args_not_list_of_strings(self):
+        self._assert_invalid(
+            lambda s: s['ast.matcher']['cxx.find_class_method_decl'].
+            __setitem__('args', 'class_name'), "should be instance of 'list'")
+
+    def test_matcher_undeclared_placeholder(self):
+        self._assert_invalid(
+            lambda s: s['ast.matcher']
+            ['cxx.find_class_method_decl'].__setitem__(
+                'template', 'regex: ^{class_name}$ ^{method_name}$ ^{bogus}$'),
+            'undeclared placeholder')
+
+    def test_matcher_unused_arg(self):
+        self._assert_invalid(
+            lambda s: s['ast.matcher']['cxx.find_class_method_decl']['args'].
+            append('unused'), 'never used')
+
+    def test_matcher_bad_result(self):
+        self._assert_invalid(
+            lambda s: s['ast.matcher']['cxx.find_class_method_decl']['result'].
+            pop('node'), 'Missing keys')
+
+    # -- rewriter schema ----------------------------------------------------
+
+    def test_rewriter_unknown_matcher_reference(self):
+        self._assert_invalid(
+            lambda s: s['ast.rewriter']['cxx.make_virtual'].__setitem__(
+                'matcher', 'cxx.ghost'), 'unknown matcher')
+
+    def test_rewriter_replace_missing_key(self):
+        self._assert_invalid(
+            lambda s: s['ast.rewriter']['cxx.make_virtual']['replace'].pop(
+                're_pattern'), 'Missing keys')
+
+    def test_rewriter_invalid_replace_regex(self):
+        self._assert_invalid(
+            lambda s: s['ast.rewriter']['cxx.make_virtual']['replace'].
+            __setitem__('re_pattern', '(unclosed'), 'valid regular expression')
+
+    def test_rewriter_result_node_mismatch(self):
+        self._assert_invalid(
+            lambda s: s['ast.rewriter']['cxx.make_virtual']['result'].
+            __setitem__('node', 'declaration'), 'does not match matcher')
+
+    def test_rewriter_unknown_key(self):
+        self._assert_invalid(
+            lambda s: s['ast.rewriter']['cxx.make_virtual'].update(
+                {'append': '!'}), 'Wrong keys')
+
+
+# ast-grep matcher templates used to build synthetic RewritersEval specs for
+# the engine tests below. The shipped rewriters.pyl is empty until the ops that
+# consume these land; these mirror the specs plaster will ship then, so the
+# engine can be exercised end-to-end against the real binary in the meantime.
+_METHOD_DECL_RULE = ('any:\n'
+                     '  - kind: field_declaration\n'
+                     '  - kind: declaration\n'
+                     'has:\n'
+                     '  kind: function_declarator\n'
+                     '  stopBy: end\n'
+                     '  has:\n'
+                     '    field: declarator\n'
+                     '    regex: ^{method_name}$\n'
+                     'inside:\n'
+                     '  kind: class_specifier\n'
+                     '  stopBy: end\n'
+                     '  has:\n'
+                     '    field: name\n'
+                     '    regex: ^{class_name}$\n')
+
+_PRIVATE_SECTION_RULE = ('kind: access_specifier\n'
+                         'regex: ^private$\n'
+                         'inside:\n'
+                         '  kind: class_specifier\n'
+                         '  stopBy: end\n'
+                         '  has:\n'
+                         '    field: name\n'
+                         '    regex: ^{class_name}$\n')
+
+_FINAL_RULE = ('kind: virtual_specifier\n'
+               'regex: ^final$\n'
+               'inside:\n'
+               '  kind: class_specifier\n'
+               '  has:\n'
+               '    field: name\n'
+               '    regex: ^{class_name}$\n')
+
+_SYNTHETIC_SPEC = {
+    'ast.matcher': {
+        'cxx.find_class_method_decl': {
+            'args': ['class_name', 'method_name'],
+            'template': _METHOD_DECL_RULE,
+            'result': {
+                'node': 'field_declaration'
+            },
+        },
+        'cxx.find_class_private_section': {
+            'args': ['class_name'],
+            'template': _PRIVATE_SECTION_RULE,
+            'result': {
+                'node': 'access_specifier'
+            },
+        },
+        'cxx.find_class_final': {
+            'args': ['class_name'],
+            'template': _FINAL_RULE,
+            'result': {
+                'node': 'virtual_specifier'
+            },
+        },
+    },
+    'ast.rewriter': {
+        'cxx.make_virtual': {
+            'matcher': 'cxx.find_class_method_decl',
+            'replace': {
+                're_pattern': '^',
+                'replace': 'virtual '
+            },
+            'result': {
+                'node': 'field_declaration'
+            },
+        },
+        'cxx.add_friend': {
+            'matcher': 'cxx.find_class_private_section',
+            'replace': {
+                're_pattern': '$',
+                'replace': ':\\n  friend {friend_type};'
+            },
+            'result': {
+                'node': 'access_specifier'
+            },
+        },
+        'cxx.drop_final': {
+            'matcher': 'cxx.find_class_final',
+            'replace': {
+                're_pattern': '^final$',
+                'replace': ''
+            },
+            'result': {
+                'node': 'virtual_specifier'
+            },
+        },
+    },
+}
+
+
+class RunAstGrepTest(unittest.TestCase):
+    """Integration tests for plaster.run_ast_grep (real ast-grep binary)."""
+
+    # A small C++ source. ASCII-only, so byte offsets equal character indices.
+    _SRC = 'class C {\n  void Foo();\n  void Bar();\n};\n'
+
+    def _find(self, method_name: str, source: str) -> list[plaster.AstMatch]:
+        body = _METHOD_DECL_RULE.format(class_name='C',
+                                        method_name=method_name)
+        return plaster.run_ast_grep(language='cpp',
+                                    rule_body=body,
+                                    source=source)
+
+    def test_finds_match_with_byte_offsets(self):
+        matches = self._find('Foo', self._SRC)
+        self.assertEqual(len(matches), 1)
+        # AstMatch is a byte range; the text is read back from the source.
+        raw = self._SRC.encode('utf-8')
+        m = matches[0]
+        self.assertEqual(raw[m.start:m.end], b'void Foo();')
+        self.assertEqual(m.length, len(b'void Foo();'))
+        self.assertEqual(m.end, m.start + m.length)
+
+    def test_no_match_returns_empty(self):
+        self.assertEqual(self._find('Nope', self._SRC), [])
+
+    def test_overloads_each_match(self):
+        source = 'class C {\n  void Foo();\n  void Foo(int x);\n};\n'
+        raw = source.encode('utf-8')
+        matches = self._find('Foo', source)
+        self.assertEqual([raw[m.start:m.end].decode() for m in matches],
+                         ['void Foo();', 'void Foo(int x);'])
+
+    def test_raises_on_bad_rule(self):
+        with self.assertRaises(plaster.AstGrepError):
+            plaster.run_ast_grep(language='cpp',
+                                 rule_body='kind: not_a_real_kind',
+                                 source='int x;\n')
+
+
+class AstRewriterTest(unittest.TestCase):
+    """Integration tests for plaster.AstRewriter (real ast-grep binary).
+
+    Driven with a synthetic RewritersEval built from `_SYNTHETIC_SPEC`, since
+    the shipped rewriters.pyl carries no ops yet.
+    """
+
+    _SRC = 'class C {\n  void Foo();\n  void Bar();\n};\n'
+
+    def _rewriter(self, source: str = _SRC) -> plaster.AstRewriter:
+        return plaster.AstRewriter(
+            plaster.RewritersEval(repr(_SYNTHETIC_SPEC)), source)
+
+    def test_make_virtual_single(self):
+        rewriter = self._rewriter()
+        count = rewriter.apply('cxx.make_virtual', {
+            'class_name': 'C',
+            'method_name': 'Foo'
+        })
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            rewriter.content,
+            'class C {\n  virtual void Foo();\n  void Bar();\n};\n')
+
+    def test_make_virtual_destructor(self):
+        # Destructors parse as `declaration` with a `destructor_name`, not the
+        # `field_declaration`/`field_identifier` of a regular method.
+        rewriter = self._rewriter('class C {\n public:\n  ~C();\n};\n')
+        count = rewriter.apply('cxx.make_virtual', {
+            'class_name': 'C',
+            'method_name': '~C'
+        })
+        self.assertEqual(count, 1)
+        self.assertEqual(rewriter.content,
+                         'class C {\n public:\n  virtual ~C();\n};\n')
+
+    def test_make_virtual_overloads_count_each(self):
+        rewriter = self._rewriter(
+            'class C {\n  void Foo();\n  void Foo(int x);\n};\n')
+        count = rewriter.apply('cxx.make_virtual', {
+            'class_name': 'C',
+            'method_name': 'Foo'
+        })
+        self.assertEqual(count, 2)
+        # Splicing from the end keeps the earlier overload's offset valid.
+        self.assertEqual(
+            rewriter.content, 'class C {\n  virtual void Foo();\n'
+            '  virtual void Foo(int x);\n};\n')
+
+    def test_no_match_leaves_content_unchanged(self):
+        rewriter = self._rewriter()
+        self.assertEqual(
+            rewriter.apply('cxx.make_virtual', {
+                'class_name': 'C',
+                'method_name': 'Nope'
+            }), 0)
+        self.assertEqual(rewriter.content, self._SRC)
+
+    def test_content_accumulates_across_calls(self):
+        rewriter = self._rewriter()
+        rewriter.apply('cxx.make_virtual', {
+            'class_name': 'C',
+            'method_name': 'Foo'
+        })
+        rewriter.apply('cxx.make_virtual', {
+            'class_name': 'C',
+            'method_name': 'Bar'
+        })
+        self.assertEqual(
+            rewriter.content,
+            'class C {\n  virtual void Foo();\n  virtual void Bar();\n};\n')
+
+    def test_add_friend_inserts_after_private_colon(self):
+        rewriter = self._rewriter(
+            'class C {\n public:\n  void Foo();\n private:\n  int x_;\n};\n')
+        count = rewriter.apply('cxx.add_friend', {
+            'class_name': 'C',
+            'friend_type': 'class BraveC'
+        },
+                               consume_after=':')
+        self.assertEqual(count, 1)
+        # The friend lands as the first private line; the `:` is not duplicated.
+        self.assertEqual(
+            rewriter.content, 'class C {\n public:\n  void Foo();\n'
+            ' private:\n  friend class BraveC;\n  int x_;\n};\n')
+
+    def test_add_friend_no_private_section(self):
+        rewriter = self._rewriter('class C {\n public:\n  void Foo();\n};\n')
+        self.assertEqual(
+            rewriter.apply('cxx.add_friend', {
+                'class_name': 'C',
+                'friend_type': 'class BraveC'
+            },
+                           consume_after=':'), 0)
+        self.assertEqual(rewriter.content,
+                         'class C {\n public:\n  void Foo();\n};\n')
+
+    def test_drop_final_with_base(self):
+        # The class `final` is dropped (and the space before it); a method's
+        # trailing `final` is left untouched.
+        rewriter = self._rewriter(
+            'class C final : public Base {\n  void f() final;\n};\n')
+        self.assertEqual(
+            rewriter.apply('cxx.drop_final', {'class_name': 'C'},
+                           consume_before=' '), 1)
+        self.assertEqual(rewriter.content,
+                         'class C : public Base {\n  void f() final;\n};\n')
+
+    def test_drop_final_no_base(self):
+        rewriter = self._rewriter('class C final {\n};\n')
+        self.assertEqual(
+            rewriter.apply('cxx.drop_final', {'class_name': 'C'},
+                           consume_before=' '), 1)
+        self.assertEqual(rewriter.content, 'class C {\n};\n')
+
+    def test_drop_final_absent(self):
+        rewriter = self._rewriter('class C {\n};\n')
+        self.assertEqual(
+            rewriter.apply('cxx.drop_final', {'class_name': 'C'},
+                           consume_before=' '), 0)
+        self.assertEqual(rewriter.content, 'class C {\n};\n')
 
 
 class HelpTest(unittest.TestCase):

@@ -25,11 +25,13 @@ substitutions:
 
   - description:
       'Make PermissionDecided virtual to allow Brave override in derived class'
-    pattern: 'void PermissionDecided('
-    replace: 'virtual void PermissionDecided('
+    make_virtual:
+      class_name: PermissionContextBase
+      method_name: PermissionDecided
 
   - description:
       'Add Brave PermissionContextBase as friend of
       chromium_impl::PermissionContextBase'
-    re_pattern: '(\bprivate:)'
-    replace: '\1\n  friend class ::permissions::PermissionContextBase;'
+    add_friend:
+      class_name: PermissionContextBase
+      friend_type: class ::permissions::PermissionContextBase

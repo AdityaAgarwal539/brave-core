@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import abc
 import argparse
+import ast
 from dataclasses import dataclass, field
 import hashlib
 import logging
@@ -15,7 +16,10 @@ import mmap
 from pathlib import Path, PurePath
 import json
 import os
+import platform
 import re
+import string
+import subprocess
 import sys
 import textwrap
 from types import MappingProxyType
@@ -26,6 +30,16 @@ import yaml
 
 from terminal import IncendiaryErrorHandler, console, is_verbose, terminal
 import repository
+
+# A round-about import for https://github.com/keleshev/schema, vendored under
+# depot_tools. It could be helpful to deploy this under our own third_party in
+# the future.
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).resolve().parents[3] / 'third_party' / 'depot_tools' /
+        'third_party'))
+import schema  # pylint: disable=wrong-import-position,import-error
 
 # The path to the directory containing plaster files in brave-core.
 PLASTER_FILES_PATH = repository.brave.root / 'rewrite'
@@ -39,6 +53,10 @@ PLASTER_EXTENSION = '.yaml'
 # A particular gitattributes file that is used to ensure we get deterministic
 # patch output across platforms and git versions.
 PLASTER_GITATTRIBUTES_PATH = Path(__file__).parent / 'plaster_gitattributes'
+
+# The declarative ast-grep rewriters spec, loaded and validated by
+# `RewritersEval`.
+REWRITERS_FILE = Path(__file__).parent / 'rewriters.pyl'
 
 
 @dataclass
@@ -676,10 +694,163 @@ class Regex(Rewriter):
         return re_flags
 
 
+class _AstGrepRewriter(Rewriter):
+    """Base for rewriters backed by an ast-grep op declared in `rewriters.pyl`.
+
+    A concrete subclass sets the usual `NAME`/`SUMMARY`/`HELP` metadata plus the
+    `OP_ID` it resolves to, the string arguments its body accepts (`_ARG_KEYS`),
+    and any adjacent tokens the op consumes (`_CONSUME_BEFORE`/`_CONSUME_AFTER`,
+    engine details -- see `AstRewriter.apply`). `parse` validates the body as a
+    mapping of exactly those string args and `apply` runs the op, so subclasses
+    are pure declarations.
+    """
+
+    # The `rewriters.pyl` op id this resolves to (e.g. `cxx.make_virtual`).
+    OP_ID: ClassVar[str] = ''
+
+    # The string argument names the op body must supply.
+    _ARG_KEYS: ClassVar[frozenset[str]] = frozenset()
+
+    # Literals the op assumes sit immediately before / after each matched node.
+    _CONSUME_BEFORE: ClassVar[str] = ''
+    _CONSUME_AFTER: ClassVar[str] = ''
+
+    def __init__(self, args: dict[str, str]):
+        self._args = args
+
+    def apply(self, contents: str) -> tuple[str, int]:
+        rewriter = AstRewriter(RewritersEval.load(), contents)
+        count = rewriter.apply(self.OP_ID,
+                               self._args,
+                               consume_before=self._CONSUME_BEFORE,
+                               consume_after=self._CONSUME_AFTER)
+        return rewriter.content, count
+
+    @classmethod
+    def parse(cls, body: object, *, description: str) -> _AstGrepRewriter:
+        """Validate a `<NAME>:` body of string args and build the rewriter."""
+        if not isinstance(body, dict):
+            raise ValueError(
+                f'"{cls.NAME}" must be a mapping (in "{description}")')
+        unknown = sorted(set(body) - cls._ARG_KEYS)
+        if unknown:
+            raise ValueError(
+                f'Unrecognised {cls.NAME} arg(s): '
+                f'{", ".join(repr(k) for k in unknown)} (in "{description}")')
+        missing = sorted(cls._ARG_KEYS - set(body))
+        if missing:
+            raise ValueError(f'{cls.NAME} requires arg(s): '
+                             f'{", ".join(missing)} (in "{description}")')
+        for key in sorted(cls._ARG_KEYS):
+            if not isinstance(body[key], str):
+                raise ValueError(f'{cls.NAME} `{key}` must be a string '
+                                 f'(in "{description}")')
+        return cls({key: body[key] for key in cls._ARG_KEYS})
+
+
+class MakeVirtual(_AstGrepRewriter):
+    """Make a C++ method declaration `virtual`, via the ast-grep rewriters."""
+
+    NAME: Final = 'make_virtual'
+    OP_ID: Final = 'cxx.make_virtual'
+    SUMMARY: Final = 'Prepend `virtual ` to a class method declaration.'
+    _ARG_KEYS: Final = frozenset(('class_name', 'method_name'))
+    # Authored in Markdown; `Help` renders it with rich.
+    HELP: Final = r"""
+        Prepends `virtual ` to a C++ method declaration.
+
+        Fields:
+
+        - `class_name` — the class declaring the method.
+        - `method_name` — the method's name. Quote a destructor
+          (`'~Foo'`), since a leading `~` is YAML null.
+
+        Each overload sharing the name is one change, so an overloaded method
+        needs a matching `count`.
+
+        Example:
+
+        ```yaml
+        substitutions:
+          - description: Make the destructor virtual for subclassing.
+            make_virtual:
+              class_name: DraggingTabsSession
+              method_name: '~DraggingTabsSession'
+        ```
+    """
+
+
+class AddFriend(_AstGrepRewriter):
+    """Add a `friend` declaration to a C++ class's private section, via the
+    ast-grep rewriters."""
+
+    NAME: Final = 'add_friend'
+    OP_ID: Final = 'cxx.add_friend'
+    SUMMARY: Final = 'Add a `friend` declaration to a class private section.'
+    _ARG_KEYS: Final = frozenset(('class_name', 'friend_type'))
+    # The matcher stops at the `private` keyword; the op re-emits the `:` that
+    # follows, so consume the original one.
+    _CONSUME_AFTER: Final = ':'
+    # Authored in Markdown; `Help` renders it with rich.
+    HELP: Final = r"""
+        Inserts a `friend` declaration as the first line of a class's private
+        section. The class must have a `private:` section.
+
+        Fields:
+
+        - `class_name` — the class to befriend from.
+        - `friend_type` — the friend's declaration body, e.g. `class BraveFoo`
+          becomes `friend class BraveFoo;`.
+
+        Example:
+
+        ```yaml
+        substitutions:
+          - description: Let the Brave subclass reach private members.
+            add_friend:
+              class_name: MultiContentsView
+              friend_type: class BraveMultiContentsView
+        ```
+    """
+
+
+class DropFinal(_AstGrepRewriter):
+    """Remove the `final` specifier from a C++ class declaration, via the
+    ast-grep rewriters, so the class can be subclassed."""
+
+    NAME: Final = 'drop_final'
+    OP_ID: Final = 'cxx.drop_final'
+    SUMMARY: Final = 'Remove the `final` specifier from a class declaration.'
+    _ARG_KEYS: Final = frozenset(('class_name', ))
+    # The matcher stops at the `final` keyword; consume the space before it so
+    # dropping `final` leaves no doubled space.
+    _CONSUME_BEFORE: Final = ' '
+    # Authored in Markdown; `Help` renders it with rich.
+    HELP: Final = r"""
+        Removes the `final` specifier from a C++ class declaration, so the class
+        can be subclassed. Only the class-head `final` is removed; a method's
+        trailing `final` is left untouched.
+
+        Fields:
+
+        - `class_name` — the class to drop `final` from.
+
+        Example:
+
+        ```yaml
+        substitutions:
+          - description: Drop `final` so Brave can subclass.
+            drop_final:
+              class_name: DraggingTabsSession
+        ```
+    """
+
+
 # A set with all the rewriters available in plaster.
-_REWRITERS: MappingProxyType[str, type[Rewriter]] = MappingProxyType(
-    {rewriter.NAME: rewriter
-     for rewriter in (Regex, )})
+_REWRITERS: MappingProxyType[str, type[Rewriter]] = MappingProxyType({
+    rewriter.NAME: rewriter
+    for rewriter in (Regex, MakeVirtual, AddFriend, DropFinal)
+})
 
 
 @dataclass
@@ -815,6 +986,372 @@ class PlasterApplyError(PlasterError):
         super().__init__(
             'There were errors attempting to apply the patches:\n' +
             '\n'.join(errors))
+
+
+class RewritersSchemaError(PlasterError):
+    """Raised when `rewriters.pyl` does not conform to the expected schema."""
+
+
+# Namespace mapping for ast-grep rewriter types. This list will grow as more
+# rewriters are added for other languages.
+_LANGUAGE_BY_PREFIX = MappingProxyType({'cxx': 'cpp'})
+
+
+def _is_regex(pattern: str) -> bool:
+    """schema predicate: True if `pattern` compiles as a regular expression."""
+    try:
+        re.compile(pattern)
+        return True
+    except re.error:
+        return False
+
+
+def _is_op_id(op_id: str) -> bool:
+    """schema predicate: True if `op_id` is `<known-lang>.<name>`."""
+    prefix, _, name = op_id.partition('.')
+    return bool(name) and prefix in _LANGUAGE_BY_PREFIX
+
+
+def _template_args_match(spec: dict) -> dict:
+    """schema validator: a matcher's template uses exactly its declared args.
+
+    Returns the spec unchanged on success or raises schema.SchemaError if the
+    template references a placeholder that is not a declared arg, or declares
+    an arg the template never uses, catching any typos.
+    """
+    placeholders = {
+        name
+        for _, name, _, _ in string.Formatter().parse(spec['template']) if name
+    }
+    declared = set(spec['args'])
+    undeclared = sorted(placeholders - declared)
+    if undeclared:
+        raise schema.SchemaError(
+            f'template uses undeclared placeholder(s): {", ".join(undeclared)}'
+        )
+    unused = sorted(declared - placeholders)
+    if unused:
+        raise schema.SchemaError(
+            f'declared arg(s) never used in template: {", ".join(unused)}')
+    return spec
+
+
+# Reusable leaf schemas.
+_NON_EMPTY_STR = schema.And(str, len, error='must be a non-empty string')
+_REGEX_STR = schema.And(str,
+                        _is_regex,
+                        error='must be a valid regular expression')
+_OP_ID = schema.And(str,
+                    _is_op_id,
+                    error='op id must be "<lang>.<name>" with a known '
+                    'language prefix')
+
+# The "result" block shared by matcher and rewriter ops.
+_RESULT_SCHEMA = {
+    'node': _NON_EMPTY_STR,
+}
+
+# A matcher op: a templated ast-grep query plus its result shape.
+_MATCHER_SCHEMA = schema.And(
+    {
+        'args': [str],
+        'template': _NON_EMPTY_STR,
+        'result': _RESULT_SCHEMA,
+    }, _template_args_match)
+
+# A rewriter op: locates nodes through a matcher op and edits each via a regex
+# substitution.
+_REWRITER_SCHEMA = {
+    'matcher': _NON_EMPTY_STR,
+    'replace': {
+        're_pattern': _REGEX_STR,
+        'replace': str,
+    },
+    'result': _RESULT_SCHEMA,
+}
+
+# Top-level schema for rewriters.pyl.
+_REWRITERS_SCHEMA = schema.Schema({
+    schema.Optional('ast.matcher'): {
+        schema.Optional(_OP_ID): _MATCHER_SCHEMA
+    },
+    schema.Optional('ast.rewriter'): {
+        schema.Optional(_OP_ID): _REWRITER_SCHEMA
+    },
+})
+
+
+class RewritersEval:
+    """Loads and schema-validates `rewriters.pyl`.
+
+    The main function of this class is to make sure the file is valid, and to
+    provide access to the loaded content. Note the distinction from the
+    `Rewriter` op classes above: `Rewriter`/`Regex` are the `substitutions:`
+    transforms, while this loads the declarative ast-grep matcher/rewriter
+    *specs* those transforms will drive.
+    """
+
+    # Process-wide singleton, loaded once from REWRITERS_FILE by load().
+    _instance: RewritersEval | None = None
+
+    def __init__(self, content: str, *, source: str = str(REWRITERS_FILE)):
+        """Parse and validate `content` (the text of a rewriters.pyl file).
+
+        Raises RewritersSchemaError if the content is not a valid literal or
+        does not satisfy the schema. `source` is only used in error messages.
+        """
+        self._source = source
+        data = self._parse(content, source)
+        try:
+            data = _REWRITERS_SCHEMA.validate(data)
+        except schema.SchemaError as e:
+            raise RewritersSchemaError(f'{source}: {e}') from e
+        self._matchers = data.get('ast.matcher', {})
+        self._rewriters = data.get('ast.rewriter', {})
+        self._check_cross_references()
+
+    @classmethod
+    def load(cls) -> RewritersEval:
+        """Return the process-wide RewritersEval, reading rewriters.pyl once."""
+        if cls._instance is None:
+            cls._instance = cls(REWRITERS_FILE.read_bytes().decode('utf-8'),
+                                source=str(REWRITERS_FILE))
+        return cls._instance
+
+    # -- access -------------------------------------------------------------
+
+    @property
+    def matchers(self) -> MappingProxyType[str, dict]:
+        """Read-only mapping of matcher op id -> validated matcher spec."""
+        return MappingProxyType(self._matchers)
+
+    @property
+    def rewriters(self) -> MappingProxyType[str, dict]:
+        """Read-only mapping of rewriter op id -> validated rewriter spec."""
+        return MappingProxyType(self._rewriters)
+
+    def matcher(self, op_id: str) -> dict:
+        """Return the matcher spec for `op_id`, or raise if it is unknown."""
+        try:
+            return self._matchers[op_id]
+        except KeyError:
+            raise RewritersSchemaError(
+                f'unknown matcher op: {op_id!r}') from None
+
+    def rewriter(self, op_id: str) -> dict:
+        """Return the rewriter spec for `op_id`, or raise if it is unknown."""
+        try:
+            return self._rewriters[op_id]
+        except KeyError:
+            raise RewritersSchemaError(
+                f'unknown rewriter op: {op_id!r}') from None
+
+    @classmethod
+    def language_of(cls, op_id: str) -> str:
+        """Return the ast-grep language id derived from `op_id`'s prefix."""
+        prefix = op_id.split('.', 1)[0]
+        try:
+            return _LANGUAGE_BY_PREFIX[prefix]
+        except KeyError:
+            raise RewritersSchemaError(
+                f'op {op_id!r} has unknown language prefix {prefix!r}; '
+                f'known prefixes: {sorted(_LANGUAGE_BY_PREFIX)}') from None
+
+    # -- validation ---------------------------------------------------------
+
+    @staticmethod
+    def _parse(content: str, source: str) -> object:
+        """Evaluate `content` as a Python literal (shape is checked later)."""
+        try:
+            return ast.literal_eval(content)
+        except (ValueError, SyntaxError, TypeError) as e:
+            raise RewritersSchemaError(
+                f'{source}: not a valid Python literal: {e}') from e
+
+    def _check_cross_references(self) -> None:
+        """Validate rules that span records, which schema cannot express.
+
+        Each rewriter must reference a matcher that exists, and must declare the
+        same result node as that matcher (it replaces the node the matcher
+        locates, so the two must agree).
+        """
+        for op_id, spec in self._rewriters.items():
+            ref = spec['matcher']
+            if ref not in self._matchers:
+                raise RewritersSchemaError(
+                    f'{self._source}: rewriter {op_id!r} references unknown '
+                    f'matcher {ref!r}')
+            matcher_node = self._matchers[ref]['result']['node']
+            if spec['result']['node'] != matcher_node:
+                raise RewritersSchemaError(
+                    f'{self._source}: rewriter {op_id!r} result node '
+                    f'{spec["result"]["node"]!r} does not match matcher '
+                    f'{ref!r} node {matcher_node!r}')
+
+
+def _ast_grep_platform_dir() -> str:
+    """Host-OS token in ast-grep's per-platform dir name (`ast-grep-<os>`).
+
+    Mirrors `_platform_dir()` in third_party/ast-grep/build_ast_grep.py.
+    """
+    if sys.platform == 'darwin':
+        return 'mac_arm64' if platform.machine() == 'arm64' else 'mac'
+    if sys.platform == 'win32':
+        return 'win'
+    return 'linux'
+
+
+# Path to the ast-grep binary provisioned under brave/third_party/ast-grep.
+_AST_GREP_EXE = '.exe' if sys.platform == 'win32' else ''
+AST_GREP_BIN = (Path(__file__).resolve().parents[2] / 'third_party' /
+                'ast-grep' / f'ast-grep-{_ast_grep_platform_dir()}' / 'bin' /
+                f'ast-grep{_AST_GREP_EXE}')
+
+
+class AstGrepError(PlasterError):
+    """Raised when the ast-grep binary fails to run a rule."""
+
+
+@dataclass(frozen=True)
+class AstMatch:
+    """The byte range of a single ast-grep match within the scanned source.
+
+    `start` is the match's byte offset and `length` its size in bytes; `end`
+    is the exclusive offset one past it. The matched text is not stored -- read
+    it back from the source (`source[start:end]`) so the bytes have a single
+    source of truth, regardless of multi-byte content upstream.
+    """
+
+    start: int
+    length: int
+
+    @property
+    def end(self) -> int:
+        """Exclusive byte offset one past the match (`start + length`)."""
+        return self.start + self.length
+
+
+def _indent_yaml(text: str, spaces: int = 2) -> str:
+    """Indent every non-blank line of `text` by `spaces`, for nesting YAML."""
+    pad = ' ' * spaces
+    return '\n'.join(pad + line if line.strip() else line
+                     for line in text.splitlines())
+
+
+def run_ast_grep(*, language: str, rule_body: str,
+                 source: str) -> list[AstMatch]:
+    """Run an ast-grep rule against in-memory source and return its matches.
+
+    This function is the main entrypoint for the ast-grep binary invocation.
+
+    `rule_body` is an ast-grep YAML rule body (the part under `rule:`). Source
+    is fed over stdin with an explicit `--lang`. The reported offsets are into
+    `source`'s UTF-8 bytes, regardless of how stdin is encoded.
+    """
+    doc = (f'id: plaster\nlanguage: {language}\nrule:\n' +
+           _indent_yaml(rule_body))
+    # Route through terminal.run for consistent logging / infra keep-alive,
+    # like the rest of plaster's subprocess use. It runs with check=True, so a
+    # non-zero exit (e.g. a bad rule) raises CalledProcessError.
+    try:
+        result = terminal.run([
+            AST_GREP_BIN, 'scan', '--stdin', '--inline-rules', doc,
+            '--json=stream'
+        ],
+                              stdin=source)
+    except subprocess.CalledProcessError as e:
+        raise AstGrepError(f'ast-grep failed ({e.returncode}): '
+                           f'{(e.stderr or "").strip()}') from e
+
+    matches = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        obj = json.loads(line)
+        span = obj['range']['byteOffset']
+        matches.append(
+            AstMatch(start=span['start'], length=span['end'] - span['start']))
+    return matches
+
+
+class AstRewriter:
+    """Applies ast-grep rewriter ops to the contents of a single file.
+
+    Constructed with an already-parsed `RewritersEval` and the target file's
+    contents. `apply` runs one rewriter op (by id) over the current contents,
+    mutating them in place and returning how many places changed; call it
+    repeatedly to accumulate edits. Op-specific conveniences (which op id and
+    which adjacent tokens to consume) belong with the `Rewriter` classes that
+    drive this engine, not here.
+    """
+
+    def __init__(self, rewriters: RewritersEval, content: str):
+        self._rewriters = rewriters
+        self._content = content
+
+    @property
+    def content(self) -> str:
+        """The current file contents, reflecting every applied rewrite."""
+        return self._content
+
+    def apply(self,
+              op_id: str,
+              args: dict[str, str],
+              *,
+              consume_before: str = '',
+              consume_after: str = '') -> int:
+        """Run rewriter `op_id` with `args`, mutate content, return count.
+
+        Locates nodes via the op's matcher template, applies the op's `replace`
+        regex substitution (with `args` filled into the replacement template)
+        to each matched node, and splices the results back into the held
+        contents from the end so earlier byte offsets stay valid. Returns the
+        total number of substitutions made.
+
+        `consume_before` / `consume_after` are literals the op assumes
+        immediately precede / follow each matched node. They are folded into the
+        rewritten span used when the node kind stops short of an adjacent
+        token (e.g. the `:` after an access_specifier, or the space before a
+        `final` specifier). They are engine details, not part of the rewriters
+        spec.
+        """
+        rewriter = self._rewriters.rewriter(op_id)
+        matcher = self._rewriters.matcher(rewriter['matcher'])
+        language = self._rewriters.language_of(op_id)
+        rule_body = matcher['template'].format(**args)
+
+        matches = run_ast_grep(language=language,
+                               rule_body=rule_body,
+                               source=self._content)
+
+        pattern = rewriter['replace']['re_pattern']
+        replacement = rewriter['replace']['replace'].format(**args)
+        before = consume_before.encode('utf-8')
+        after = consume_after.encode('utf-8')
+
+        source = self._content.encode('utf-8')
+        edits = []
+        total = 0
+        for match in matches:
+            start = match.start - len(before)
+            end = match.end + len(after)
+            if (before and source[start:match.start]
+                    != before) or (after and source[match.end:end] != after):
+                # An assumed adjacent token isn't there; skip rather than
+                # corrupt. The caller's count check will flag the shortfall.
+                continue
+            text = source[match.start:match.end].decode('utf-8')
+            new_text, changes = re.subn(pattern, replacement, text)
+            if changes:
+                edits.append((start, end, new_text))
+                total += changes
+
+        # Match offsets are into the source's UTF-8 bytes, so splice on bytes.
+        # Apply from the end so each splice leaves earlier offsets unchanged.
+        for start, end, new_text in sorted(edits, reverse=True):
+            source = source[:start] + new_text.encode('utf-8') + source[end:]
+        self._content = source.decode('utf-8')
+        return total
 
 
 def get_plaster_files(filepaths: list[str] | None = None) -> list[PlasterFile]:
