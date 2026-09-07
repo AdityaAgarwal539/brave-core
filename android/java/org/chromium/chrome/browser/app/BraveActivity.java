@@ -112,6 +112,7 @@ import org.chromium.chrome.browser.InternetConnection;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.OpenYtInBraveDialogFragment;
 import org.chromium.chrome.browser.app.domain.WalletModel;
+import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.billing.InAppPurchaseWrapper;
 import org.chromium.chrome.browser.billing.PurchaseModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
@@ -203,6 +204,7 @@ import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.toolbar.BraveToolbarManager;
 import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarConfiguration;
 import org.chromium.chrome.browser.toolbar.top.BraveToolbarLayoutImpl;
@@ -275,10 +277,6 @@ public abstract class BraveActivity extends ChromeActivity
     public static final String BRAVE_WALLET_HOST = "wallet";
     public static final String BRAVE_WALLET_ORIGIN = "brave://wallet/";
     public static final String BRAVE_WALLET_URL = "brave://wallet/crypto/portfolio/assets";
-    public static final String BRAVE_BUY_URL = "brave://wallet/crypto/fund-wallet";
-    public static final String BRAVE_SEND_URL = "brave://wallet/send";
-    public static final String BRAVE_SWAP_URL = "brave://wallet/swap";
-    public static final String BRAVE_DEPOSIT_URL = "brave://wallet/crypto/deposit-funds";
     public static final String BRAVE_REWARDS_SETTINGS_URL = "brave://rewards/";
     public static final String BRAVE_REWARDS_SETTINGS_WALLET_VERIFICATION_URL =
             "brave://rewards/#verify";
@@ -633,6 +631,77 @@ public abstract class BraveActivity extends ChromeActivity
     }
 
     @Override
+    protected boolean isStartedUpCorrectly(Intent intent) {
+        if (maybeRedirectLaunchToYouTubePictureInPictureWindow(intent)) {
+            return false;
+        }
+        return super.isStartedUpCorrectly(intent);
+    }
+
+    /**
+     * Hands a launcher tap to the window that owns a Brave YouTube Picture-in-Picture session,
+     * rather than letting it open a second window holding someone else's tabs.
+     *
+     * <p>PiP pins the browser task, leaving the launcher nothing to resume. Where the OS reads
+     * ChromeTabbedActivity as {@code singleInstancePerTask} (Samsung, via the {@code
+     * android.activity.launch_mode} meta-data) it answers by creating a second task, and {@code
+     * MultiInstanceManagerApi31#allocInstanceId} gives that unmapped task a different window id: a
+     * stale or empty set of tabs, while the real session sits behind the PiP window.
+     *
+     * <p>Fronting the PiP window unpins it, and aborting this activity drops the task it would have
+     * used.
+     *
+     * @return true if the launch was handed over and this activity should not start.
+     */
+    private boolean maybeRedirectLaunchToYouTubePictureInPictureWindow(Intent intent) {
+        // Launcher taps only. Upstream already routes stray VIEW intents to an existing window
+        // from maybeDispatchIntentInExistingActivity, and its own new window intents carry no
+        // action at all (MultiWindowUtils#createNewWindowIntent), so neither reaches this.
+        if (!Intent.ACTION_MAIN.equals(intent.getAction())
+                || !intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+            return false;
+        }
+
+        // The bytecode rewrite re-parents only ChromeTabbedActivity onto BraveActivity, so this
+        // instanceof picks out exactly the browser windows. isInPictureInPictureMode() goes first
+        // because it just reads a field; the other call would build a controller for every window.
+        BraveActivity pictureInPictureActivity = null;
+        for (Activity activity : ApplicationStatus.getRunningActivities()) {
+            if (activity == this || !(activity instanceof BraveActivity braveActivity)) {
+                continue;
+            }
+            if (!braveActivity.isInPictureInPictureMode()
+                    || !braveActivity.isYouTubePictureInPictureActive()) {
+                // An ordinary window is still alive, so the launcher had something to resume
+                // and this launch really is a request for another one.
+                return false;
+            }
+            pictureInPictureActivity = braveActivity;
+        }
+        if (pictureInPictureActivity == null) {
+            return false;
+        }
+
+        // Last, because it copies the whole shared-preference map. Only a task that never hosted
+        // a window can be the one Android just made for this launch. A window being recreated or
+        // restored reuses its own task and reaches here looking like a launcher tap too, since
+        // IntentHandler#rewriteFromHistoryIntent swaps in a synthetic MAIN/LAUNCHER intent;
+        // redirecting that would strand the user and remove the restored window's task.
+        if (BraveMultiWindowUtils.isTaskMappedToInstance(ApplicationStatus.getTaskId(this))) {
+            return false;
+        }
+
+        // Cannot select ourselves: this activity has no tab model selector yet, so it resolves
+        // to no window id.
+        final int windowId =
+                TabWindowManagerSingleton.getInstance().getIdForWindow(pictureInPictureActivity);
+        if (windowId == TabWindowManager.INVALID_WINDOW_ID) {
+            return false;
+        }
+        return MultiWindowUtils.launchIntentInInstance(intent, windowId);
+    }
+
+    @Override
     public void onPictureInPictureModeChanged(boolean inPicture, Configuration newConfig) {
         super.onPictureInPictureModeChanged(inPicture, newConfig);
         BraveYouTubePictureInPictureController controller = getYouTubePictureInPictureController();
@@ -851,15 +920,6 @@ public abstract class BraveActivity extends ChromeActivity
                                 maybeShowSignSolTransactionsRequestLayout(openWalletPanelRunnable);
                             });
                 });
-    }
-
-    public void showWalletOnboarding() {
-        BraveToolbarLayoutImpl layout = getBraveToolbarLayout();
-        layout.showWalletIcon(true);
-        if (!BraveWalletPreferences.getPrefWeb3NotificationsEnabled()) {
-            return;
-        }
-        layout.showWalletPanel();
     }
 
     public void walletInteractionDetected(WebContents webContents) {
@@ -1397,7 +1457,10 @@ public abstract class BraveActivity extends ChromeActivity
             BraveOriginSubscriptionPrefs.requestCredentialSummary(
                     profile,
                     (isActive) -> {
-                        if (!BraveOriginSubscriptionPrefs.getIsSubscriptionActive(profile)
+                        // The summary request is asynchronous, so the profile captured above may
+                        // already be destroyed by the time this runs.
+                        if (BraveOriginSubscriptionPrefs.isProfileUsable(profile)
+                                && !BraveOriginSubscriptionPrefs.getIsSubscriptionActive(profile)
                                 && !isActive) {
                             BraveOriginSubscriptionPrefs.verifyPurchase(profile);
                         }
@@ -1608,10 +1671,7 @@ public abstract class BraveActivity extends ChromeActivity
                             BraveSearchEngineUtils.getTemplateUrlByShortName(
                                     getCurrentProfile(), OnboardingPrefManager.BRAVE);
                     if (braveTemplateUrl != null) {
-                        BraveSearchEngineUtils.setDSEPrefs(
-                                braveTemplateUrl,
-                                getCurrentProfile()
-                                        .getPrimaryOtrProfile(/* createIfNeeded= */ true));
+                        BraveSearchEngineUtils.setPrivateDSEPrefs(braveTemplateUrl);
                     }
                 };
         TemplateUrlServiceFactory.getForProfile(getCurrentProfile())
@@ -1907,8 +1967,11 @@ public abstract class BraveActivity extends ChromeActivity
 
     private void checkForNotificationData() {
         Intent notifIntent = getIntent();
-        if (notifIntent != null && notifIntent.getStringExtra(RetentionNotificationUtil.NOTIFICATION_TYPE) != null) {
-            String notificationType = notifIntent.getStringExtra(RetentionNotificationUtil.NOTIFICATION_TYPE);
+        if (notifIntent != null
+                && notifIntent.getStringExtra(RetentionNotificationUtil.NOTIFICATION_TYPE)
+                        != null) {
+            String notificationType =
+                    notifIntent.getStringExtra(RetentionNotificationUtil.NOTIFICATION_TYPE);
             switch (notificationType) {
                 case RetentionNotificationUtil.HOUR_3:
                 case RetentionNotificationUtil.HOUR_24:
@@ -2479,7 +2542,7 @@ public abstract class BraveActivity extends ChromeActivity
         }
         if (intent != null) {
             String openUrl = intent.getStringExtra(BraveActivity.OPEN_URL);
-            if (!TextUtils.isEmpty(openUrl)) {
+            if (!TextUtils.isEmpty(openUrl) && !BraveIntentHandler.isUrlUnsafe(openUrl)) {
                 try {
                     openNewOrSelectExistingTab(openUrl);
                 } catch (NullPointerException e) {
@@ -2498,7 +2561,7 @@ public abstract class BraveActivity extends ChromeActivity
                         || requestCode == BraveConstants.SITE_BANNER_REQUEST_CODE)) {
             if (data != null) {
                 String open_url = data.getStringExtra(BraveActivity.OPEN_URL);
-                if (!TextUtils.isEmpty(open_url)) {
+                if (!TextUtils.isEmpty(open_url) && !BraveIntentHandler.isUrlUnsafe(open_url)) {
                     openNewOrSelectExistingTab(open_url);
                 }
             }

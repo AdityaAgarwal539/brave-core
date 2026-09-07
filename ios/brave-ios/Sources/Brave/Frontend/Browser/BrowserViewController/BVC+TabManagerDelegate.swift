@@ -39,6 +39,7 @@ extension BrowserViewController: TabManagerDelegate {
     tab.faviconTabHelper = .init(tab: tab)
     tab.userActivityHelper = .init(tab: tab)
     tab.print = .init(tab: tab, baseViewController: self)
+    tab.externalAppURLHelper = .init(tab: tab, browserViewController: self)
     tab.forcePaste = .init(tab: tab)
     tab.aiChatWebUIHelper = .init(
       tab: tab,
@@ -65,7 +66,7 @@ extension BrowserViewController: TabManagerDelegate {
       /// use it's `AIChatWebDelegate` to fetch content from.
       detachedTab.leoTabHelper
     }
-    tab.wallet = .init(tab: tab)
+    tab.wallet = .init(tab: tab, braveWalletAPI: profileController.braveWalletAPI)
     tab.wallet?.delegate = self
     tab.walletWebUIHelper = .init(
       tab: tab,
@@ -83,6 +84,9 @@ extension BrowserViewController: TabManagerDelegate {
       },
       openWalletHomeHandler: { [weak self] in
         self?.openWalletHome()
+      },
+      scanAddressQRCodeHandler: { [weak self] completion in
+        self?.scanAddressQRCode(completion: completion)
       }
     )
     let braveShieldsHelper: BraveShieldsTabHelper = .init(
@@ -93,6 +97,12 @@ extension BrowserViewController: TabManagerDelegate {
     // When `BraveShieldsTabHelper+TabPolicyDecider` is moved to `BraveShields` target,
     // we should add it as a policy decider at initialization.
     tab.addPolicyDecider(braveShieldsHelper)
+    if FeatureList.kBraveHttpsByDefault.enabled {
+      tab.httpsUpgradeHelper = .init(
+        tab: tab,
+        httpsUpgradeExceptionsService: braveCore.httpsUpgradeExceptionsService
+      )
+    }
     tab.cosmeticFilteringTabHelper = .init(tab: tab)
     tab.logins = .init(tab: tab, passwordAPI: profileController.passwordAPI)
     tab.protectionStats = .init(tab: tab)
@@ -115,6 +125,8 @@ extension BrowserViewController: TabManagerDelegate {
 
     if FeatureList.kUseProfileWebViewConfiguration.enabled {
       tab.requestBlockingTabHelper = .init(tab: tab)
+      tab.cosmeticFilteringTabHelper = .init(tab: tab)
+      tab.scriptletsTabHelper = .init(tab: tab)
     }
 
     tab.braveTalk = .init(tab: tab, coordinator: braveTalkJitsiCoordinator)
@@ -150,12 +162,17 @@ extension BrowserViewController: TabManagerDelegate {
         profile: tab.profile,
         syncAPI: profileController.syncAPI,
         sendTabAPI: profileController.sendTabAPI,
-        onOpenInNewTab: { [weak self] request in
+        historyAPI: profileController.historyAPI,
+        onOpenInNewTab: { [weak self] request, isPrivateMode in
           guard let self else { return }
           self.tabManager.addTabAndSelect(
             request,
-            isPrivate: self.privateBrowsingManager.isPrivateBrowsing
+            isPrivate: isPrivateMode
           )
+        },
+        onOpenInNewWindow: { [weak self] url, isPrivateMode in
+          guard let self else { return }
+          self.openInNewWindow(url: url, isPrivate: isPrivateMode)
         },
         onAttachTab: { [weak self] tab in
           guard let self else { return }
@@ -165,8 +182,26 @@ extension BrowserViewController: TabManagerDelegate {
           self.tabManager.selectTab(tab)
         }
       )
+      if let sheet = quickViewController.sheetPresentationController {
+        sheet.prefersGrabberVisible = true
+
+        let customDetentId = "customDetent"
+        let customDetent = UISheetPresentationController.Detent.custom(
+          identifier: .init(customDetentId)
+        ) { context in
+          context.maximumDetentValue * 0.95
+        }
+        sheet.detents = [
+          customDetent,
+          .large(),
+        ]
+        sheet.selectedDetentIdentifier = .init(customDetentId)
+
+        sheet.prefersEdgeAttachedInCompactHeight = true
+      }
       self.present(quickViewController, animated: true)
     }
+    tab.blockedDomainTabHelper = .init(tab: tab)
   }
 
   func tabManager(
@@ -268,7 +303,9 @@ extension BrowserViewController: TabManagerDelegate {
       navigationToolbar.updateForwardStatus(tab.canGoForward)
     }
 
-    let shouldShowPlaylistURLBarButton = selected?.visibleURL?.isPlaylistSupportedSiteURL == true
+    let shouldShowPlaylistURLBarButton =
+      selected?.visibleURL?.isPlaylistSupportedSiteURL == true
+      && selected?.playlist?.isPlaylistBlocked(selected?.visibleURL) == false
 
     if !shouldShowPlaylistURLBarButton {
       let readerModeState = selected?.readerMode?.state
@@ -307,9 +344,25 @@ extension BrowserViewController: TabManagerDelegate {
     updateInContentHomePanel(selected?.visibleURL as URL?)
 
     removeWalletNotificationAndClearOrigin()
-    WalletProviderPermissionRequestsManager.shared.cancelAllPendingRequests(for: [.eth, .sol])
-    WalletProviderAccountCreationRequestManager.shared.cancelAllPendingRequests(coins: [.eth, .sol])
+    let dappSupportedCoins = Array(WalletConstants.supportedCoinTypes(.dapps))
+    WalletProviderPermissionRequestsManager.shared.cancelAllPendingRequests(
+      for: dappSupportedCoins
+    )
+    WalletProviderAccountCreationRequestManager.shared.cancelAllPendingRequests(
+      coins: dappSupportedCoins
+    )
     updateURLBarWalletButton()
+
+    if #available(iOS 26.0, *) {
+      if let topEdgeInteraction {
+        topEdgeView.removeInteraction(topEdgeInteraction)
+      }
+      let interaction = UIScrollEdgeElementContainerInteraction()
+      interaction.edge = .top
+      interaction.scrollView = selected?.webViewProxy?.scrollView
+      topEdgeView.addInteraction(interaction)
+      topEdgeInteraction = interaction
+    }
   }
 
   func tabManager(_ tabManager: TabManager, willAddTab tab: some TabState) {
@@ -321,11 +374,14 @@ extension BrowserViewController: TabManagerDelegate {
       updateToolbarUsingTabManager(tabManager)
     }
     tab.addObserver(self)
-    tab.addPolicyDecider(self)
     tab.delegate = self
     tab.downloadDelegate = self
     tab.certificateStore = profile.certStore
     attachTabHelpers(to: tab)
+    /// Add BVC as the last TabPolicyDecider, so it only executes on requests
+    /// that all other policy deciders have decided to allow. This is for
+    /// legacy logic that hasn't been migrated to it's own TabPolicyDecider yet
+    tab.addPolicyDecider(self)
 
     SnackBarTabHelper.from(tab: tab)?.delegate = self
 
@@ -343,7 +399,7 @@ extension BrowserViewController: TabManagerDelegate {
     updateToolbarUsingTabManager(tabManager)
     // tabDelegate is a weak ref (and the tab's webView may not be destroyed yet)
     // so we don't expcitly unset it.
-    topToolbar.leaveOverlayMode(didCancel: true)
+    dismissSearchInput()
     updateTabsBarVisibility()
     tab.removeObserver(self)
     tab.removePolicyDecider(self)
@@ -394,7 +450,7 @@ extension BrowserViewController: TabManagerDelegate {
       duration: duration,
       makeConstraints: { make in
         make.left.right.equalTo(self.view)
-        make.bottom.equalTo(self.webViewContainer)
+        make.bottom.equalTo(self.pageOverlayLayoutGuide)
       },
       completion: { [weak self] in
         if toast is ButtonToast {
@@ -402,19 +458,6 @@ extension BrowserViewController: TabManagerDelegate {
         }
       }
     )
-  }
-
-  func hideToastsOnNavigationStartIfNeeded(_ tabManager: TabManager) {
-    if tabManager.selectedTab?.braveSearch?.braveSearchResultAdManager == nil {
-      searchResultAdClickedInfoBar?.dismiss(false)
-      searchResultAdClickedInfoBar = nil
-    }
-
-    let isNewTabURL = tabManager.selectedTab?.visibleURL?.isNewTabURL
-    if isNewTabURL != true {
-      newTabTakeoverInfoBar?.dismiss(false)
-      newTabTakeoverInfoBar = nil
-    }
   }
 
   func tabManagerDidRemoveAllTabs(_ tabManager: TabManager, toast: ButtonToast?) {

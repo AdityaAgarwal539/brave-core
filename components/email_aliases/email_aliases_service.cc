@@ -112,7 +112,7 @@ EmailAliasesService::EmailAliasesService(
   CHECK(base::FeatureList::IsEnabled(email_aliases::features::kEmailAliases));
   CHECK(brave_account_auth);
 
-  auth_.emplace(pref_service_.get(), std::move(brave_account_auth),
+  auth_.emplace(std::move(brave_account_auth),
                 base::BindRepeating(&EmailAliasesService::OnAuthChanged,
                                     weak_factory_.GetWeakPtr()));
 }
@@ -124,6 +124,8 @@ void EmailAliasesService::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kEmailAliasesEnabled, true);
   registry->RegisterBooleanPref(prefs::kPromoShown, false);
 
+  registry->RegisterBooleanPref(
+      prefs::kEmailAliasesNewAliasAutofillSuggestionEnabled, true);
   EmailAliasesMetrics::RegisterProfilePrefs(registry);
   EmailAliasesNotes::RegisterProfilePrefs(registry);
 }
@@ -154,18 +156,9 @@ std::string EmailAliasesService::GetAuthEmail() const {
   return auth_->GetAuthEmail();
 }
 
-mojom::AuthenticationStatus EmailAliasesService::GetCurrentStatus() {
-  if (auth_->IsAuthenticated()) {
-    return mojom::AuthenticationStatus::kAuthenticated;
-  }
-  return mojom::AuthenticationStatus::kUnauthenticated;
-}
-
 void EmailAliasesService::OnAuthChanged() {
-  const auto status = GetCurrentStatus();
-  const auto email = GetAuthEmail();
-  for (auto& observer : observers_) {
-    observer->OnAuthStateChanged(mojom::AuthState::New(status, email));
+  if (IsAuthenticated() && ShouldShowPromo()) {
+    MarkPromoShown();
   }
   RefreshAliases();
 }
@@ -205,13 +198,8 @@ void EmailAliasesService::DeleteAlias(const std::string& alias_email,
 
 void EmailAliasesService::AddObserver(
     mojo::PendingRemote<mojom::EmailAliasesServiceObserver> observer) {
-  auto id = observers_.Add(std::move(observer));
-  auto* remote = observers_.Get(id);
-  if (remote) {
-    remote->OnAuthStateChanged(
-        mojom::AuthState::New(GetCurrentStatus(), GetAuthEmail()));
-    RefreshAliases();
-  }
+  observers_.Add(std::move(observer));
+  RefreshAliases();
 }
 
 bool EmailAliasesService::IsAuthenticated() const {
@@ -252,9 +240,7 @@ void EmailAliasesService::OnEditAliasResponse(
 
 void EmailAliasesService::RefreshAliases() {
   CHECK(auth_);
-  if (observers_.empty() || !auth_->IsAuthenticated()) {
-    return;
-  }
+  aliases_.clear();
   auth_->GetServiceToken(
       base::BindOnce(&EmailAliasesService::RefreshAliasesWithToken,
                      weak_factory_.GetWeakPtr()));
@@ -377,9 +363,11 @@ void EmailAliasesService::OnRefreshAliasesResponse(
     aliases.push_back(std::move(alias_obj));
   }
 
+  aliases_ = std::move(aliases);
+
   metrics_.ReportEmailAliasPresence(!aliases.empty());
   NotifyObserversAliasesUpdated(
-      observers_, mojom::AliasesUpdate::NewAliases(std::move(aliases)));
+      observers_, mojom::AliasesUpdate::NewAliases(mojo::Clone(aliases_)));
 }
 
 }  // namespace email_aliases

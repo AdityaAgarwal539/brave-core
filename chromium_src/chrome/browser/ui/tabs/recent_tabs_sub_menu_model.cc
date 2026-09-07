@@ -35,7 +35,7 @@ constexpr char kBraveSyncedTabsUrl[] = "brave://history/syncedTabs";
 // Do not show the menu item to signin to show tabs from other devices. Instead,
 // always show the "No tabs from other devices" string.
 #define GetAllForeignSessions(SESSIONS) GetAllForeignSessions(&sessions)) { \
-    AddItemWithStringId(IDC_RECENT_TABS_NO_DEVICE_TABS,                     \
+    AddItemWithStringId(kRecentTabsNoDeviceTabsId,                          \
                         IDS_RECENT_TABS_NO_DEVICE_TABS);                    \
   }                                                                         \
   if (false
@@ -53,7 +53,7 @@ constexpr char kBraveSyncedTabsUrl[] = "brave://history/syncedTabs";
 
 BraveRecentTabsSubMenuModel::BraveRecentTabsSubMenuModel(
     ui::AcceleratorProvider* accelerator_provider,
-    Browser* browser)
+    BrowserWindowInterface* browser)
     : RecentTabsSubMenuModel(accelerator_provider, browser) {}
 
 BraveRecentTabsSubMenuModel::~BraveRecentTabsSubMenuModel() {}

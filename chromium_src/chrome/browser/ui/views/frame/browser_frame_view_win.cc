@@ -3,7 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "brave/browser/ui/views/tabs/vertical_tab_utils.h"
+#include "brave/browser/ui/tabs/public/vertical_tab_controller.h"
 #include "chrome/browser/ui/browser.h"
 
 // Override invocation of Browser::SupportsWindowFeature() and
@@ -16,10 +16,12 @@
 // label even when Browser::SupportsWindowFeature(kFeatureTitleBar) returns
 // false at the time of creation, as users can switch tab orientation or title
 // bar visibility by changing preferences.
-#define SupportsWindowFeature(feature)                        \
-  SupportsWindowFeature(feature) ||                           \
-      (feature == Browser::WindowFeature::kFeatureTitleBar && \
-       tabs::utils::SupportsBraveVerticalTabs(browser))
+#define SupportsWindowFeature(feature)                                        \
+  SupportsWindowFeature(feature) ||                                           \
+      (feature == WindowFeatureController::WindowFeature::kFeatureTitleBar && \
+       VerticalTabController::FromBrowser(browser) &&                         \
+       VerticalTabController::FromBrowser(browser)                            \
+           ->SupportsBraveVerticalTabs())
 
 #include <chrome/browser/ui/views/frame/browser_frame_view_win.cc>
 

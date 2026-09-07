@@ -5,6 +5,7 @@
 
 package org.chromium.chrome.browser.crypto_wallet.util;
 
+import static org.chromium.chrome.browser.crypto_wallet.util.WalletConstants.SOLANA_SPL_TRANSACTION_TYPES;
 import static org.chromium.chrome.browser.crypto_wallet.util.WalletConstants.SOLANA_TRANSACTION_TYPES;
 
 import android.text.TextUtils;
@@ -23,6 +24,7 @@ import org.chromium.brave_wallet.mojom.TransactionInfo;
 import org.chromium.brave_wallet.mojom.TransactionType;
 import org.chromium.brave_wallet.mojom.TxData1559;
 import org.chromium.brave_wallet.mojom.TxDataUnion;
+import org.chromium.brave_wallet.mojom.ZCashTokenType;
 import org.chromium.brave_wallet.mojom.ZecTxData;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -150,11 +152,7 @@ public class ParsedTransaction extends ParsedTransactionFees {
                         ? txDataUnion.getZecTxData()
                         : null;
 
-        final boolean isSPLTransaction =
-                txInfo.txType == TransactionType.SOLANA_SPL_TOKEN_TRANSFER
-                        || txInfo.txType
-                                == TransactionType
-                                        .SOLANA_SPL_TOKEN_TRANSFER_WITH_ASSOCIATED_TOKEN_ACCOUNT_CREATION;
+        final boolean isSPLTransaction = SOLANA_SPL_TRANSACTION_TYPES.contains(txInfo.txType);
         final boolean isSolTransaction = SOLANA_TRANSACTION_TYPES.contains(txInfo.txType);
 
         String value = "";
@@ -205,7 +203,9 @@ public class ParsedTransaction extends ParsedTransactionFees {
         parsedTransaction.isSolanaDappTransaction =
                 WalletConstants.SOLANA_DAPPS_TRANSACTION_TYPES.contains(txInfo.txType);
         parsedTransaction.marketPrice = networkSpotPrice;
-        if (zecTxData != null && zecTxData.useShieldedPool) {
+        if (zecTxData != null
+                && (zecTxData.zcashTokenType == ZCashTokenType.ORCHARD
+                        || zecTxData.zcashTokenType == ZCashTokenType.IRONWOOD)) {
             parsedTransaction.mShielded = true;
         }
 
@@ -452,9 +452,11 @@ public class ParsedTransaction extends ParsedTransactionFees {
         } else if (this.mIsSwap) {
             return String.format(Locale.getDefault(), "%.4f", this.mValue);
         } else {
-            String sVal = String.format(Locale.getDefault(), "%.9f", mValue);
+            String formatted = String.format(Locale.getDefault(), "%.9f", mValue);
             // Show amount without trailing zeros
-            return !sVal.contains(".") ? sVal : sVal.replaceAll("0*$", "").replaceAll("\\.$", "");
+            return !formatted.contains(".")
+                    ? formatted
+                    : formatted.replaceAll("0*$", "").replaceAll("\\.$", "");
         }
     }
 

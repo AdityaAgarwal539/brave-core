@@ -248,7 +248,7 @@ class TabManagementToolBrowserTest : public InProcessBrowserTest {
  public:
   TabManagementToolBrowserTest() = default;
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
   // Add a tab with given URL to the specified browser, return its tab handle.
   int AddTabAndGetHandle(BrowserWindowInterface* b,
@@ -478,15 +478,15 @@ IN_PROC_BROWSER_TEST_F(TabManagementToolBrowserTest, TabManagementToolTest) {
   // Moving tab to a group in a different window
   {
     int tab_to_move = AddTabAndGetHandle(b2, GURL("https://move-window.test/"));
-    b2->window()->Activate();
+    BrowserWindow::FromBrowser(b2)->Activate();
     ASSERT_TRUE(b2->IsActive());
     b2->tab_strip_model()->ActivateTabAt(b2->GetTabStripModel()->GetIndexOfTab(
         tabs::TabHandle(tab_to_move).Get()));
     ASSERT_TRUE(b2->IsActive());
     ASSERT_TRUE(tabs::TabHandle(tab_to_move).Get()->IsActivated());
-    ASSERT_EQ(GetSessionIdForTabId(tab_to_move), b2->session_id());
+    ASSERT_EQ(GetSessionIdForTabId(tab_to_move), b2->GetSessionID());
     // Get a group in a different window
-    ASSERT_EQ(GetSessionIdForTabId(b_handle), b1->session_id());
+    ASSERT_EQ(GetSessionIdForTabId(b_handle), b1->GetSessionID());
     auto group_id = GetGroupIdForTabId(b_handle);
     ASSERT_TRUE(group_id.has_value());
     ASSERT_FALSE(GetGroupIdForTabId(tab_to_move).has_value());
@@ -717,7 +717,7 @@ IN_PROC_BROWSER_TEST_F(TabManagementToolBrowserTest, TabManagementToolTest) {
   // This validates the timing of the result in such scenarios.
   {
     Browser* bnew = CreateBrowser(profile());
-    auto bnew_session_id = bnew->session_id();
+    auto bnew_session_id = bnew->GetSessionID();
     auto bnewa =
         bnew->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
     auto bnewb = AddTabAndGetHandle(bnew, GURL("https://move-all.test/"));
@@ -744,7 +744,7 @@ IN_PROC_BROWSER_TEST_F(TabManagementToolBrowserTest, TabManagementToolTest) {
   // being closed and not returning a window with an empty tab strip.
   {
     Browser* bnew = CreateBrowser(profile());
-    auto bnew_session_id = bnew->session_id();
+    auto bnew_session_id = bnew->GetSessionID();
     auto bnewa =
         bnew->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
     auto bnewb = AddTabAndGetHandle(bnew, GURL("https://move-all.test/"));
@@ -817,7 +817,7 @@ IN_PROC_BROWSER_TEST_F(TabManagementToolBrowserTest,
   {
     Browser* b2 = CreateBrowser(profile());
     AddTabAndGetHandle(b2, GURL("https://other.test/"));
-    int target_window_id = b2->session_id().id();
+    int target_window_id = b2->GetSessionID().id();
 
     RunToolAndGetText(FROM_HERE, &tool,
                       absl::StrFormat(

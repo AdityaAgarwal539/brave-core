@@ -11,6 +11,7 @@ import { loadTimeData } from '$web-common/loadTimeData'
 // Props required to provide the context
 export interface UntrustedConversationContextProps {
   api: UntrustedConversationAPI
+  isReadOnly?: boolean
 }
 
 const IS_MOBILE = loadTimeData.getBoolean('isMobile')
@@ -34,11 +35,13 @@ export function useProvideUntrustedConversationContext(
   const serviceState = api.useServiceState().data
   const conversationHistory = api.useGetConversationHistoryData()
 
-  const associatedContent = api.useCurrentAssociatedContentChanged().data?.[0]
+  const associatedContent = api.useAssociatedContentData()
   const contentTaskTabId = api.useCurrentContentTaskStarted().data?.[0]
 
   return {
     api,
+
+    isReadOnly: props.isReadOnly ?? false,
 
     showPremiumSuggestionForRegenerate,
     setShowPremiumSuggestionForRegenerate,
@@ -120,8 +123,7 @@ export function useProvideUntrustedConversationContext(
     isHistoryFeatureEnabled: IS_HISTORY_FEATURE_ENABLED,
 
     /**
-     * @deprecated Use `api.useCurrentAssociatedContentChanged().data` or
-     * subscribe to `api.useAssociatedContentChanged()` directly.
+     * @deprecated Use `api.useAssociatedContentData()` instead
      */
     associatedContent,
 

@@ -52,7 +52,8 @@ public class BraveAppMenu extends BraveAppMenuDummySuper {
             View anchorView,
             int popupWidth,
             int popupHeight,
-            int viewLayoutDirection) {
+            int viewLayoutDirection,
+            boolean positionBelowAnchor) {
         int[] position =
                 AppMenu.getPopupPosition(
                         tempLocation,
@@ -65,7 +66,8 @@ public class BraveAppMenu extends BraveAppMenuDummySuper {
                         anchorView,
                         popupWidth,
                         popupHeight,
-                        viewLayoutDirection);
+                        viewLayoutDirection,
+                        positionBelowAnchor);
         if (isMenuFromBottom()) {
             anchorView.getLocationOnScreen(tempLocation);
             int anchorViewLocationOnScreenY = tempLocation[1];
@@ -74,10 +76,6 @@ public class BraveAppMenu extends BraveAppMenuDummySuper {
             position[1] += padding.bottom;
         }
         return position;
-    }
-
-    public static int getAnimationStyle() {
-        return isMenuFromBottom() ? R.style.EndIconMenuAnimBottom : R.style.EndIconMenuAnim;
     }
 
     // We shouldn't determine menu position by reading preference.
@@ -94,8 +92,11 @@ public class BraveAppMenu extends BraveAppMenuDummySuper {
     }
 
     public void updatePopup(PopupWindow popup, boolean isByPermanentButton) {
-        if (!SysUtils.isLowEndDevice() && !isByPermanentButton) {
-            popup.setAnimationStyle(BraveAppMenu.getAnimationStyle());
+        // Upstream already animates the menu up from the bottom when it is anchored to the bottom
+        // bar or to a bottom anchored address bar, so only Brave's own bottom toolbar is left to
+        // account for here. Overriding the animation unconditionally would undo those.
+        if (!SysUtils.isLowEndDevice() && !isByPermanentButton && isMenuFromBottom()) {
+            popup.setAnimationStyle(R.style.EndIconMenuAnimBottom);
         }
         sMenuHeight = popup.getHeight();
     }

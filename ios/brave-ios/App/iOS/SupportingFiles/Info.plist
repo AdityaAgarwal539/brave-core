@@ -4,6 +4,10 @@
 <dict>
 	<key>AppIdentifierPrefix</key>
 	<string>$(APP_IDENTIFIER_PREFIX)</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).download</string>
+	</array>
 	<key>BRAVE_URL_SCHEME</key>
 	<string>$(BRAVE_URL_SCHEME)</string>
 	<key>CFBundleAllowMixedLocalizations</key>
@@ -47,10 +51,13 @@
 	<false/>
 	<key>KSApplicationGroup</key>
 	<string>$(BRAVE_GROUP_ID)</string>
+	<key>KSChannelID</key>
+	<string>$(brave_channel)</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>http</string>
 		<string>https</string>
+		<string>mailto</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
@@ -124,6 +131,7 @@
 		<string>audio</string>
 		<string>remote-notification</string>
 		<string>voip</string>
+		<string>processing</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>

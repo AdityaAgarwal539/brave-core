@@ -4,12 +4,12 @@
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 #include <optional>
+#include <ranges>
 #include <string_view>
 
 #include "base/base64url.h"
 #include "base/path_service.h"
 #include "base/test/bind.h"
-#include "base/types/zip.h"
 #include "brave/components/brave_shields/core/browser/brave_shields_utils.h"
 #include "brave/components/constants/brave_paths.h"
 #include "brave/components/query_filter/browser/test_support/query_filter_test_helper.h"
@@ -114,7 +114,8 @@ class BraveSiteHacksNetworkDelegateBrowserTest : public InProcessBrowserTest {
   }
 
   HostContentSettingsMap* content_settings() {
-    return HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+    return HostContentSettingsMapFactory::GetForProfile(
+        browser()->GetProfile());
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -283,7 +284,7 @@ IN_PROC_BROWSER_TEST_F(BraveSiteHacksNetworkDelegateBrowserTest,
   static_assert(std::size(kInputs) == std::size(kOutputs),
                 "kInputs and kOutputs must have the same number of elements.");
 
-  for (auto [input, output] : base::zip(kInputs, kOutputs)) {
+  for (auto [input, output] : std::views::zip(kInputs, kOutputs)) {
     NavigateToURLAndWaitForRedirects(
         browser(),
         url(landing_url(input, simple_landing_url()), cross_site_url()),
@@ -346,7 +347,7 @@ IN_PROC_BROWSER_TEST_F(BraveSiteHacksNetworkDelegateBrowserTest,
   static_assert(std::size(kInputs) == std::size(kOutputs),
                 "kInputs and kOutputs must have the same number of elements.");
 
-  for (auto [input, output] : base::zip(kInputs, kOutputs)) {
+  for (auto [input, output] : std::views::zip(kInputs, kOutputs)) {
     // Same-site navigations to a cross-site redirect go through the query
     // filter.
     NavigateToURLAndWaitForRedirects(
@@ -393,7 +394,7 @@ IN_PROC_BROWSER_TEST_F(BraveSiteHacksNetworkDelegateBrowserTest,
   static_assert(std::size(kInputs) == std::size(kOutputs),
                 "kInputs and kOutputs must have the same number of elements.");
 
-  for (const auto [input, output] : base::zip(kInputs, kOutputs)) {
+  for (const auto [input, output] : std::views::zip(kInputs, kOutputs)) {
     // Direct navigations go through the query filter.
     ASSERT_TRUE(ui_test_utils::NavigateToURL(
         browser(), landing_url(input, simple_landing_url())));
@@ -408,7 +409,7 @@ IN_PROC_BROWSER_TEST_F(BraveSiteHacksNetworkDelegateBrowserTest,
   net::ProxyConfigServiceTor::SetBypassTorProxyConfigForTesting(true);
   tor::TorNavigationThrottle::SetSkipWaitForTorConnectedForTesting(true);
   Browser* tor_browser =
-      TorProfileManager::SwitchToTorProfile(browser()->profile());
+      TorProfileManager::SwitchToTorProfile(browser()->GetProfile());
 
   // Same-origin navigations
   {
@@ -513,7 +514,7 @@ IN_PROC_BROWSER_TEST_F(BraveSiteHacksNetworkDelegateBrowserTest,
   net::ProxyConfigServiceTor::SetBypassTorProxyConfigForTesting(true);
   tor::TorNavigationThrottle::SetSkipWaitForTorConnectedForTesting(true);
   Browser* tor_browser =
-      TorProfileManager::SwitchToTorProfile(browser()->profile());
+      TorProfileManager::SwitchToTorProfile(browser()->GetProfile());
 
   // Same-origin .onion iframes
   {

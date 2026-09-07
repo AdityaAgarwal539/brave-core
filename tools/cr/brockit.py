@@ -77,7 +77,7 @@ The following steps will take place:
 
 1. A *Update from Chromium [from] to [to]* commit will be created. This commit
    contains changes to `package.json` and to the pinlist timestamp file.
-2. `npm run init` will be run with the newer version.
+2. `pnpm run init` will be run with the newer version.
 3. For any patches that fail to apply during `init`, there will be another
    attempt to apply them using `--3way`.
 4. If any patches still fail to apply, the process will stop. A summary of
@@ -88,7 +88,7 @@ The following steps will take place:
 6. Having resolved all conflicts. Restart *🚀Brockit!* with `--continue` and
    other similar arguments you may want to keep.
 7. *🚀Brockit!* will pick up from where it stopped, possibly running
-  `npm run update_patches`, staging all patches, and committing the under
+  `pnpm run update_patches`, staging all patches, and committing the under
   *Conflict-resolved patches from Chromium [from] to [to].*
 8. *Update patches from Chromium [from] to [to]* will be committed.
 9. *Updated strings for Chromium [to]* will be committed.
@@ -178,9 +178,14 @@ remote.
 tools/cr/brockit.py merge
 ```
 
-The current branch must have an upstream branch set (e.g. `origin/master`).
-*🚀Brockit!* will fetch the upstream for merging. If the merge hits conflicts,
-it is rolled back and the command fails.
+By default, *🚀Brockit!* attempts to find out which one is the base branch using
+`gh`, and failing that it falls back to the upstream branch of the current
+branch. However, The base branch can also be passed explicitly, which overrides
+both:
+
+```sh
+tools/cr/brockit.py merge --base-branch=origin/master
+```
 
 Before merging, *🚀Brockit!* runs a dry-run of `rebase --squash-minor-bumps`
 to make sure the branch is already in its canonical form. If that rebase show
@@ -218,6 +223,22 @@ Pass `--culprit=<hash>` to provide a specific culprit for the toolchain update.
 If none is provided, `brockit` determines the culprit by looking for the last
 commit that pinned the macOS SDK in `mac_sdk.gni` up to the `--to` ref.
 
+### `brockit.py update-windows-toolchain`
+This command repins the hermetic windows toolchain override in Brave.
+
+Pass `--to` with the Chromium reference whose pinned SDK/toolchain hash to
+repin against. It accepts a concrete version or the same `@latest-*` labels as
+`lift --to`:
+
+```sh
+tools/cr/brockit.py update-windows-toolchain --to=150.0.7850.1
+```
+
+Pass `--culprit=<hash>` to provide a specific culprit for the toolchain update.
+If none is provided, `brockit` determines the culprit by looking for the last
+commit that pinned the SDK/toolchain hash in `vs_toolchain.py` up to the `--to`
+ref.
+
 ### `brockit.py gen-{rust,xcode,windows}-toolchain`
 These commands trigger a toolchain's CI (Jenkins) pipeline(s) for a given
 Chromium tag.
@@ -240,18 +261,18 @@ tools/cr/brockit.py gen-rust-toolchain @latest-canary --watch
 ```
 
 ### `brockit.py update-rust-wasm-toolchain`
-This command repins the Rust/WASM toolchain objects in
-`tools/cr/install_extra_deps.py` to the latest published archives for
-a given Chromium tag's Rust+Clang revision, and commits the change. The tag's
-`tools/rust/update_rust.py` and `tools/clang/scripts/update.py` are read to
-identify the toolchain to pin.
+This command repins the Rust/WASM toolchain objects in `EXTRA_DEPS` to the
+published archive for a given Chromium tag's Rust+Clang revision and Brave
+sub-revision, and commits the change.
 
 ```sh
-tools/cr/brockit.py update-rust-wasm-toolchain --to=150.0.7850.1
+tools/cr/brockit.py update-rust-wasm-toolchain --to=150.0.7850.1 \
+  --brave-subrevision=1
 ```
 
 The `--to` expects a Chromium referecence, and this includes reference labels
-(e.g. `@latest-tag`, etc).
+(e.g. `@latest-tag`, etc). `--brave-subrevision` must name the exact
+sub-revision already published.
 
 Pass `--culprit=<hash>` to reference a specific Chromium commit in the commit
 body. If none is provided, `brockit` uses the last Chromium commit that has
@@ -310,6 +331,7 @@ import requests
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.syntax import Syntax
+import shlex
 import shutil
 import subprocess
 import sys
@@ -318,10 +340,11 @@ from typing import ClassVar
 
 from exceptions import (ActionNeededException, BadOutcomeException,
                         InvalidInputException)
+from gh_cli import GhCli
 from git_status import GitStatus
-from patchfile import Patchfile
+from patchfile import Patchfile, patch_has_plaster
 import plaster
-from plaster import PlasterFile, PlasterFileNeedsRegen
+from plaster import PlasterError, PlasterFile
 import rebase
 from rebase import DROP_COMMIT_MSG_PREFIX, REASSIGN_COMMIT_MSG_PREFIX
 import repository
@@ -338,7 +361,10 @@ from vscode import VsCodeIpcConnection
 PINSLIST_TIMESTAMP_FILE = (
     'chromium_src/net/tools/transport_security_state_generator/'
     'input_file_parsers.cc')
-VERSION_UPGRADE_FILE = Path('.version_upgrade')
+# The continuation file for an in-progress lift. Resolved against the
+# brave-core root (rather than the current directory) because both `--continue`
+# and `pnpm run update_patches` look for it there.
+VERSION_UPGRADE_FILE = repository.brave.root / '.version_upgrade'
 
 # Commit subject prefixes that identify brockit-managed upgrade commits.
 # Patches whose most recent branch commit carries one of these subjects are
@@ -449,27 +475,14 @@ def _update_pinslist_timestamp() -> str:
     return readable_timestamp
 
 
-def _is_gh_cli_logged_in():
-    """Checks if the GitHub CLI is logged in.
-    """
-    try:
-        result = terminal.run(['gh', 'auth', 'status']).stdout.strip()
-        if 'Logged in to github.com account' in result:
-            return True
-    except subprocess.CalledProcessError:
-        pass
-
-    return False
-
-
 def _get_apply_patches_list() -> dict[Repository, list[Patchfile]] | None:
     """Retrieves the list of patches to be applied by running
-    `npm run apply_patches`, grouped by repository.
+    `pnpm run apply_patches`, grouped by repository.
     """
 
     try:
-        terminal.run_npm_command('apply_patches', '--',
-                                 '--print-patch-failures-in-json')
+        terminal.run_pnpm_command('apply_patches',
+                                  '--print-patch-failures-in-json')
     except subprocess.CalledProcessError as e:
         # This is a regex to match the json output of the patches that failed
         # to apply.
@@ -543,10 +556,10 @@ class ApplyPatchesRecord:
             if patchfile.plaster.exists():
                 try:
                     PlasterFile(patchfile.plaster).apply(dry_run=True)
-                except PlasterFileNeedsRegen as e:
+                except PlasterError as e:
                     raise InvalidInputException(
                         'Plaster file has not been fixed and re-applied: '
-                        f'{patchfile.plaster}') from e
+                        f'{patchfile.plaster}\n{e}') from e
             else:
                 if (repository.brave.root / patchfile.path).exists():
                     raise InvalidInputException(
@@ -697,6 +710,23 @@ class Versioned(Task):
         """Returns True if this is a major version upgrade."""
         return self.target_version.major > self.base_version.major
 
+    def compose_issue_title(self):
+        """The title for the upgrade issue.
+
+        This is the title that is used for issues and PRs. For example
+
+        Upgrade from Chromium 151 to Chromium 152
+        """
+        title = 'Upgrade from Chromium {previous} to Chromium {to}'
+        if self.is_major():
+            # Major upgrades only show the major numbers in the title.
+            title = title.format(previous=str(self.base_version.major),
+                                 to=str(self.target_version.major))
+        else:
+            title = title.format(previous=str(self.base_version),
+                                 to=str(self.target_version))
+        return title
+
     def _save_updated_patches(self):
         """Creates the updated patches change
 
@@ -714,7 +744,7 @@ class Versioned(Task):
         """Creates string rebase change
 
     This function stages, and commits, all changed, updated, or deleted files
-    resulting from running npm run chromium_rebase_l10n.
+    resulting from running pnpm run chromium_rebase_l10n.
     """
         repository.brave.run_git('add', '*.grd', '*.grdp', '*.xtb')
         repository.brave.git_commit(
@@ -759,13 +789,13 @@ class Regen(Versioned):
             f'Processing changes for Chromium {self.base_version} '
             f'to Chromium {self.target_version}.')
 
-        terminal.run_npm_command('init')
+        terminal.run_pnpm_command('init')
 
-        terminal.run_npm_command('update_patches', '--', '--no-plaster-check')
+        terminal.run_pnpm_command('update_patches', '--no-plaster-check')
         if not dry_run:
             self._save_updated_patches()
 
-        terminal.run_npm_command('chromium_rebase_l10n')
+        terminal.run_pnpm_command('chromium_rebase_l10n')
         if not dry_run:
             self._save_rebased_l10n()
 
@@ -783,38 +813,16 @@ class GitHubIssue(Versioned):
     def status_message(self):
         return "Creating/Updating GitHub issue for upgrade..."
 
-    def compose_issue_title(self):
-        """Generates the title for the upgrade issue.
-
-        This function generates the title for the upgrade issue, based on the
-        base and target version. The title is generated in a way that it can be
-        used for both major and minor upgrades.
-
-        This title is the same used for the push request.
-        """
-        title = 'Upgrade from Chromium {previous} to Chromium {to}'
-        if self.is_major():
-            # For major updates, the issue description doesn't have a precise
-            # version number.
-            title = title.format(previous=str(self.base_version.major),
-                                 to=str(self.target_version.major))
-        else:
-            title = title.format(previous=str(self.base_version),
-                                 to=str(self.target_version))
-        return title
-
     def lookup_issue(self, title: str) -> list | None:
         """Looks up the issue for the upgrade.
 
         This function checks if there's already an issue with the title
         provided, and returns its details.
         """
-        results = json.loads(
-            terminal.run([
-                'gh', 'issue', 'list', '--repo', 'brave/brave-browser',
-                '--search', title, '--state', 'open', '--json',
-                'number,title,url,body'
-            ]).stdout.strip())
+        results = GhCli().list_issues(repo='brave/brave-browser',
+                                      search=title,
+                                      state='open',
+                                      fields='number,title,url,body')
         return next((entry for entry in results if entry['title'] == title),
                     None)
 
@@ -838,11 +846,8 @@ class GitHubIssue(Versioned):
             # removing the remote portion.
             upstream_branch = upstream_branch.split("/", 1)[-1]
 
-        results = json.loads(
-            terminal.run([
-                'gh', 'pr', 'list', '--head', current_branch,
-                '--json=number,url'
-            ]).stdout.strip())
+        gh = GhCli()
+        results = gh.list_prs(head=current_branch, fields='number,url')
         if results:
             console.log(
                 f'The push request for {current_branch} is: {results[0]["url"]}'
@@ -854,35 +859,37 @@ class GitHubIssue(Versioned):
         is_uplift = (versioning.get_uplift_branch_name_from_package() ==
                      upstream_branch)
         tag = f'[{upstream_branch}] ' if is_uplift else ''
-        cmd = [
-            'gh', 'pr', 'create', '--base', upstream_branch, '--head',
-            current_branch, '--title', f'{tag}{self.compose_issue_title()}',
-            '--body', f'Resolves {issue_url}', '--label',
-            '"CI/run-audit-deps"', '--label', '"CI/run-network-audit"',
-            '--label', '"CI/run-linux-arm64"', '--label', '"CI/run-macos-x64"',
-            '--label', '"CI/run-windows-x86"', '--label',
-            '"CI/run-windows-arm64"', '--assignee', 'cdesouza-chromium'
+        labels = [
+            '"CI/run-audit-deps"', '"CI/run-network-audit"',
+            '"CI/run-linux-arm64"', '"CI/run-macos-x64"',
+            '"CI/run-windows-x86"', '"CI/run-windows-arm64"'
         ]
+        assignees = ['cdesouza-chromium']
         # Emerick and Alexey take care of even-numbered major versions, while
         # Max and Sam do the odd ones.
         if self.target_version.major % 2 == 0:
-            cmd += ['--assignee', 'emerick', '--assignee', 'AlexeyBarabash']
+            assignees += ['emerick', 'AlexeyBarabash']
         else:
-            cmd += ['--assignee', 'mkarolin', '--assignee', 'samartnik']
+            assignees += ['mkarolin', 'samartnik']
 
         if self.is_major() or upstream_branch == 'master':
             # It is not common for upstream test to be run on uplifts of minor
             # upgrades.
-            cmd += ['--label', '"CI/run-upstream-tests"']
+            labels.append('"CI/run-upstream-tests"')
 
-        if self.is_major():
-            cmd += ['--label', '"CI/storybook-url"']
-
-            # Always create PR for major version upgrades as draft
-            cmd.append('--draft')
+        # Always create PR for major version upgrades as draft.
+        draft = self.is_major()
+        if draft:
+            labels.append('"CI/storybook-url"')
 
         try:
-            pr_url = terminal.run(cmd).stdout.strip()
+            pr_url = gh.create_pr(base=upstream_branch,
+                                  head=current_branch,
+                                  title=f'{tag}{self.compose_issue_title()}',
+                                  body=f'Resolves {issue_url}',
+                                  labels=labels,
+                                  assignees=assignees,
+                                  draft=draft)
             terminal.log_task(f'GitHub PR created for this bump: {pr_url}')
         except subprocess.CalledProcessError as e:
             raise BadOutcomeException(
@@ -891,11 +898,7 @@ class GitHubIssue(Versioned):
 
         if is_uplift:
             # Only uplift branches set milestones.
-            results = json.loads(
-                terminal.run([
-                    'gh', 'api', 'repos/brave/brave-core/milestones', '--jq',
-                    '[.[] | {number, title}]'
-                ]).stdout)
+            results = gh.list_milestones('brave/brave-core')
             if not results:
                 raise BadOutcomeException(
                     'No milestones returned for brave-core')
@@ -908,11 +911,9 @@ class GitHubIssue(Versioned):
                     f'Failed to find milestone for branch {upstream_branch}')
 
             pr_number = pr_url.rsplit('/', 1)[-1]
-            terminal.run([
-                'gh', 'api', '-X', 'PATCH',
-                f'repos/brave/brave-core/issues/{pr_number}', '-F',
-                f'milestone={milestone}'
-            ])
+            gh.set_issue_milestone(repo='brave/brave-core',
+                                   issue_number=pr_number,
+                                   milestone=milestone)
 
     def create_or_update_version_issue(self, with_pr: bool):
         """Creates a github issue for the upgrade.
@@ -934,11 +935,9 @@ class GitHubIssue(Versioned):
                     f'A Github issue with the title "{title}" is already '
                     f'created and up-to-date. {str(issue["url"])}')
             else:
-                terminal.run([
-                    'gh', 'issue', 'edit',
-                    str(issue['number']), '--repo', 'brave/brave-browser',
-                    '--body', f'{body}'
-                ])
+                GhCli().edit_issue(number=issue['number'],
+                                   repo='brave/brave-browser',
+                                   body=body)
                 terminal.log_task(f'GitHub issue updated {str(issue["url"])}.')
             if with_pr:
                 self.create_push_request(issue["url"])
@@ -946,22 +945,23 @@ class GitHubIssue(Versioned):
 
         body = MINOR_VERSION_BUMP_ISSUE_TEMPLATE.format(
             googlesource_log_link=link)
-        issue_url = terminal.run([
-            'gh', 'issue', 'create', '--repo', 'brave/brave-browser',
-            '--title', title, '--body', f'{body}', '--label',
-            '"Chromium/upgrade minor"', '--label', '"OS/Android"', '--label',
-            '"OS/Desktop"', '--label', '"QA/Test-Plan-Specified"', '--label',
-            '"QA/Yes"', '--label', '"release-notes/include"', '--assignee',
-            'emerick', '--assignee', 'mkarolin', '--assignee',
-            'cdesouza-chromium'
-        ]).stdout.strip()
+        issue_url = GhCli().create_issue(
+            repo='brave/brave-browser',
+            title=title,
+            body=body,
+            labels=[
+                '"Chromium/upgrade minor"', '"OS/Android"', '"OS/Desktop"',
+                '"QA/Test-Plan-Specified"', '"QA/Yes"',
+                '"release-notes/include"'
+            ],
+            assignees=['emerick', 'mkarolin', 'cdesouza-chromium'])
         terminal.log_task(f'GitHub Issue created for this bump: {issue_url}')
 
         if with_pr:
             self.create_push_request(issue_url)
 
     def execute(self):
-        if not _is_gh_cli_logged_in():
+        if not GhCli().is_logged_in():
             raise BadOutcomeException('GitHub CLI is not logged in.')
 
         self.create_or_update_version_issue(with_pr=True)
@@ -1130,6 +1130,12 @@ class Upgrade(Versioned):
                     broken_patches.append(patchfile)
                 elif status == Patchfile.ApplyStatus.DELETED:
                     patches_to_deleted_files.append(patchfile)
+                    # A patch whose source was deleted upstream leaves any
+                    # associated plaster orphaned (its target no longer exists).
+                    # Flag it as plaster-broken too, so the plaster must be
+                    # migrated or removed before continuing.
+                    if patchfile.has_plaster:
+                        plaster_broken_patches.append(patchfile)
                 elif status == Patchfile.ApplyStatus.PLASTER_FIXED:
                     plaster_fixed_patches.append(patchfile.path)
                 elif status == Patchfile.ApplyStatus.PLASTER_BROKEN:
@@ -1204,6 +1210,13 @@ class Upgrade(Versioned):
 
             for patchfile in plaster_broken_patches:
                 source = patchfile.source_from_brave()
+                if not source.exists():
+                    console.log(
+                        Padding(f'✘ {patchfile.plaster} [red bold](orphaned)',
+                                (0, 4)))
+                    vscode_files.append(patchfile.plaster)
+                    continue
+
                 console.log(
                     Padding(f'✘ {patchfile.plaster} ➜ {source}', (0, 4)))
                 vscode_files += [patchfile.plaster, source]
@@ -1242,10 +1255,8 @@ class Upgrade(Versioned):
         package = versioning.load_package_file('HEAD')
         package['config']['projects']['chrome']['tag'] = str(
             self.target_version)
-        with Path(versioning.PACKAGE_FILE).open('w',
-                                                encoding='utf-8',
-                                                newline='') as package_file:
-            package_file.write(json.dumps(package, indent=2) + '\n')
+        (repository.brave.root / versioning.PACKAGE_FILE).write_text(
+            json.dumps(package, indent=2) + '\n', encoding='utf-8', newline='')
 
         repository.brave.run_git('add', versioning.PACKAGE_FILE)
 
@@ -1325,7 +1336,7 @@ class Upgrade(Versioned):
         return:
           The GitStatus after running update_patches.
         """
-        terminal.run_npm_command('update_patches', '--', '--no-plaster-check')
+        terminal.run_pnpm_command('update_patches', '--no-plaster-check')
 
         status = GitStatus()
         if status.has_deleted_patch_files():
@@ -1351,10 +1362,13 @@ class Upgrade(Versioned):
         # patches to make sure that the number of hunks in these patch files
         # have not changed, as any significant change to a patchfile should be
         # submitted as its own change, with a culprit for visibility.
+        #
+        # (This rule doesn't apply to plaster patches though because they tend
+        # to run into this rule a lot).
         all_modified = status.staged.modified + status.unstaged.modified
         modified_patches = [
-            path for path in all_modified
-            if path.startswith('patches/') and path.endswith('.patch')
+            path for path in all_modified if path.startswith('patches/')
+            and path.endswith('.patch') and not patch_has_plaster(Path(path))
         ]
         if not modified_patches:
             return status
@@ -1499,9 +1513,9 @@ class Upgrade(Versioned):
         self._save_updated_patches()
         # Run init again to make sure nothing is missing after updating
         # patches.
-        terminal.run_npm_command('init')
+        terminal.run_pnpm_command('init')
 
-        terminal.run_npm_command('chromium_rebase_l10n')
+        terminal.run_pnpm_command('chromium_rebase_l10n')
         self._save_rebased_l10n()
 
         # With the continuation finished there's no need to keep the
@@ -1512,8 +1526,8 @@ class Upgrade(Versioned):
         """Starts the upgrade process.
 
     This function is responsible for starting the upgrade process. It will
-    update the package version, run `npm run init`, and then run
-    `npm run update_patches`. If any patches fail to apply, it will run
+    update the package version, run `pnpm run init`, and then run
+    `pnpm run update_patches`. If any patches fail to apply, it will run
     `apply_patches_3way` to allow for manual conflict resolution.
 
     For cases where no conflict resolution is required, the process will
@@ -1561,7 +1575,7 @@ class Upgrade(Versioned):
         self._update_package_version()
 
         try:
-            terminal.run_npm_command('init')
+            terminal.run_pnpm_command('init')
 
             # When no conflicts come back, we can proceed with the
             # update_patches.
@@ -1570,7 +1584,7 @@ class Upgrade(Versioned):
             if ('There were some failures during git reset of specific '
                     'repo paths' in e.stderr):
                 logging.warning(
-                    '[bold cyan]npm run init[/] is failing to reset some'
+                    '[bold cyan]pnpm run init[/] is failing to reset some'
                     ' paths. This could be happening because of a bad sync'
                     'state before starting the upgrade.')
 
@@ -1596,12 +1610,12 @@ class Upgrade(Versioned):
                 return
             if e.returncode != 0:
                 raise InvalidInputException(
-                    f'Failures found when running npm run init\n{e.stderr}'
+                    f'Failures found when running pnpm run init\n{e.stderr}'
                 ) from e
 
         self._save_updated_patches()
 
-        terminal.run_npm_command('chromium_rebase_l10n')
+        terminal.run_pnpm_command('chromium_rebase_l10n')
         self._save_rebased_l10n()
 
     def execute(self, no_conflict_continuation: bool, with_github: bool,
@@ -1650,7 +1664,7 @@ class Upgrade(Versioned):
                              working_version=self.working_version,
                              base_version=self.base_version).save()
 
-        if with_github and not _is_gh_cli_logged_in():
+        if with_github and not GhCli().is_logged_in():
             # Fail early if gh cli is not logged in.
             raise InvalidInputException('GitHub CLI is not logged in.')
 
@@ -1866,10 +1880,16 @@ class Rebase(Task):
 
             # Squashes will cause `GIT_EDITOR` also to open for the commit
             # message, so we need to handle those too.
-            env["GIT_EDITOR"] = (
-                f'{str(VPYTHON3_PATH)} {__file__} '
-                '--internal-rebase-fix-message '
-                f'--internal-rebase-crash-msg-editor={crash_msg_editor}')
+            #
+            # `shlex.join` (rather than a plain `" ".join`/f-string) matters
+            # on Windows: git invokes the editor via its bundled `sh -c`,
+            # which treats unquoted backslashes as escape characters and
+            # would silently mangle the absolute, backslash-separated
+            # `VPYTHON3_PATH` / `__file__` paths.
+            env["GIT_EDITOR"] = shlex.join([
+                str(VPYTHON3_PATH), __file__, '--internal-rebase-fix-message',
+                f'--internal-rebase-crash-msg-editor={crash_msg_editor}'
+            ])
 
         if len(editor) > 2:
             # Pass the captured sequence-editor fallback alongside the plan
@@ -1877,12 +1897,13 @@ class Rebase(Task):
             # `EditorRecoverableFailure` fires.
             editor.append(
                 f'--internal-rebase-crash-sequence-editor={crash_seq_editor}')
-            env["GIT_SEQUENCE_EDITOR"] = " ".join(editor)
+            env["GIT_SEQUENCE_EDITOR"] = shlex.join(editor)
         else:
-            # If there are no internal operation, we can just return always
-            # true to whatever plan git gives us.
-            env["GIT_SEQUENCE_EDITOR"] = 'cmd /c "exit 0"' if platform.system(
-            ) == 'Windows' else 'true'
+            # No internal plan rewriting: accept git's plan as-is. Git runs the
+            # sequence editor through its bundled `sh -c` even on Windows, so
+            # `true` (an sh builtin) works everywhere -- unlike `cmd`, which
+            # re-parses git's backslash-separated todo path and mangles it.
+            env["GIT_SEQUENCE_EDITOR"] = 'true'
 
         try:
             # `interactive=True` as we may need to open an editor if
@@ -1900,7 +1921,7 @@ class Rebase(Task):
             raise InvalidInputException('Rebase failed.') from e
 
 
-class Merge(Task):
+class Merge(Versioned):
     """Merges the current branch into its upstream branch.
 
     Any commits that landed on the upstream branch since the last rebase are
@@ -1912,25 +1933,93 @@ class Merge(Task):
     _NEVER_MERGE_TAG_RE: ClassVar[re.Pattern[str]] = re.compile(
         r'\[wip\]|\[do not[^\]]*\]', re.IGNORECASE)
 
-    def status_message(self):
-        return "Merging current branch into upstream..."
+    def __init__(self, base_version: Version, target_version: Version | None,
+                 *, current_branch: str, upstream: str):
+        super().__init__(base_version, target_version)
 
-    def execute(self, dry_run: bool = False):
-        """Merges the current branch into its upstream branch.
+        # The branch being merged
+        self.current_branch = current_branch
+
+        # The base branch we are merging into
+        self.upstream = upstream
+
+    @staticmethod
+    def _resolve_base_branch(current_branch: str,
+                             base_branch: str | None) -> str:
+        """Resolves the base branch to merge into.
+
+        This function will also defer to whatever `base_branch` is provided.
+        However, in the absence of one, then it will try to resolve the base
+        branch through GitHub, and if that is not available, then it will
+        default to the upstream branch, as is the practice with the rest of
+        brockit.
+        """
+        if base_branch is not None:
+            upstream = base_branch
+        else:
+            upstream = None
+            gh = GhCli()
+            if gh.is_logged_in():
+                upstream = gh.get_pr_base_branch(current_branch)
+            if upstream is None:
+                upstream = _get_current_branch_upstream_name()
+                if upstream is None:
+                    raise InvalidInputException(
+                        'Cannot merge: could not determine the base branch. '
+                        'Pass [bold cyan]--base-branch[/] to specify the base '
+                        'branch to merge into.')
+                if upstream.split('/', 1)[-1] == current_branch:
+                    raise InvalidInputException(
+                        f'Cannot merge: the upstream "{upstream}" tracks the '
+                        'current branch rather than a base branch. Pass '
+                        '[bold cyan]--base-branch[/] to specify the base '
+                        'branch to merge into.')
+        if '/' not in upstream:
+            raise InvalidInputException(
+                f'Cannot merge: the base branch "{upstream}" does not look '
+                'like a remote-tracking branch (expected the form '
+                '<remote>/<branch>).')
+        return upstream
+
+    @classmethod
+    def create(cls, base_branch: str | None = None) -> 'Merge':
+        """A factory function to create `Merge` resolving the base branch.
 
         Args:
-            dry_run:
-                When True, runs every validation, but stops short of the
-                actual merge and push.
+            base_branch:
+                The current branch's base branch in GitHub that we want to merge
+                into. If not provided, then a resolution is attempted for it.
         """
         current_branch = repository.brave.current_branch()
         if current_branch == 'HEAD':
             raise InvalidInputException(
                 'Cannot merge: not currently on a branch.')
 
-        # A leftover `MERGE_HEAD` means a merge is in progress. Conflict
-        # resolutions must never be committed onto the branch being pushed.
-        # Reject and tell the user to abort the merge and rebase instead.
+        upstream = cls._resolve_base_branch(current_branch, base_branch)
+
+        return cls(Version.from_git(upstream),
+                   None,
+                   current_branch=current_branch,
+                   upstream=upstream)
+
+    def status_message(self):
+        return "Merging current branch into upstream..."
+
+    def execute(self, dry_run: bool = False):
+        """Merges the current branch into its base branch.
+
+        Args:
+            dry_run:
+                When True, runs every validation, but stops short of the
+                actual merge and push.
+        """
+        current_branch = self.current_branch
+        upstream = self.upstream
+        remote, remote_branch = upstream.split('/', 1)
+        repository.brave.run_git('fetch', remote, remote_branch)
+
+        # Checking for a previous merge in progress, as we do not want to
+        # proceed if that's the case.
         if repository.brave.is_valid_git_reference('MERGE_HEAD'):
             raise InvalidInputException(
                 'A merge is already in progress. Do not resolve and commit it: '
@@ -1955,20 +2044,6 @@ class Merge(Task):
                 'Cannot merge: there are uncommitted changes in the working '
                 'tree. Please commit or stash them before merging.')
 
-        upstream = _get_current_branch_upstream_name()
-        if upstream is None:
-            raise InvalidInputException(
-                'Cannot merge: the current branch has no upstream branch set. '
-                '(Maybe set [bold cyan]--set-upstream-to[/] on your branch?)')
-        if '/' not in upstream:
-            raise InvalidInputException(
-                f'Cannot merge: the upstream "{upstream}" does not look like a '
-                'remote-tracking branch (expected the form <remote>/<branch>).'
-            )
-        remote, remote_branch = upstream.split('/', 1)
-
-        repository.brave.run_git('fetch', remote, remote_branch)
-
         head_before = repository.brave.run_git('rev-parse', 'HEAD')
         if head_before == repository.brave.run_git('rev-parse', upstream):
             raise InvalidInputException(
@@ -1989,35 +2064,31 @@ class Merge(Task):
                 f'{upstream}. (dry run: nothing was merged or pushed)')
             return
 
-        # Merge any new upstream commits into the current branch. When the
-        # histories have not diverged this is a no-op ("Already up to date");
-        # otherwise it produces a merge commit so the push stays a
-        # fast-forward.
-        terminal.log_task(f'Merging {upstream} into {current_branch}...')
         try:
-            repository.brave.run_git('merge', '--no-edit', upstream)
+            # The merge commit uses the regular issue title, however there is
+            # always a small chance for a fast-forward merge that produces no
+            # commit. Passing `--no-verify` too to suppress the hook from adding
+            # a `[crNNN]` tag.
+            repository.brave.run_git('merge', '--no-verify', '-m',
+                                     self.compose_issue_title(), upstream)
         except subprocess.CalledProcessError as e:
             if repository.brave.is_valid_git_reference('MERGE_HEAD'):
                 # Roll back the conflicted merge so the branch is left exactly
                 # as it was before the command ran.
                 repository.brave.run_git('merge', '--abort')
                 raise BadOutcomeException(
-                    f'Merging {upstream} into {current_branch} hit conflicts; '
-                    'the merge was rolled back and nothing was pushed. Rebase '
-                    f'the branch onto {upstream} to resolve the divergence '
-                    '(e.g. [bold cyan]brockit rebase[/]), then rerun '
-                    '[italic]🚀Brockit![/] [bold cyan]merge[/].') from e
+                    f'Merging {upstream} into {current_branch} hits conflicts. '
+                    'Rolling back the merge. Please rebase first.') from e
             raise BadOutcomeException(
                 f'Failed to merge {upstream} into {current_branch}: '
                 f'{e.stderr.strip()}') from e
 
-        terminal.log_task(f'Pushing {current_branch} to {upstream}...')
         try:
             repository.brave.run_git('push', remote, f'HEAD:{remote_branch}')
         except subprocess.CalledProcessError as e:
             raise BadOutcomeException(
                 f'Failed to push to {upstream}. The upstream branch may have '
-                'advanced since the fetch; rerun '
+                'advanced since the fetch. Rerun '
                 f'[italic]🚀Brockit![/] [bold cyan]merge[/] to try again.\n'
                 f'{e.stderr.strip()}') from e
 
@@ -2114,7 +2185,7 @@ class Merge(Task):
             f'--internal-rebase-capture-dest={dest}'
         ]
         env = os.environ.copy()
-        env['GIT_SEQUENCE_EDITOR'] = ' '.join(editor)
+        env['GIT_SEQUENCE_EDITOR'] = shlex.join(editor)
         rebase_args = ['rebase', '--interactive']
         if autosquash:
             # `--empty=drop` only matters alongside `--autosquash`, matching
@@ -2234,10 +2305,10 @@ class _RepinToolchainTask(Task):
     def status_message(self) -> str:
         return f'Updating the {self._toolchain.spec.label} toolchain...'
 
-    def execute(self, chromium_ref: str, culprit: str | None):
+    def execute(self, chromium_ref: str, culprit: str | None, **repin_kwargs):
         version = _fetch_chromium_tag(chromium_ref)
         _ensure_chromium_tags(str(version))
-        self._toolchain.repin(version, culprit)
+        self._toolchain.repin(version, culprit, **repin_kwargs)
 
 
 class _GenToolchainTask(Task):
@@ -2510,6 +2581,12 @@ def main():
         action='store_true',
         help='A dry run to check if the branch is ready to be merged.',
         dest='dry_run')
+    merge_parser.add_argument(
+        '--base-branch',
+        default=None,
+        help='The branch we are merging to. Defaults to the base branch of '
+        'the pull request (via `gh`), or the upstream branch.',
+        dest='base_branch')
 
     show_parser = subparsers.add_parser(
         'show', help='Prints various insights about brave-core.')
@@ -2571,6 +2648,29 @@ def main():
         'to auto-detecting the culprit.',
         dest='culprit')
 
+    update_windows_parser = subparsers.add_parser(
+        'update-windows-toolchain',
+        parents=[global_parser],
+        formatter_class=argparse.RawTextHelpFormatter,
+        help='Pins the GYP_MSVS_HASH_* override in '
+        'build/commands/lib/config.ts to the published hermetic Windows '
+        'toolchain for a Chromium tag\'s pinned SDK/toolchain hash, and '
+        'commits the change.')
+    update_windows_parser.add_argument(
+        '--to',
+        required=True,
+        dest='to',
+        help=('The Chromium version whose pinned Windows SDK/toolchain hash '
+              'to repin\nagainst (e.g. 150.0.7850.1), or one of the @latest-* '
+              'labels accepted by\n`lift --to` (e.g. @latest-canary, '
+              '@latest-m150, @latest-for-branch,\n@latest-tag).'))
+    update_windows_parser.add_argument(
+        '--culprit',
+        default=None,
+        help='Chromium commit hash to reference in the commit body. Defaults '
+        'to auto-detecting the culprit.',
+        dest='culprit')
+
     def _add_gen_parser(command: str, description: str):
         """Adds a `gen-*-toolchain` subparser (a `tag` positional + `--watch`).
 
@@ -2615,9 +2715,9 @@ def main():
         parents=[global_parser],
         formatter_class=argparse.RawTextHelpFormatter,
         help='Repins the Rust/WASM toolchain objects in '
-        'tools/cr/install_extra_deps.py to the latest published '
-        'archives for a Chromium tag\'s Rust+Clang revision, and commits the '
-        'change.')
+        'tools/cr/install_extra_deps.py to the published archive for a '
+        'Chromium tag\'s Rust+Clang revision and a given Brave sub-revision, '
+        'and commits the change.')
     update_rust_parser.add_argument(
         '--to',
         required=True,
@@ -2627,6 +2727,12 @@ def main():
             '(e.g. 150.0.7850.1), or one of the @latest-* labels accepted by\n'
             '`lift --to` (e.g. @latest-canary, @latest-m150,\n'
             '@latest-for-branch, @latest-tag).'))
+    update_rust_parser.add_argument(
+        '--brave-subrevision',
+        type=int,
+        required=True,
+        dest='brave_subrevision',
+        help='The published Brave sub-revision to repin')
     update_rust_parser.add_argument(
         '--culprit',
         default=None,
@@ -2690,7 +2796,8 @@ def main():
         if args.command == 'update-version-issue':
             GitHubIssue(resolve_version_with_from_ref_arg()).run()
         if args.command == 'merge':
-            Merge().run(dry_run=args.dry_run)
+            Merge.create(base_branch=args.base_branch).run(
+                dry_run=args.dry_run)
         if args.command == 'reassign':
             Reassign().run(change=args.change)
         if args.command == 'drop':
@@ -2698,9 +2805,14 @@ def main():
         if args.command == 'update-xcode-toolchain':
             _RepinToolchainTask(toolchain.XcodeToolchain()).run(
                 chromium_ref=args.to, culprit=args.culprit)
+        if args.command == 'update-windows-toolchain':
+            _RepinToolchainTask(toolchain.WindowsToolchain()).run(
+                chromium_ref=args.to, culprit=args.culprit)
         if args.command == 'update-rust-wasm-toolchain':
             _RepinToolchainTask(toolchain.RustToolchain()).run(
-                chromium_ref=args.to, culprit=args.culprit)
+                chromium_ref=args.to,
+                culprit=args.culprit,
+                brave_subrevision=args.brave_subrevision)
         gen_toolchains = {
             'gen-rust-toolchain': toolchain.RustToolchain,
             'gen-xcode-toolchain': toolchain.XcodeToolchain,

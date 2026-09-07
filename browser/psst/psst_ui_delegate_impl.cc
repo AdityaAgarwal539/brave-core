@@ -21,28 +21,48 @@ namespace psst {
 
 PsstUiDelegateImpl::PsstUiDelegateImpl(
     PsstSettingsService* psst_settings_service,
+    PsstReporterService* psst_reporter_service,
     PrefService* prefs,
     std::unique_ptr<PsstUiPresenter> ui_presenter)
     : ui_presenter_(std::move(ui_presenter)),
       psst_settings_service_(psst_settings_service),
+      psst_reporter_service_(psst_reporter_service),
       prefs_(prefs) {
   CHECK(psst_settings_service_);
+  CHECK(psst_reporter_service_);
   CHECK(ui_presenter_);
   CHECK(prefs_);
+  psst_settings_service_->AddObserver(this);
 }
-PsstUiDelegateImpl::~PsstUiDelegateImpl() = default;
+PsstUiDelegateImpl::~PsstUiDelegateImpl() {
+  psst_settings_service_->RemoveObserver(this);
+}
 
 void PsstUiDelegateImpl::Show(
     url::Origin origin,
     PsstWebsiteSettings dialog_data,
+    const int rule_version,
     std::optional<UserScriptResult> user_script_result,
     PsstTabWebContentsObserver::ConsentCallback apply_changes_callback) {
   apply_changes_callback_ = std::move(apply_changes_callback);
   dialog_data_ = std::move(dialog_data);
   origin_ = std::move(origin);
   user_script_result_ = std::move(user_script_result);
+
+  auto icon_status = LocationBarIconStatus::kOnlyIcon;
+
+  // Show the icon with the badge only if the status is not blocked and the
+  // version has changed.
+  if ((dialog_data_->consent_status == ConsentStatus::kAsk ||
+       dialog_data_->consent_status == ConsentStatus::kAllow) &&
+      dialog_data_->script_version != rule_version) {
+    icon_status = LocationBarIconStatus::kIconWithBadge;
+    // A new version will be saved when the user accepts the consent dialog.
+    dialog_data_->script_version = rule_version;
+  }
+
   ui_presenter_->SetLocationBarIconStatus(
-      LocationBarIconStatus::kIconWithBadge,
+      icon_status,
       base::BindOnce(&PsstUiDelegateImpl::OnDontShowForThisSite,
                      weak_ptr_factory_.GetWeakPtr()),
       base::BindOnce(&PsstUiDelegateImpl::OnDisablePrivacySettingsTuning,
@@ -74,18 +94,8 @@ void PsstUiDelegateImpl::UpdateTasks(
     return;
   }
 
-  // Implementation for setting the current progress.
-  for (Observer& obs : observer_list_) {
-    if (performed_tasks.empty() && progress == 100) {
-      // Update common dialog status
-      obs.OnSetRequestStatus("", "");
-    } else {
-      // Update individual task statuses.
-      for (const PolicyTask& task : performed_tasks) {
-        obs.OnSetRequestStatus(task.uid, task.error_description);
-      }
-    }
-  }
+  RecordFailedTasks(performed_tasks);
+  NotifyObserversOfTaskStatus(progress, performed_tasks);
 }
 
 std::optional<PsstWebsiteSettings> PsstUiDelegateImpl::GetPsstWebsiteSettings(
@@ -136,6 +146,20 @@ void PsstUiDelegateImpl::OnUserAcceptedPsstSettings(
   if (apply_changes_callback_) {
     std::move(apply_changes_callback_).Run(perform_for_uids);
   }
+
+  // Prepare to collect the failed cases
+  failed_policy_tasks_.emplace();
+}
+
+void PsstUiDelegateImpl::SubmitPsstErrorsReport() {
+  if (!failed_policy_tasks_ || failed_policy_tasks_->empty()) {
+    NotifyObserversOfPsstErrorsReportSent();
+    return;
+  }
+  psst_reporter_service_->SubmitPsstErrorsReport(
+      std::move(failed_policy_tasks_), dialog_data_->script_version,
+      base::BindOnce(&PsstUiDelegateImpl::NotifyObserversOfPsstErrorsReportSent,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void PsstUiDelegateImpl::OnUserAcceptedInfobar(const bool is_accepted) {
@@ -152,8 +176,8 @@ void PsstUiDelegateImpl::OnUserAcceptedInfobar(const bool is_accepted) {
 
     ui_presenter_->ShowConsentDialog();
   } else {
-    // Disable PSST if user declined the infobar
-    prefs_->SetBoolean(prefs::kPsstEnabled, false);
+    // TODO(https://github.com/brave/brave-browser/issues/58449): Handle infobar
+    // dismissal (e.g. close button, tab/navigation away).
   }
 }
 
@@ -170,11 +194,53 @@ void PsstUiDelegateImpl::OnDontShowForThisSite() {
 }
 
 void PsstUiDelegateImpl::OnDisablePrivacySettingsTuning() {
-  prefs_->SetBoolean(prefs::kPsstEnabled, false);
+  psst_settings_service_->SetPsstEnabled(false);
   ui_presenter_->HideInfoBar();
   ui_presenter_->SetLocationBarIconStatus(LocationBarIconStatus::kHidden,
                                           base::NullCallback(),
                                           base::NullCallback());
+}
+
+void PsstUiDelegateImpl::OnPsstEnableChange(bool new_value) {
+  if (new_value) {
+    return;
+  }
+
+  ui_presenter_->HideInfoBar();
+  ui_presenter_->HideConsentDialog();
+  ui_presenter_->SetLocationBarIconStatus(LocationBarIconStatus::kHidden,
+                                          base::NullCallback(),
+                                          base::NullCallback());
+}
+
+void PsstUiDelegateImpl::RecordFailedTasks(
+    const std::vector<PolicyTask>& performed_tasks) {
+  if (!failed_policy_tasks_) {
+    return;
+  }
+  for (const PolicyTask& task : performed_tasks) {
+    if (task.error_description) {
+      failed_policy_tasks_->insert(task.Clone());
+    }
+  }
+}
+
+void PsstUiDelegateImpl::NotifyObserversOfTaskStatus(
+    long progress,
+    const std::vector<PolicyTask>& performed_tasks) {
+  if (performed_tasks.empty() && progress == 100) {
+    observer_list_.Notify(&Observer::OnSetRequestStatus, /*uid=*/"",
+                          /*error_description=*/"");
+    return;
+  }
+  for (const PolicyTask& task : performed_tasks) {
+    observer_list_.Notify(&Observer::OnSetRequestStatus, task.uid,
+                          task.error_description);
+  }
+}
+
+void PsstUiDelegateImpl::NotifyObserversOfPsstErrorsReportSent() {
+  observer_list_.Notify(&Observer::OnPsstErrorsReportSent);
 }
 
 }  // namespace psst

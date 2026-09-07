@@ -33,13 +33,12 @@ class BraveTreeTabStripCollectionDelegate
 
   // tabs::BraveTabStripCollectionDelegate:
   bool ShouldHandleTabManipulation() const override;
-  void AddTabRecursive(std::unique_ptr<tabs::TabInterface> tab,
+  void AddTabRecursive(tabs::ScopedTab tab,
                        size_t index,
                        std::optional<tab_groups::TabGroupId> new_group_id,
                        bool new_pinned_state,
                        tabs::TabInterface* opener) const override;
-  std::unique_ptr<tabs::TabInterface> RemoveTabAtIndexRecursive(
-      size_t index) const override;
+  tabs::ScopedTab RemoveTabAtIndexRecursive(size_t index) const override;
   void MoveTabsRecursive(
       const std::vector<int>& tab_indices,
       size_t destination_index,
@@ -61,17 +60,24 @@ class BraveTreeTabStripCollectionDelegate
       tabs::TabCollection* root_collection) override;
   const tree_tab::TreeTabNodeId* GetTreeTabNodeIdForGroup(
       tab_groups::TabGroupId group_id) const override;
+  void PrepareTreeTabNodesForBatchDetach(
+      const std::vector<tabs::TabInterface*>& moving_tabs) override;
+  bool ShouldDetachAsTreeSubtreeRoot(
+      tabs::TabInterface* tab,
+      const std::vector<tabs::TabInterface*>& moving_tabs) override;
+  void WillDetachTreeTabNodeSubtree(
+      tabs::TreeTabNodeTabCollection& subtree_root) override;
+  void DidAttachTreeTabNodeSubtree(
+      tabs::TreeTabNodeTabCollection& subtree_root) override;
 
  private:
   // Tries to add the tab to the same tree as the opener. Returns base::ok(void)
-  // if successful, base::unexpected(std::unique_ptr<tabs::TabInterface>) so
-  // that the tab can be reused from the caller
-  using AddTabResult =
-      base::expected<void, std::unique_ptr<tabs::TabInterface>>;
-  AddTabResult TryAddTabToSameTreeAsOpener(
-      std::unique_ptr<tabs::TabInterface> tab,
-      size_t index,
-      tabs::TabInterface* opener) const;
+  // if successful, base::unexpected(tabs::ScopedTab) so that the tab can be
+  // reused from the caller
+  using AddTabResult = base::expected<void, tabs::ScopedTab>;
+  AddTabResult TryAddTabToSameTreeAsOpener(tabs::ScopedTab tab,
+                                           size_t index,
+                                           tabs::TabInterface* opener) const;
 
   // Checks if opener and previous tab collections are in the same tree
   // hierarchy.
@@ -86,7 +92,7 @@ class BraveTreeTabStripCollectionDelegate
       size_t recursive_index) const;
 
   // Adds a tab as a tree node to the specified collection at the given index.
-  void AddTabAsTreeNodeToCollection(std::unique_ptr<tabs::TabInterface> tab,
+  void AddTabAsTreeNodeToCollection(tabs::ScopedTab tab,
                                     tabs::TabCollection* target_collection,
                                     size_t target_index,
                                     size_t expected_recursive_index) const;
@@ -95,7 +101,7 @@ class BraveTreeTabStripCollectionDelegate
   void AddTabToUnpinnedCollectionAsTreeNode(
       size_t index,
       std::optional<tab_groups::TabGroupId> new_group_id,
-      std::unique_ptr<tabs::TabInterface> tab) const;
+      tabs::ScopedTab tab) const;
 
   // Inserts a tree-node wrapper (callbacks + model registration) for detached
   // split/group collections; used by InsertTabCollectionAt.
@@ -133,6 +139,16 @@ class BraveTreeTabStripCollectionDelegate
       tabs::TabCollection* target_collection,
       size_t target_index) const;
 
+  // Like MoveChildrenOfTreeTabNodeToParent(), but a child is left nested
+  // under |tree_tab_node_collection| when every tab it contains is also in
+  // |moving_tabs| - i.e. the child is a connected subtree moving together
+  // with its parent, so the hierarchy should be preserved instead of
+  // flattened. Children that aren't fully part of the move are hoisted to
+  // the parent as before.
+  void MoveNonSelectedChildrenOfTreeTabNodeToParent(
+      tabs::TreeTabNodeTabCollection* tree_tab_node_collection,
+      const base::flat_set<tabs::TabInterface*>& moving_tabs) const;
+
   // Groups where every tab in the group is in |moving_tabs|, so the move should
   // relocate the whole group collection. Empty when whole-group detection does
   // not apply (e.g. moving into a group or pinning).
@@ -149,6 +165,15 @@ class BraveTreeTabStripCollectionDelegate
   CompactMovingTabs(
       const std::vector<tabs::TabInterface*>& moving_tabs,
       const tabs::TabCollection::TypeEnumSet& types_to_compact) const;
+
+  // Returns true if an ancestor of |tree_node| (walking up while still under
+  // TreeTabNodeTabCollections) is itself one of |moving_tabs| - i.e.
+  // |tree_node| (whether it holds a bare tab, or wraps a group/split) will
+  // already be carried along nested when that ancestor is detached as a
+  // whole, so it should not be compacted/detached separately.
+  bool IsTreeNodeCoveredByMovingAncestor(
+      tabs::TreeTabNodeTabCollection* tree_node,
+      const base::flat_set<tabs::TabInterface*>& moving_tabs) const;
 
   // Returns the tab's parent collection in the strip; if the direct parent is
   // a split or group, returns the split/group's parent (e.g. group). This is
@@ -190,8 +215,7 @@ class BraveTreeTabStripCollectionDelegate
 
   // Detaches a single tab from its parent and returns it. Handles cases where
   // the parent is group or tree node.
-  std::unique_ptr<tabs::TabInterface> DetachTabFromParent(
-      tabs::TabInterface* tab) const;
+  tabs::ScopedTab DetachTabFromParent(tabs::TabInterface* tab) const;
 
   // Detaches a single split from its parent and returns it. Handles cases where
   // the parent is group or tree node.
@@ -201,8 +225,7 @@ class BraveTreeTabStripCollectionDelegate
   // Detaches a single tab from its group and returns it. If the group becomes
   // empty, removes the group collection and its tree node wrapper. The tab's
   // parent must be a TabGroupTabCollection.
-  std::unique_ptr<tabs::TabInterface> DetachTabOutOfGroup(
-      tabs::TabInterface* tab) const;
+  tabs::ScopedTab DetachTabOutOfGroup(tabs::TabInterface* tab) const;
 
   // Handles moving tabs out of a group: remove from group, wrap each in a tree
   // node, insert at destination, remove empty group.

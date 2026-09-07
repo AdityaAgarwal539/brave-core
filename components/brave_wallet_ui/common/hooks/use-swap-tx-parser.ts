@@ -13,7 +13,6 @@ import {
 
 // Utils
 import Amount from '../../utils/amount'
-import { transactionUsesShieldedPool } from '../../utils/tx-utils'
 import { NATIVE_EVM_ASSET_CONTRACT_ADDRESS } from '../constants/magics'
 
 // Queries
@@ -29,7 +28,9 @@ export const useSwapTransactionParser = <
 >(
   transaction: T,
 ): ParsedSwapInfo => {
-  const isShielded = transactionUsesShieldedPool(transaction)
+  const zcashTokenType =
+    transaction?.txDataUnion.zecTxData?.zcashTokenType
+    ?? BraveWallet.ZCashTokenType.kNone
 
   const { tokenInfo: sourceToken } = useGetTokenInfo(
     transaction?.swapInfo
@@ -39,7 +40,7 @@ export const useSwapTransactionParser = <
             !== NATIVE_EVM_ASSET_CONTRACT_ADDRESS
               ? transaction.swapInfo.sourceTokenAddress
               : '',
-          isShielded,
+          zcashTokenType,
           network: {
             chainId: transaction.swapInfo.sourceChainId,
             coin: transaction.swapInfo.sourceCoin,

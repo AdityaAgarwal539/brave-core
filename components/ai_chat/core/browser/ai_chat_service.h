@@ -31,6 +31,7 @@
 #include "brave/components/ai_chat/core/browser/associated_content_delegate.h"
 #include "brave/components/ai_chat/core/browser/conversation_handler.h"
 #include "brave/components/ai_chat/core/browser/conversation_share_manager.h"
+#include "brave/components/ai_chat/core/browser/conversation_share_store.h"
 #include "brave/components/ai_chat/core/browser/engine/engine_consumer.h"
 #include "brave/components/ai_chat/core/browser/tools/tool_provider_factory.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom-forward.h"
@@ -46,6 +47,10 @@
 #include "mojo/public/cpp/bindings/remote_set.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
+namespace syncer {
+class DataTypeControllerDelegate;
+}  // namespace syncer
+
 namespace os_crypt_async {
 class Encryptor;
 class OSCryptAsync;
@@ -58,6 +63,7 @@ class SharedURLLoaderFactory;
 
 namespace ai_chat {
 
+class AIChatSyncBackend;
 class ModelService;
 class TabTrackerService;
 class AIChatMetrics;
@@ -102,6 +108,12 @@ class AIChatService : public KeyedService,
 
   // KeyedService
   void Shutdown() override;
+
+  // Creates a sync controller delegate for the AI Chat data type. Uses
+  // ProxyDataTypeControllerDelegate to forward from UI thread to the
+  // background sequence where the bridge lives.
+  std::unique_ptr<syncer::DataTypeControllerDelegate>
+  CreateSyncControllerDelegate();
 
   // ConversationHandler::Observer
   void OnRequestInProgressChanged(ConversationHandler* handler,
@@ -202,7 +214,16 @@ class AIChatService : public KeyedService,
   void ConversationExists(const std::string& conversation_uuid,
                           ConversationExistsCallback callback) override;
   void ShareConversation(const std::string& encrypted_contents,
+                         const std::string& key_fragment,
+                         const std::string& conversation_uuid,
+                         const std::string& conversation_title,
+                         bool copy_to_clipboard,
                          ShareConversationCallback callback) override;
+  void GetConversationShares(GetConversationSharesCallback callback) override;
+  void DeleteConversationShare(
+      const std::string& share_id,
+      DeleteConversationShareCallback callback) override;
+  void CopyConversationShareLink(const std::string& share_id) override;
   void BindConversation(
       const std::string& uuid,
       mojo::PendingReceiver<mojom::ConversationHandler> receiver,
@@ -245,6 +266,11 @@ class AIChatService : public KeyedService,
     conversation_share_manager_ = std::move(share_manager);
   }
 
+  void SetConversationShareStoreForTesting(
+      std::unique_ptr<ConversationShareStore> share_store) {
+    conversation_share_store_ = std::move(share_store);
+  }
+
   size_t GetInMemoryConversationCountForTesting();
 
   EngineConsumer* GetTabOrganizationEngineForTesting() {
@@ -260,8 +286,7 @@ class AIChatService : public KeyedService,
     tab_tracker_service_ = tab_tracker_service;
   }
 
-  void SetDatabaseForTesting(
-      base::SequenceBound<std::unique_ptr<AIChatDatabase>> db) {
+  void SetDatabaseForTesting(base::SequenceBound<AIChatDatabase> db) {
     ai_chat_db_ = std::move(db);
   }
 
@@ -286,6 +311,34 @@ class AIChatService : public KeyedService,
       std::string conversation_uuid,
       base::OnceCallback<void(ConversationHandler*)> callback,
       mojom::ConversationArchivePtr data);
+
+  // Reply for DeleteAssociatedWebContent(): emits a sync change for each entry
+  // whose associated content was cleared, then runs |callback| with success.
+  void OnAssociatedWebContentDeleted(
+      base::OnceCallback<void(bool)> callback,
+      std::optional<std::vector<ClearedAssociatedContentEntry>> cleared);
+
+  // Completes ShareConversation once the sharing server has returned the viewer
+  // URL: appends |key_fragment| to build the full shareable link, records the
+  // share so the user can manage it later, optionally copies the link to the
+  // clipboard as confidential, and returns it via |callback|.
+  void OnShareConversationComplete(
+      const std::string& key_fragment,
+      const std::string& conversation_uuid,
+      const std::string& conversation_title,
+      bool copy_to_clipboard,
+      ShareConversationCallback callback,
+      const std::optional<ConversationShareResult>& share_result);
+
+  // Steps of DeleteConversationShare(): look up the capability token stored
+  // when the share was created, ask the server to delete the share with it,
+  // and forget the local record once the server has.
+  void OnShareDeletionIdRetrieved(const std::string& share_id,
+                                  DeleteConversationShareCallback callback,
+                                  std::optional<std::string> deletion_id);
+  void OnConversationShareDeleted(const std::string& share_id,
+                                  DeleteConversationShareCallback callback,
+                                  bool success);
 
   void MaybeAssociateContent(
       ConversationHandler* conversation,
@@ -360,6 +413,7 @@ class AIChatService : public KeyedService,
 
   std::unique_ptr<AIChatFeedbackAPI> feedback_api_;
   std::unique_ptr<ConversationShareManager> conversation_share_manager_;
+  std::unique_ptr<ConversationShareStore> conversation_share_store_;
   std::unique_ptr<AIChatCredentialManager> credential_manager_;
 
   // Factories of ToolProviders from other layers
@@ -374,7 +428,7 @@ class AIChatService : public KeyedService,
   base::FilePath profile_path_;
 
   // Storage for conversations
-  base::SequenceBound<std::unique_ptr<AIChatDatabase>> ai_chat_db_;
+  base::SequenceBound<AIChatDatabase> ai_chat_db_;
 
   // nullopt if haven't started fetching, empty if done fetching
   std::optional<std::vector<ConversationMapCallback>>
@@ -424,6 +478,24 @@ class AIChatService : public KeyedService,
   // Whether conversations can utilize content agent capabilities. For now,
   // this is profile-specific.
   bool is_content_agent_allowed_ = false;
+
+  // Background task runner for the database and sync bridge. Created
+  // synchronously the first time MaybeInitStorage() succeeds so that a
+  // ProxyDataTypeControllerDelegate can be handed out even before the bridge
+  // has finished initializing on it.
+  scoped_refptr<base::SequencedTaskRunner> db_task_runner_;
+
+  // True while an os_crypt_async GetInstance() call is in flight, to
+  // prevent MaybeInitStorage() from starting a second one (which would
+  // race and cause a double bridge install when the second callback
+  // fires).
+  bool os_crypt_init_pending_ = false;
+
+  // Thread-safe, sequence-affine holder for the sync bridge (see
+  // AIChatSyncBackend). Constructed eagerly so CreateSyncControllerDelegate()
+  // can hand out a proxy delegate before the bridge itself exists; the bridge
+  // is owned, accessed, and destroyed only on |db_task_runner_|.
+  scoped_refptr<AIChatSyncBackend> sync_backend_;
 
   base::WeakPtrFactory<AIChatService> weak_ptr_factory_{this};
 };

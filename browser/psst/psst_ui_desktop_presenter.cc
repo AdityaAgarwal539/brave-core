@@ -216,13 +216,19 @@ void PsstUiDesktopPresenter::ShowConsentDialog() {
     return;
   }
 
-  HideInfoBar();
-
   if (psst_action_controller_) {
     psst_action_controller_->SetShowBadge(false);
   }
 
   dialog_delegate_ = OpenPsstDialog(web_contents_.get());
+}
+
+void PsstUiDesktopPresenter::HideConsentDialog() {
+  if (!dialog_delegate_) {
+    return;
+  }
+
+  dialog_delegate_->CloseDialog();
 }
 
 bool PsstUiDesktopPresenter::IsDialogShown() const {
@@ -234,6 +240,11 @@ bool PsstUiDesktopPresenter::IsDialogShown() const {
 }
 
 void PsstUiDesktopPresenter::OnShowConsentDialogSelected() {
+  // Close the infobar if it is present. This is necessary because when the user
+  // clicks the omnibar icon, the PSST infobar may still be visible with no way
+  // to dismiss it.
+  HideInfoBar();
+
   ShowConsentDialog();
 }
 

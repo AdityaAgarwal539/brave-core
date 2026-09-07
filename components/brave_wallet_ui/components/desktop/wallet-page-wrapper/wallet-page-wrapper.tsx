@@ -86,6 +86,7 @@ export const WalletPageWrapper = (props: Props) => {
   const isPanel = useSafeUISelector(UISelectors.isPanel)
   const isMobile = useSafeUISelector(UISelectors.isMobile)
   const isMobileOrPanel = isMobile || isPanel
+  const isSidePanel = useSafeUISelector(UISelectors.isSidePanel)
 
   // State
   const [headerShadowOpacity, setHeaderShadowOpacity] =
@@ -168,7 +169,7 @@ export const WalletPageWrapper = (props: Props) => {
         {!isWalletLocked && (
           <FeatureRequestButtonWrapper>
             <CTAButton
-              buttonText={getLocale('braveWalletReportAnIssueButtonText')}
+              buttonText={getLocale(S.BRAVE_WALLET_REPORT_AN_ISSUE_BUTTON_TEXT)}
               url='https://community.brave.app/tags/c/wallet/131/bug'
               iconName='bug'
             />
@@ -184,6 +185,7 @@ export const WalletPageWrapper = (props: Props) => {
             headerHeight={headerHeight}
             hideNav={hideNav}
             padding={useFullHeight ? '0px' : undefined}
+            isSidePanel={isSidePanel}
           >
             {cardHeader && !isMobileOrPanel && (
               <CardHeaderWrapper>

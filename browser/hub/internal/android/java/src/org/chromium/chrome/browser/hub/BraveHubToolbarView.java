@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.hub;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.util.AttributeSet;
 import android.view.View;
@@ -14,7 +15,10 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.widget.TextViewCompat;
 
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.BraveFeatureList;
@@ -25,6 +29,9 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarPreference;
+import org.chromium.chrome.browser.ui.actions.button.FullButtonData;
+
+import java.util.List;
 
 /**
  * Brave's extension for {@link HubToolbarView}. Here we control what elements should be visible in
@@ -36,8 +43,11 @@ public class BraveHubToolbarView extends HubToolbarView
     private Button mActionButton;
     private Button mShredButton;
     private FrameLayout mMenuButton;
+    private FrameLayout mPaneSwitcherCard;
     private boolean mIsIncognitoSelected = true;
     private @Nullable FirstPartyStorageCleanerInterface mFpCleaner;
+    private final @NonNull HubColorMixerRegistrationHelper mButtonColorMixerHelper =
+            new HubColorMixerRegistrationHelper();
 
     public BraveHubToolbarView(Context context, AttributeSet attributeSet) {
         super(context, attributeSet);
@@ -50,6 +60,8 @@ public class BraveHubToolbarView extends HubToolbarView
         mShredButton =
                 findViewById(org.chromium.chrome.browser.brave_shields.R.id.shred_data_button);
         mMenuButton = findViewById(R.id.menu_button_wrapper);
+        mPaneSwitcherCard = findViewById(R.id.pane_switcher_card);
+        registerButtonColorBlend(mShredButton);
 
         mShredButton.setOnClickListener(
                 v -> {
@@ -82,11 +94,36 @@ public class BraveHubToolbarView extends HubToolbarView
     }
 
     @Override
+    void setPaneSwitcherButtonData(
+            @Nullable List<FullButtonData> buttonDataList, int selectedIndex) {
+        super.setPaneSwitcherButtonData(buttonDataList, selectedIndex);
+
+        // Upstream hides the pane switcher itself when there is a single pane, but keeps the card
+        // hosting it, so the card's rounded background and padding are left over as a stray sliver
+        // in the middle of the toolbar. Upstream always has at least two panes; Brave is down to
+        // one when tab groups are disabled and there are no incognito tabs.
+        mPaneSwitcherCard.setVisibility(
+                buttonDataList != null && buttonDataList.size() > 1 ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
     void setPaneSwitcherIndex(int index) {
         super.setPaneSwitcherIndex(index);
 
         // Update visibility of action and menu buttons based on the switching panes.
         updateButtonsVisibility();
+    }
+
+    @Override
+    void setColorMixer(HubColorMixer mixer) {
+        super.setColorMixer(mixer);
+        mButtonColorMixerHelper.setColorMixer(mixer);
+    }
+
+    @Override
+    public void destroy() {
+        mButtonColorMixerHelper.destroy();
+        super.destroy();
     }
 
     @Override
@@ -133,6 +170,31 @@ public class BraveHubToolbarView extends HubToolbarView
     public void setFirstPartyStorageCleanerForTesting(
             FirstPartyStorageCleanerInterface firstPartyStorageCleaner) {
         mFpCleaner = firstPartyStorageCleaner;
+    }
+
+    private void registerButtonColorBlend(@NonNull Button button) {
+        mButtonColorMixerHelper.registerBlend(createButtonIconColorBlend(button));
+    }
+
+    /**
+     * Creates the standard Hub icon-color blend for a Brave-specific icon button.
+     *
+     * <p>Mirrors the blend applied to the upstream Hub menu button:
+     * https://chromium.googlesource.com/chromium/src/+/ef35003457e93c278f911a334b06e4a5f8967e06/chrome/browser/hub/internal/android/java/src/org/chromium/chrome/browser/hub/HubToolbarView.java#344
+     */
+    private @NonNull HubViewColorBlend createButtonIconColorBlend(@NonNull Button button) {
+        Context context = getContext();
+        return new SingleHubViewColorBlend(
+                HubAnimationConstants.PANE_COLOR_BLEND_ANIMATION_DURATION_MS,
+                colorScheme -> HubColors.getIconColor(context, colorScheme),
+                color -> updateButtonIconTint(context, button, color));
+    }
+
+    private void updateButtonIconTint(
+            @NonNull Context context, @NonNull Button button, @ColorInt int color) {
+        ColorStateList tint =
+                HubColors.getActionButtonColor(context, color, HubUtils.isGtsUpdateEnabled());
+        TextViewCompat.setCompoundDrawableTintList(button, tint);
     }
 
     private void updateButtonsVisibility() {

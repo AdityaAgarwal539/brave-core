@@ -3,6 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+import { InputMethod } from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js'
+import { SuggestInventory } from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js'
+
 import { loadTimeData } from '$web-common/loadTimeData'
 import { SearchBoxProxy } from './search_box_proxy'
 import { NewTabPageProxy } from './new_tab_page_proxy'
@@ -147,6 +150,10 @@ export function createSearchStore() {
 
   loadData()
 
+  // Tracks the latest query sent for autocompletion. Used to filter out stale
+  // results.
+  let activeQueryId = 0
+
   const actions: SearchActions = {
     setShowSearchBox(showSearchBox) {
       store.update({ showSearchBox })
@@ -207,7 +214,16 @@ export function createSearchStore() {
       if (searchEngine && searchEngine.keyword) {
         query = [searchEngine.keyword, query].join(' ')
       }
-      searchProxy.handler.queryAutocomplete(query, false, query.length)
+      searchProxy.handler.queryAutocomplete(
+        activeQueryId++,
+        query,
+        false,
+        query.length,
+        SuggestInventory.kDefault,
+        query.length === 0,
+        /*keyword*/ '',
+        InputMethod.kKeyboard,
+      )
     },
 
     openAutocompleteMatch(index, event) {
@@ -223,16 +239,23 @@ export function createSearchStore() {
         match.destinationUrl,
         true,
         event.button,
-        event.altKey,
-        event.ctrlKey,
-        event.metaKey,
-        event.shiftKey,
+        {
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+        },
         /* via_keyboard= */ false,
       )
     },
 
     stopAutocomplete() {
       searchProxy.handler.stopAutocomplete(true)
+    },
+
+    async getUrlFromSearchInput(query) {
+      let { url } = await newTabProxy.handler.getUrlFromSearchInput(query)
+      return url ?? null
     },
 
     openSearch(query, engine, event) {

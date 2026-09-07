@@ -29,6 +29,7 @@
 #include "brave/browser/brave_search/backup_results_service_factory.h"
 #include "brave/browser/brave_shields/brave_shields_settings_service_factory.h"
 #include "brave/browser/brave_shields/brave_shields_web_contents_observer.h"
+#include "brave/browser/brave_stats/first_run_util.h"
 #include "brave/browser/cosmetic_filters/cosmetic_filters_tab_helper.h"
 #include "brave/browser/debounce/debounce_service_factory.h"
 #include "brave/browser/ephemeral_storage/ephemeral_storage_service_factory.h"
@@ -70,6 +71,7 @@
 #include "brave/components/brave_shields/core/common/brave_shield_constants.h"
 #include "brave/components/brave_shields/core/common/features.h"
 #include "brave/components/brave_shields/core/common/shields_settings.mojom.h"
+#include "brave/components/brave_user_agent/browser/brave_user_agent_exceptions.h"
 #include "brave/components/brave_vpn/common/buildflags/buildflags.h"
 #include "brave/components/brave_wallet/common/buildflags/buildflags.h"
 #include "brave/components/constants/pref_names.h"
@@ -95,6 +97,7 @@
 #include "brave/components/skus/common/skus_utils.h"
 #include "brave/components/speedreader/common/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
+#include "brave/components/traffic_control/buildflags/buildflags.h"
 #include "brave/components/translate/core/common/brave_translate_switches.h"
 #include "brave/components/url_sanitizer/core/browser/url_sanitizer_service.h"
 #include "brave/grit/brave_generated_resources.h"
@@ -115,7 +118,6 @@
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/embedder_support/switches.h"
-#include "components/history_embeddings/core/history_embeddings_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/heap_profiling/public/mojom/heap_profiling_client.mojom.h"
 #include "components/user_prefs/user_prefs.h"
@@ -172,8 +174,9 @@
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_LOCAL_AI)
-#include "brave/browser/ui/webui/local_ai/local_ai_ui.h"
-#include "brave/components/local_ai/core/local_ai.mojom.h"
+#include "brave/browser/ui/webui/local_ai/on_device_speech_recognition_worker_ui.h"
+#include "brave/components/local_ai/core/features.h"
+#include "brave/components/local_ai/core/on_device_speech_recognition.mojom.h"
 #endif
 
 #if BUILDFLAG(ENABLE_BRAVE_ADS)
@@ -209,9 +212,6 @@
 
 using blink::web_pref::WebPreferences;
 using brave_shields::BraveShieldsWebContentsObserver;
-using brave_shields::ControlType;
-using brave_shields::GetBraveShieldsEnabled;
-using brave_shields::GetFingerprintingControlType;
 using content::BrowserThread;
 using content::ContentBrowserClient;
 using content::RenderFrameHost;
@@ -249,6 +249,10 @@ using extensions::ChromeContentBrowserClientExtensionsPart;
 #include "brave/components/containers/core/common/features.h"
 #include "brave/components/containers/core/mojom/containers.mojom.h"
 #endif
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+#include "brave/components/traffic_control/core/common/features.h"
+#include "brave/components/traffic_control/core/mojom/traffic_control.mojom.h"
+#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "brave/browser/ui/split_view/split_view_link_navigation_throttle.h"
@@ -259,6 +263,7 @@ using extensions::ChromeContentBrowserClientExtensionsPart;
 #include "brave/components/commands/common/features.h"
 #include "brave/ui/webui/brave_color_change_listener/brave_color_change_handler.h"
 #include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
+#include "ui/webui/resources/cr_components/theme_color_picker/theme_color_picker.mojom.h"
 #if BUILDFLAG(ENABLE_AI_CHAT)
 #include "brave/browser/ui/ai_chat/utils.h"
 #endif
@@ -305,7 +310,11 @@ using extensions::ChromeContentBrowserClientExtensionsPart;
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+#include "base/files/memory_mapped_file.h"
 #include "brave/browser/ui/webui/new_tab_takeover/android/new_tab_takeover_ui.h"
+#include "chrome/common/chrome_descriptors_android.h"
+#include "content/public/browser/posix_file_descriptor_info.h"
+#include "ui/base/resource/resource_bundle_android.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -362,7 +371,9 @@ using extensions::ChromeContentBrowserClientExtensionsPart;
 #if BUILDFLAG(ENABLE_BRAVE_WALLET)
 #include "brave/browser/ui/webui/brave_wallet/wallet_page/wallet_page_ui.h"
 #if !BUILDFLAG(IS_ANDROID)
+#include "brave/browser/ui/webui/brave_wallet/ledger/ledger_ui.h"
 #include "brave/browser/ui/webui/brave_wallet/wallet_panel/wallet_panel_ui.h"
+#include "brave/components/brave_wallet/common/ledger_bridge.mojom.h"
 #endif
 #endif
 
@@ -398,9 +409,6 @@ void BindBraveSearchFallbackHost(
   content::BrowserContext* context = render_process_host->GetBrowserContext();
   auto* backup_results_service =
       brave_search::BackupResultsServiceFactory::GetForBrowserContext(context);
-  if (!backup_results_service) {
-    return;
-  }
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<brave_search::BraveSearchFallbackHost>(
           backup_results_service),
@@ -656,6 +664,13 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
         .Add<containers::mojom::ContainersSettingsHandler>();
   }
 #endif  // BUILDFLAG(ENABLE_CONTAINERS)
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+  if (base::FeatureList::IsEnabled(
+          traffic_control::features::kTrafficControl)) {
+    registry.ForWebUI<BraveSettingsUI>()
+        .Add<traffic_control::mojom::TrafficControlSettingsHandler>();
+  }
+#endif  // BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
 #if !BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(ENABLE_AI_CHAT)
   registry.ForWebUI<BraveSettingsUI>()
@@ -705,6 +720,9 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
 
 #if BUILDFLAG(ENABLE_BRAVE_ADS)
   registry.ForWebUI<AdsInternalsUI>().Add<bat_ads::mojom::AdsInternals>();
+#if BUILDFLAG(ENABLE_BRAVE_REWARDS)
+  registry.ForWebUI<AdsInternalsUI>().Add<bat_ads::mojom::AdsInternalsLogs>();
+#endif  // BUILDFLAG(ENABLE_BRAVE_REWARDS)
 #endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
 
   if (base::FeatureList::IsEnabled(skus::features::kSkusFeature)) {
@@ -719,6 +737,9 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
 #if BUILDFLAG(ENABLE_BRAVE_WALLET)
   registry.ForWebUI<brave_wallet::WalletPageUI>()
       .Add<brave_wallet::mojom::PageHandlerFactory>()
+#if !BUILDFLAG(IS_ANDROID)
+      .Add<brave_wallet::mojom::LedgerBridgeService>()
+#endif  // !BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(ENABLE_BRAVE_REWARDS)
       .Add<brave_rewards::mojom::RewardsPageHandler>()
 #endif  // BUILDFLAG(ENABLE_BRAVE_REWARDS)
@@ -726,6 +747,7 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
 #if !BUILDFLAG(IS_ANDROID)
   registry.ForWebUI<WalletPanelUI>()
       .Add<brave_wallet::mojom::PanelHandlerFactory>()
+      .Add<brave_wallet::mojom::LedgerBridgeService>()
 #if BUILDFLAG(ENABLE_BRAVE_REWARDS)
       .Add<brave_rewards::mojom::RewardsPageHandler>()
 #endif  // BUILDFLAG(ENABLE_BRAVE_REWARDS)
@@ -756,7 +778,9 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
   if (ai_chat::features::IsAIChatEnabled() &&
-      ai_chat::features::IsShowAIChatInputOnNewTabPageEnabled()) {
+      ai_chat::features::IsShowAIChatInputOnNewTabPageEnabled(
+          g_browser_process->local_state(),
+          brave_stats::IsFirstRun(g_browser_process->local_state()))) {
     ntp_refresh_registration.Add<ai_chat::mojom::AIChatUIHandler>()
         .Add<ai_chat::mojom::Service>()
         .Add<ai_chat::mojom::TabTrackerService>()
@@ -778,7 +802,8 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
   }
 
   registry.ForWebUI<BraveWelcomePageUI>()
-      .Add<brave_welcome_page::mojom::WelcomePageHandler>();
+      .Add<brave_welcome_page::mojom::WelcomePageHandler>()
+      .Add<theme_color_picker::mojom::ThemeColorPickerHandlerFactory>();
 
 #if BUILDFLAG(ENABLE_BRAVE_NEWS)
   if (base::FeatureList::IsEnabled(
@@ -799,8 +824,9 @@ void BraveContentBrowserClient::RegisterTrustedWebUIInterfaceBrokers(
 #if BUILDFLAG(ENABLE_EMAIL_ALIASES)
   if (email_aliases::features::IsEmailAliasesEnabled()) {
     registry.ForWebUI<EmailAliasesPanelUI>()
-        .Add<email_aliases::mojom::EmailAliasesService>()
-        .Add<email_aliases::mojom::EmailAliasesPanelHandler>();
+        .Add<brave_account::mojom::Authentication>()
+        .Add<email_aliases::mojom::EmailAliasesPanelHandler>()
+        .Add<email_aliases::mojom::EmailAliasesService>();
     registry.ForWebUI<EmailAliasesPromoUI>()
         .Add<email_aliases::mojom::EmailAliasesPromoHandler>();
   }
@@ -846,6 +872,13 @@ void BraveContentBrowserClient::RegisterUntrustedWebUIInterfaceBrokers(
   if (base::FeatureList::IsEnabled(brave_news::features::kBraveNewsSidebar)) {
     registry.ForWebUI<BraveNewsUI>()
         .Add<brave_news::mojom::BraveNewsController>();
+  }
+#endif
+
+#if BUILDFLAG(ENABLE_BRAVE_WALLET) && !BUILDFLAG(IS_ANDROID)
+  if (brave_wallet::IsMojoForHardwareWalletEnabled()) {
+    registry.ForWebUI<ledger::UntrustedLedgerUI>()
+        .Add<brave_wallet::mojom::LedgerBridgeUIHandler>();
   }
 #endif
 }
@@ -908,7 +941,8 @@ BraveContentBrowserClient::WorkerGetBraveShieldSettings(
   return brave_shields::mojom::ShieldsSettings::New(
       farbling_level, farbling_token, std::vector<std::string>(),
       brave_shields::IsReduceLanguageEnabledForProfile(pref_service),
-      IsJsBlockingEnforced(browser_context, url));
+      IsJsBlockingEnforced(browser_context, url),
+      brave_user_agent::ShouldHideBraveBrand(url));
 }
 
 bool BraveContentBrowserClient::CanCreateWindow(
@@ -993,9 +1027,10 @@ void BraveContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
   map->Add<skus::mojom::SkusService>(
       base::BindRepeating(&MaybeBindSkusSdkImpl));
 #if BUILDFLAG(ENABLE_LOCAL_AI)
-  if (base::FeatureList::IsEnabled(history_embeddings::kHistoryEmbeddings)) {
+  if (base::FeatureList::IsEnabled(local_ai::kBraveOnDeviceSpeechRecognition)) {
     content::RegisterWebUIControllerInterfaceBinder<
-        local_ai::mojom::LocalAIService, local_ai::UntrustedLocalAIUI>(map);
+        local_ai::mojom::SpeechRecognitionFactoryHost,
+        local_ai::UntrustedOnDeviceSpeechRecognitionWorkerUI>(map);
   }
 #endif
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
@@ -1156,7 +1191,7 @@ BraveContentBrowserClient::CreateURLLoaderThrottles(
 
       auto producer =
           speedreader::SpeedreaderDistilledPageProducer::MaybeCreate(
-              tab_helper->GetWeakPtr());
+              request.url, tab_helper->GetWeakPtr());
       if (producer) {
         body_sniffer_throttle->SetBodyProducer(std::move(producer));
       }
@@ -1205,26 +1240,28 @@ void BraveContentBrowserClient::WillCreateURLLoaderFactory(
     bool* bypass_redirect_checks,
     bool* disable_secure_dns,
     network::mojom::URLLoaderFactoryOverridePtr* factory_override,
-    scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
+    scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner,
+    bool is_for_network_service) {
   // TODO(iefremov): Skip proxying for certain requests?
   if (base::FeatureList::IsEnabled(features::kBraveRequestInfoUniquePtr)) {
     BraveProxyingURLLoaderFactory<base::WeakPtr>::MaybeProxyRequest(
-        browser_context, frame, factory_builder,
-        navigation_response_task_runner);
+        browser_context, frame, factory_builder, type, request_initiator,
+        isolation_info, navigation_id, navigation_response_task_runner);
   } else {
     // Ignore shared_ptr presubmit error, this is old code we are trying to
     // convert to unique_ptr/WeakPtr
     BraveProxyingURLLoaderFactory<
         std::shared_ptr>::MaybeProxyRequest(  // nocheck
-        browser_context, frame, factory_builder,
-        navigation_response_task_runner);
+        browser_context, frame, factory_builder, type, request_initiator,
+        isolation_info, navigation_id, navigation_response_task_runner);
   }
 
   ChromeContentBrowserClient::WillCreateURLLoaderFactory(
       browser_context, frame, render_process_id, type, request_initiator,
       isolation_info, std::move(navigation_id), ukm_source_id, factory_builder,
       header_client, bypass_redirect_checks, disable_secure_dns,
-      factory_override, navigation_response_task_runner);
+      factory_override, navigation_response_task_runner,
+      is_for_network_service);
 }
 
 bool BraveContentBrowserClient::WillInterceptWebSocket(
@@ -1247,7 +1284,7 @@ void BraveContentBrowserClient::CreateChromeWebSocket(
         frame, proxy->CreateWebSocketFactory(), url, site_for_cookies,
         user_agent, std::move(handshake_client), std::move(options));
   } else {
-    proxy->Start(std::move(handshake_client));
+    proxy->Start(std::move(handshake_client), std::move(options.header_client));
   }
 }
 void BraveContentBrowserClient::CreateWebSocket(
@@ -1312,7 +1349,7 @@ void BraveContentBrowserClient::MaybeHideReferrer(
   Profile* profile = Profile::FromBrowserContext(browser_context);
   const bool allow_referrers = brave_shields::AreReferrersAllowed(
       HostContentSettingsMapFactory::GetForProfile(profile), document_url);
-  const bool shields_up = brave_shields::GetBraveShieldsEnabled(
+  const bool shields_up = brave_shields::IsBraveShieldsEnabled(
       HostContentSettingsMapFactory::GetForProfile(profile), document_url);
 
   content::Referrer new_referrer;
@@ -1489,37 +1526,6 @@ bool UpdateGlobalPrivacyControlWebPreference(WebContents* web_contents,
   return true;
 }
 
-bool PreventDarkModeFingerprinting(WebContents* web_contents,
-                                   content::SiteInstance& main_frame_site,
-                                   WebPreferences* prefs) {
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  // The HostContentSettingsMap might be null for some irregular profiles, e.g.
-  // the System Profile.
-  auto* host_content_settings_map =
-      HostContentSettingsMapFactory::GetForProfile(profile);
-  if (!host_content_settings_map) {
-    return false;
-  }
-  const GURL url =
-      main_frame_site.GetSecurityPrincipal().GetDeprecatedSiteURL();
-  const bool shields_up =
-      brave_shields::GetBraveShieldsEnabled(host_content_settings_map, url);
-  auto fingerprinting_type = brave_shields::GetFingerprintingControlType(
-      host_content_settings_map, url);
-  // https://github.com/brave/brave-browser/issues/15265
-  // Always use color scheme Light if fingerprinting mode strict
-  if (base::FeatureList::IsEnabled(
-          brave_shields::features::kBraveDarkModeBlock) &&
-      shields_up && fingerprinting_type == ControlType::BLOCK &&
-      prefs->preferred_color_scheme !=
-          blink::mojom::PreferredColorScheme::kLight) {
-    prefs->preferred_color_scheme = blink::mojom::PreferredColorScheme::kLight;
-    return true;
-  }
-  return false;
-}
-
 std::vector<url::Origin>
 BraveContentBrowserClient::GetOriginsRequiringDedicatedProcess() {
   std::vector<url::Origin> isolated_origin_list;
@@ -1551,8 +1557,7 @@ bool BraveContentBrowserClient::OverrideWebPreferencesAfterNavigation(
       ChromeContentBrowserClient::OverrideWebPreferencesAfterNavigation(
           web_contents, main_frame_site, prefs);
 
-  return PreventDarkModeFingerprinting(web_contents, main_frame_site, prefs) ||
-         UpdateGlobalPrivacyControlWebPreference(web_contents, prefs) ||
+  return UpdateGlobalPrivacyControlWebPreference(web_contents, prefs) ||
          changed;
 }
 
@@ -1562,7 +1567,6 @@ void BraveContentBrowserClient::OverrideWebPreferences(
     WebPreferences* web_prefs) {
   ChromeContentBrowserClient::OverrideWebPreferences(
       web_contents, main_frame_site, web_prefs);
-  PreventDarkModeFingerprinting(web_contents, main_frame_site, web_prefs);
   UpdateGlobalPrivacyControlWebPreference(web_contents, web_prefs);
 
 #if BUILDFLAG(ENABLE_PLAYLIST)
@@ -1689,3 +1693,24 @@ bool BraveContentBrowserClient::IsJitDisabledForSite(
   return ChromeContentBrowserClient::IsJitDisabledForSite(browser_context,
                                                           site_url);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void BraveContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
+    const base::CommandLine& command_line,
+    int child_process_id,
+    content::PosixFileDescriptorInfo* mappings) {
+  ChromeContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
+      command_line, child_process_id, mappings);
+
+  // Share brave_resources.pak (opened by the browser via JNI) with child
+  // processes. Native-only (javaless) renderers have no JVM and cannot open the
+  // APK asset themselves; they load it from this descriptor. Mirrors how Chrome
+  // shares resources.pak (see ChromeContentBrowserClient with
+  // kAndroidUIResourcesPakDescriptor).
+  base::MemoryMappedFile::Region region;
+  int fd = ui::GetBraveResourcesPackFd(&region);
+  if (fd != -1) {
+    mappings->ShareWithRegion(kBraveResourcesPakDescriptor, fd, region);
+  }
+}
+#endif  // BUILDFLAG(IS_ANDROID)

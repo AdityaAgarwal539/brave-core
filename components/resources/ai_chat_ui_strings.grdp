@@ -108,14 +108,8 @@
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_AUTOMATIC" desc="AI Chat intro message for the default model" formatter_data="webui=AiChat">
     Model changes dynamically to use the best one for the task.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
-  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_BASIC" desc="AI Chat intro message for the basic model" formatter_data="webui=AiChat">
-    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Llama 3.1 8B, a model created by Meta to be performant and applicable to many use cases. Llama is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
-  </message>
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_QWEN" desc="AI Chat intro message for the qwen model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Qwen VL 30B, a model created by Alibaba Cloud to be performant and applicable to many use cases. Qwen is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
-  </message>
-  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_NEAR_GLM_5" desc="AI Chat intro message for the glm-5 model" formatter_data="webui=AiChat">
-    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by GLM-5, a model created by Zhipu AI to be performant and applicable to many use cases. GLM-5 is NEAR-hosted through their own verifiably private secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_NEAR_GLM_5_1" desc="AI Chat intro message for the glm-5.1 model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by GLM-5.1, a model created by Zhipu AI to be performant and applicable to many use cases. GLM-5.1 is NEAR-hosted through their own verifiably private secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
@@ -129,14 +123,11 @@
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_CLAUDE_SONNET" desc="AI Chat intro message for the Claude Sonnet model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Claude Sonnet, a model created by Anthropic to power conversational and text processing tasks. Claude Sonnet is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
-  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_LLAMA_4_MAVERICK" desc="AI Chat intro message for the Llama 4 Maverick model" formatter_data="webui=AiChat">
-    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Llama 4 Maverick, a model created by Meta to be performant and applicable to many use cases. Llama 4 Maverick is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
+  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_GROK_4_3_BEDROCK" desc="AI Chat intro message for the Grok 4.3 model" formatter_data="webui=AiChat">
+    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Grok 4.3, a model created by xAI to be performant and applicable to many use cases. Grok 4.3 is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
-  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_GPT_OSS_20B" desc="AI Chat intro message for the GPT OSS 20B model" formatter_data="webui=AiChat">
-    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by GPT OSS 20B, a model created by OpenAI to be performant and applicable to many use cases. GPT OSS 20B is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
-  </message>
-  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_GPT_OSS_120B" desc="AI Chat intro message for the GPT OSS 120B model" formatter_data="webui=AiChat">
-    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by GPT OSS 120B, a model created by OpenAI to be performant and applicable to many use cases. GPT OSS 120B is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
+  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_GPT_5_4_BEDROCK" desc="AI Chat intro message for the GPT 5.4 model" formatter_data="webui=AiChat">
+    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by GPT 5.4, a model created by OpenAI to be performant and applicable to many use cases. GPT 5.4 is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_MISTRAL_LARGE" desc="AI Chat intro message for the Mistral Large model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Mistral Large, a model created by Mistral to be performant and applicable to many use cases. Mistral Large is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
@@ -147,9 +138,6 @@
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_DEEPSEEK_V3_2" desc="AI Chat intro message for the Deepseek V3.2 model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Deepseek V3.2, a model created by Deepseek to be performant and applicable to many use cases. Deepseek V3.2 is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
-  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_QWEN_3_CODER_480B" desc="AI Chat intro message for the Qwen 3 Coder 480B model" formatter_data="webui=AiChat">
-    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Qwen 3 Coder 480B, a model created by Alibaba Cloud to be performant and applicable to many use cases. Qwen 3 Coder 480B is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
-  </message>
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_CLAUDE_OPUS" desc="AI Chat intro message for the Claude Opus model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Claude Opus, a model created by Anthropic to power conversational and text processing tasks. Claude Opus is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
@@ -158,6 +146,9 @@
   </message>
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_KIMI_K2_5" desc="AI Chat intro message for the Kimi K2.5 model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Kimi K2.5, a model created by Moonshot AI to be performant and applicable to many use cases. Kimi K2.5 is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
+  </message>
+  <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_NEMOTRON_NANO_3_30B" desc="AI Chat intro message for the Nemotron Nano 3 30B model" formatter_data="webui=AiChat">
+    Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Nemotron Nano 3 30B, a model created by NVIDIA to be performant and applicable to many use cases. Nemotron Nano 3 30B is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
   </message>
   <message name="IDS_CHAT_UI_INTRO_MESSAGE_CHAT_BRAVE_SUMMARY" desc="AI Chat intro message for the Brave Summary model" formatter_data="webui=AiChat">
     Hi, I'm Leo. I'm an AI assistant by Brave. I'm powered by Brave Ocelot, a model created by Brave to summarise web pages. Brave Ocelot is Brave-hosted through our own secure infrastructure.<ph name="LINK_BEFORE">$1</ph>Learn more<ph name="LINK_AFTER">/$1</ph>
@@ -229,7 +220,7 @@
     Find task-specific models for coding, content generation, and beyond
   </message>
   <message name="IDS_CHAT_UI_PREMIUM_FEATURE_3" desc="A premium feature: higher rate limits" formatter_data="webui=AiChat">
-    Higher rate limits for your conversations
+    Get higher rate limits for your conversations
   </message>
   <message name="IDS_CHAT_UI_PREMIUM_LABEL" translateable="false" desc="A label for Brave premium products" formatter_data="webui=AiChat">
      Leo Premium
@@ -426,8 +417,38 @@
   <message name="IDS_CHAT_UI_NEW_CONVERSATION_BUTTON_LABEL" desc="A label for the button which starts a new conversation" formatter_data="webui=AiChat">
     Start a new conversation
   </message>
-  <message name="IDS_CHAT_UI_SHARE_CONVERSATION_BUTTON_LABEL" desc="A label for the button which shares the current conversation" formatter_data="webui=AiChat">
-    Share conversation
+  <message name="IDS_CHAT_UI_SHARE_CONVERSATION_LABEL" desc="Label for sharing the current conversation" formatter_data="webui=AiChat">
+    Share this conversation
+  </message>
+  <message name="IDS_CHAT_UI_SHARE_CONVERSATION_DIALOG_DESCRIPTION" desc="Explanatory text in the share conversation dialog describing how the conversation is encrypted before being uploaded and when the shared link expires" formatter_data="webui=AiChat">
+    Your conversation will be uploaded encrypted and can only be decrypted with the generated link. Brave will not be able to view your conversation. Only you and the people you share this link with can decrypt your shared conversation. All shared conversations will expire after 7 days.
+  </message>
+  <message name="IDS_CHAT_UI_SHARE_CONVERSATION_DIALOG_MANAGE_SHARES_LINK" desc="Text with an inline link at the bottom of the share conversation dialog. The link opens the dialog which lists every conversation the user has shared, where they can be copied or deleted." formatter_data="webui=AiChat">
+    You can <ph name="LINK_BEFORE">$1</ph>manage your shares<ph name="LINK_AFTER">/$1</ph> to find or delete them at any time.
+  </message>
+  <message name="IDS_CHAT_UI_SHARE_CONVERSATION_DIALOG_GENERATE_LINK_BUTTON_LABEL" desc="A label for the button which generates and copies a shareable link for the current conversation" formatter_data="webui=AiChat">
+    Generate link
+  </message>
+  <message name="IDS_CHAT_UI_SHARE_CONVERSATION_DIALOG_LINK_COPIED_BUTTON_LABEL" desc="Confirmation that the shareable link has been copied to the clipboard. Shown as a label on the share button, and as a notification when a link is copied from the list of shared conversations" formatter_data="webui=AiChat">
+    Link copied to clipboard
+  </message>
+  <message name="IDS_CHAT_UI_MENU_MANAGE_SHARED_CONVERSATIONS" desc="Menu entry which opens a dialog listing the conversations the user has shared" formatter_data="webui=AiChat">
+    Manage shared conversations
+  </message>
+  <message name="IDS_CHAT_UI_SHARED_CONVERSATIONS_DIALOG_DESCRIPTION" desc="Explanatory text at the top of the dialog listing the conversations the user has shared" formatter_data="webui=AiChat">
+    Anyone with the link can view these conversations until they expire. Delete a shared conversation to stop its link from working.
+  </message>
+  <message name="IDS_CHAT_UI_SHARED_CONVERSATIONS_DIALOG_EMPTY" desc="Text shown in the shared conversations dialog when the user has not shared any conversations" formatter_data="webui=AiChat">
+    You haven't shared any conversations.
+  </message>
+  <message name="IDS_CHAT_UI_SHARED_CONVERSATIONS_DELETE_BUTTON_LABEL" desc="A label for the button which deletes a shared conversation so that its link stops working" formatter_data="webui=AiChat">
+    Delete shared conversation
+  </message>
+  <message name="IDS_CHAT_UI_SHARED_CONVERSATIONS_COPY_LINK_BUTTON_LABEL" desc="A label for the button which copies the link to a shared conversation" formatter_data="webui=AiChat">
+    Copy link
+  </message>
+  <message name="IDS_CHAT_UI_SHARED_CONVERSATIONS_DELETE_ERROR" desc="An error message shown when a shared conversation could not be deleted" formatter_data="webui=AiChat">
+    Couldn't delete the shared conversation. Check your connection and try again.
   </message>
   <message name="IDS_CHAT_UI_MENU_RENAME_CONVERSATION" desc="Menu entry for renaming a conversation" formatter_data="webui=AiChat">
     Rename conversation
@@ -455,15 +476,6 @@
   </message>
   <message name="IDS_CHAT_UI_OPEN_LABEL" desc="A button label to open a link" formatter_data="webui=AiChat">
     Open
-  </message>
-  <message name="IDS_CHAT_UI_OPEN_EXTERNAL_LINK" desc="A button label to open a link" formatter_data="webui=AiChat">
-    Open external link?
-  </message>
-  <message name="IDS_CHAT_UI_OPEN_EXTERNAL_LINK_INFO" desc="Info text to open a link" formatter_data="webui=AiChat">
-    Leo AI wants to open a website in a new tab. Do you want to continue?
-  </message>
-  <message name="IDS_CHAT_UI_OPEN_EXTERNAL_LINK_CHECKBOX_LABEL" desc="A checkbox label to open a link without asking me again" formatter_data="webui=AiChat">
-    Open links without asking me again
   </message>
   <message name="IDS_CHAT_UI_SEND_BUTTON_LABEL" desc="A button label for sending a chat message rating" formatter_data="webui=AiChat">
     Send
@@ -506,6 +518,12 @@
   </message>
   <message name="IDS_CHAT_UI_SEARCH_QUERIES" desc="AI Response status to indicate that search queries were used to enhance the response" formatter_data="webui=AiChat">
     Searching the web for <ph name="SEARCH_TERMS">$1<ex>"my first search engine query", "my second search engine query"</ex></ph>.
+  </message>
+  <message name="IDS_CHAT_UI_TAB_SEARCH_IN_PROGRESS" desc="Status shown while the browser searches the user's open tabs for a query the AI assistant asked about" formatter_data="webui=AiChat">
+    Searching your open tabs for "<ph name="QUERY">$1<ex>react hooks</ex></ph>"…
+  </message>
+  <message name="IDS_CHAT_UI_TAB_SEARCH_NO_RESULTS" desc="Message shown when none of the user's open tabs match what the AI assistant searched for" formatter_data="webui=AiChat">
+    No open tabs match "<ph name="QUERY">$1<ex>react hooks</ex></ph>".
   </message>
   <message name="IDS_CHAT_UI_SOURCES" desc="Heading for a list of website sources that were used to generate an AI chat response" formatter_data="webui=AiChat">
     Sources
@@ -573,9 +591,6 @@
   <message name="IDS_CHAT_UI_NOTICE_CONVERSATION_HISTORY_DISABLED_PREF_BUTTON" desc="Button label to enable conversation history preference" formatter_data="webui=AiChat">
     Enable
   </message>
-  <message name="IDS_CHAT_UI_CHAT_BASIC_SUBTITLE" desc="A description for default chat model" formatter_data="webui=AiChat">
-    Fast • Search
-  </message>
   <message name="IDS_CHAT_UI_CHAT_CLAUDE_INSTANT_SUBTITLE" desc="A description for claude-instant-v1 model" formatter_data="webui=AiChat">
     Conversation and text generation
   </message>
@@ -588,9 +603,6 @@
   <message name="IDS_CHAT_UI_CHAT_QWEN_SUBTITLE" desc="A description for qwen model" formatter_data="webui=AiChat">
     Fast • Search • Vision
   </message>
-  <message name="IDS_CHAT_UI_CHAT_NEAR_GLM_5_SUBTITLE" desc="A description for glm-5 model" formatter_data="webui=AiChat">
-    Verifiably Private With NEAR AI TEE
-  </message>
   <message name="IDS_CHAT_UI_CHAT_NEAR_GLM_5_1_SUBTITLE" desc="A description for glm-5.1 model" formatter_data="webui=AiChat">
     Verifiably Private With NEAR AI TEE
   </message>
@@ -600,14 +612,14 @@
   <message name="IDS_CHAT_UI_CHAT_GLM_4_7_FLASH_SUBTITLE" desc="A description for glm-4-7-flash model" formatter_data="webui=AiChat">
     Fast • Search
   </message>
-  <message name="IDS_CHAT_UI_CHAT_LLAMA_4_MAVERICK_SUBTITLE" desc="A description for llama-4-maverick model" formatter_data="webui=AiChat">
+  <message name="IDS_CHAT_UI_CHAT_GPT_5_4_BEDROCK_SUBTITLE" desc="A description for gpt-5-4-bedrock model" formatter_data="webui=AiChat">
     Search • Vision
   </message>
-  <message name="IDS_CHAT_UI_CHAT_GPT_OSS_20B_SUBTITLE" desc="A description for gpt-oss-20b model" formatter_data="webui=AiChat">
-    Fast • Search
+  <message name="IDS_CHAT_UI_CHAT_GROK_4_3_BEDROCK_SUBTITLE" desc="A description for grok-4-3-bedrock model" formatter_data="webui=AiChat">
+    Search • Vision • Tools
   </message>
-  <message name="IDS_CHAT_UI_CHAT_GPT_OSS_120B_SUBTITLE" desc="A description for gpt-oss-120b model" formatter_data="webui=AiChat">
-    Search
+  <message name="IDS_CHAT_UI_CHAT_NEMOTRON_NANO_3_30B_SUBTITLE" desc="A description for nemotron-nano-3-30b model" formatter_data="webui=AiChat">
+    Fast • Search • Tools
   </message>
   <message name="IDS_CHAT_UI_CHAT_MISTRAL_LARGE_SUBTITLE" desc="A description for mistral-large model" formatter_data="webui=AiChat">
     Search
@@ -620,9 +632,6 @@
   </message>
   <message name="IDS_CHAT_UI_CHAT_DEEPSEEK_V3_2_SUBTITLE" desc="A description for deepseek-v3-2 model" formatter_data="webui=AiChat">
     Search • Tools
-  </message>
-  <message name="IDS_CHAT_UI_CHAT_QWEN_3_CODER_480B_SUBTITLE" desc="A description for qwen-3-coder-480b model" formatter_data="webui=AiChat">
-    Search
   </message>
   <message name="IDS_CHAT_UI_CHAT_CLAUDE_OPUS_SUBTITLE" desc="A description for claude-opus model" formatter_data="webui=AiChat">
     Search • Vision
@@ -683,6 +692,12 @@
   </message>
   <message name="IDS_CHAT_UI_TOOLS_ATTACHMENT_REMOVE_LABEL" desc="Accessible label for the button that removes an attached page's tools" formatter_data="webui=AiChat">
     Remove tools
+  </message>
+  <message name="IDS_CHAT_UI_WEBSITE_TOOLS_TITLE" desc="Title of the dialog that lists the tools an attached website provides to Leo" formatter_data="webui=AiChat">
+    Available website tools
+  </message>
+  <message name="IDS_CHAT_UI_WEBSITE_TOOLS_LIST_LABEL" desc="Heading above the list of tools in the website tools dialog. The placeholder is the number of tools, e.g. 'Available tools (10)'" formatter_data="webui=AiChat">
+    Available tools (<ph name="TOOL_COUNT">$1<ex>10</ex></ph>)
   </message>
   <message name="IDS_CHAT_UI_SUBSCRIPTION_POLICY_INFO" desc="An info text that is shown below various subcription prices" formatter_data="webui=AiChat">
     All subscriptions are auto-renewed but can be cancelled at any time before renewal.
@@ -780,6 +795,15 @@
   <message name="IDS_CHAT_UI_FULL_PAGE_SCREENSHOT_TITLE" desc="Title for full page screenshot attachment" formatter_data="webui=AiChat">
     Full page screenshot
   </message>
+  <message name="IDS_CHAT_UI_IMAGE_LIGHTBOX_PREVIEW_BUTTON_LABEL" desc="Accessible label for opening an attached image in a lightbox preview" formatter_data="webui=AiChat">
+    Preview image
+  </message>
+  <message name="IDS_CHAT_UI_IMAGE_LIGHTBOX_COPY_BUTTON_LABEL" desc="Button label to copy an attached image to the clipboard from the lightbox" formatter_data="webui=AiChat">
+    Copy image
+  </message>
+  <message name="IDS_CHAT_UI_IMAGE_LIGHTBOX_DOWNLOAD_BUTTON_LABEL" desc="Button label to download an attached image from the lightbox" formatter_data="webui=AiChat">
+    Download image
+  </message>
   <message name="IDS_AI_CHAT_CURRENT_TAB_CONTENTS_BUTTON_LABEL" desc="The button label for current tab contents" formatter_data="webui=AiChat">
     Current tab contents
   </message>
@@ -791,6 +815,9 @@
   </message>
   <message name="IDS_AI_CHAT_ATTACH_OPEN_HISTORY_BUTTON_LABEL" desc="The button label for attaching history" formatter_data="webui=AiChat">
     History…
+  </message>
+  <message name="IDS_AI_CHAT_WORKSPACE_FOLDER_BUTTON_LABEL" desc="The button label for selecting a local workspace folder for Leo's experimental workspace tools" formatter_data="webui=AiChat">
+    Workspace folder
   </message>
   <message name="IDS_AI_CHAT_USE_MICROPHONE_BUTTON_LABEL" desc="The button label for Leo's microphone feature" formatter_data="webui=AiChat">
     Use microphone
@@ -897,6 +924,9 @@
   <message name="IDS_CHAT_UI_PERMISSION_CHALLENGE_SUMMARY" desc="Summary for permission challenge" formatter_data="webui=AiChat">
     Brave AI needs your permission for: <ph name="TOOL_LABEL">$1<ex>Navigating to https://www.example.com/path/to/page</ex></ph>
   </message>
+  <message name="IDS_CHAT_UI_PERMISSION_CHALLENGE_WEB_TOOL_SUMMARY" desc="Summary for a permission challenge raised by a website-provided (WebMCP) tool. Supports markdown, which is used to bold the tool name and site origin." formatter_data="webui=AiChat">
+    Brave AI would like to execute **<ph name="TOOL_NAME">$1<ex>get_stock_price</ex></ph>** on **<ph name="SITE_ORIGIN">$2<ex>https://www.example.com</ex></ph>**
+  </message>
   <message name="IDS_CHAT_UI_PERMISSION_CHALLENGE_ASSESSMENT_INTRO" desc="Introduction to an assessment for why a permission challenge is being presented" formatter_data="webui=AiChat">
     The operation was detected as potentially misaligned with your request:
   </message>
@@ -905,6 +935,12 @@
   </message>
   <message name="IDS_CHAT_UI_PERMISSION_CHALLENGE_DENY_BUTTON" desc="Button text to deny the permission challenge" formatter_data="webui=AiChat">
     Deny
+  </message>
+  <message name="IDS_CHAT_UI_PERMISSION_CHALLENGE_SHOW_ARGUMENTS_BUTTON" desc="Button label on the tool permission prompt that expands a section showing the full arguments the AI wants to pass to the tool" formatter_data="webui=AiChat">
+    Show tool arguments
+  </message>
+  <message name="IDS_CHAT_UI_PERMISSION_CHALLENGE_HIDE_ARGUMENTS_BUTTON" desc="Button label on the tool permission prompt that collapses the section showing the full arguments the AI wants to pass to the tool" formatter_data="webui=AiChat">
+    Hide tool arguments
   </message>
   <message name="IDS_AI_CHAT_VERIFIED_LABEL" desc="Label for the verified NEAR AI model" formatter_data="webui=AiChat">
     Verified

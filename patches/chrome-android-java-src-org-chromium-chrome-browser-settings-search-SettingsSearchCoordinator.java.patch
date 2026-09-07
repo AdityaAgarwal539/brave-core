@@ -1,0 +1,26 @@
+diff --git a/chrome/android/java/src/org/chromium/chrome/browser/settings/search/SettingsSearchCoordinator.java b/chrome/android/java/src/org/chromium/chrome/browser/settings/search/SettingsSearchCoordinator.java
+index f208b2647927e748b7770b8bd1ab1c8b97672f88..1cc1019f662823b9fa9220614af953018a986ad4 100644
+--- a/chrome/android/java/src/org/chromium/chrome/browser/settings/search/SettingsSearchCoordinator.java
++++ b/chrome/android/java/src/org/chromium/chrome/browser/settings/search/SettingsSearchCoordinator.java
+@@ -4,6 +4,8 @@
+ 
+ package org.chromium.chrome.browser.settings.search;
+ 
++import org.chromium.chrome.browser.theme.BraveDynamicColors;
++import org.chromium.components.browser_ui.settings.BraveSettingsIconTintUtils;
+ import static androidx.annotation.VisibleForTesting.PRIVATE;
+ 
+ import static org.chromium.base.CallbackUtils.emptyRunnable;
+@@ -296,6 +298,12 @@ public class SettingsSearchCoordinator
+     /** Initializes search UI, sets up listeners, backpress action handler, etc. */
+     @Initializer
+     public void initializeSearchUi(@Nullable Bundle savedState) {
++        initializeSearchUi_ChromiumImpl(savedState);
++        View searchBox = requireViewById(R.id.search_box);
++        BraveSettingsIconTintUtils.applyIconTint(searchBox.requireViewById(R.id.search_icon), BraveDynamicColors.isDynamicColorsEnabled());
++    }
++
++    private void initializeSearchUi_ChromiumImpl(@Nullable Bundle savedState) {
+         mUseMultiColumn = mUseMultiColumnSupplier.getAsBoolean();
+         // AppBarLayout(app_bar_layout)
+         //         +-- FrameLayout

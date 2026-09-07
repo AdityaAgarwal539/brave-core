@@ -1,0 +1,13 @@
+diff --git a/chrome/android/java/src/org/chromium/chrome/browser/toolbar/ToolbarManager.java b/chrome/android/java/src/org/chromium/chrome/browser/toolbar/ToolbarManager.java
+index d2a06035d3a3808ba871b8a4129af0f5a3c1fc98..bafa1c76606fa463061238de5eea88a11ef8170d 100644
+--- a/chrome/android/java/src/org/chromium/chrome/browser/toolbar/ToolbarManager.java
++++ b/chrome/android/java/src/org/chromium/chrome/browser/toolbar/ToolbarManager.java
+@@ -1952,7 +1952,7 @@ public class ToolbarManager
+         }
+     }
+ 
+-    private boolean shouldSuppressToolbarLongPress() {
++    protected boolean shouldSuppressToolbarLongPress() {
+         return mOmniboxFocusStateSupplier.get()
+                 || (mToolbarPositionController != null
+                         && mToolbarPositionController.doesPrefMismatchPosition())

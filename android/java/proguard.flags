@@ -49,6 +49,7 @@
     *** setContentSetting(...);
 }
 
+# Needed by the gson use inside the prebuilt Brave Playlist AAR.
 -keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
 
 -keep class org.chromium.chrome.browser.tabmodel.TabCollectionTabModelImpl {
@@ -58,11 +59,6 @@
 
 -keep class org.chromium.chrome.browser.omnibox.suggestions.editurl.EditUrlSuggestionProcessor {
     *** onCopyLink(...);
-}
-
--keep class org.chromium.chrome.browser.toolbar.top.ToolbarPhone {
-    *** mLocationBarBackgroundColorForNtp;
-    *** mToolbarBackgroundColorForNtp;
 }
 
 -keep class org.chromium.chrome.browser.hub.HubManagerImpl {

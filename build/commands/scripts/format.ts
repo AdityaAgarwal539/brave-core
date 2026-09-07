@@ -100,6 +100,9 @@ async function runFormat(options: {
 
   args.push('--python')
 
+  // Disable clang-formatting .ts/.js files. We use prettier instead.
+  args.push('--no-js')
+
   if (options.full) {
     args.push('--full')
   }
@@ -126,6 +129,12 @@ async function runFormat(options: {
       continueOnFail: true,
       skipLogging,
       stdio: 'pipe',
+      env: {
+        ...cmdOptions.env,
+        // Prevent HotSpot hsperfdata warnings from contaminating
+        // google-java-format stdout.
+        JAVA_TOOL_OPTIONS: '-XX:-UsePerfData',
+      },
     })
 
     const clFormatOutput = formatOutput(clFormatResult)

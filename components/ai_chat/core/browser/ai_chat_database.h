@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/gtest_prod_util.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom-forward.h"
@@ -19,6 +20,10 @@
 #include "components/sync/model/sync_metadata_store.h"
 #include "sql/database.h"
 #include "sql/init_status.h"
+
+namespace sql {
+class Statement;
+}  // namespace sql
 
 namespace syncer {
 class MetadataBatch;
@@ -29,6 +34,14 @@ namespace ai_chat {
 extern const int kLowestSupportedDatabaseVersion;
 extern const int kCompatibleDatabaseVersionNumber;
 extern const int kCurrentDatabaseVersion;
+
+// Identifies a conversation entry whose associated web content was cleared by
+// DeleteAssociatedWebContent(), so callers can propagate the change (e.g.
+// re-sync the affected entries).
+struct ClearedAssociatedContentEntry {
+  std::string conversation_uuid;
+  std::string entry_uuid;
+};
 
 // Persists AI Chat conversations and associated content. Conversations are
 // mainly formed of their conversation entries. Edits to conversation entries
@@ -51,6 +64,11 @@ class AIChatDatabase : public syncer::SyncMetadataStore {
   virtual mojom::ConversationArchivePtr GetConversationData(
       std::string_view conversation_uuid);
 
+  // Gets all conversation entries belonging to the thread with the provided
+  // uuid.
+  virtual std::vector<mojom::ConversationTurnPtr> GetConversationThreadEntries(
+      std::string_view thread_uuid);
+
   // Returns new ID for the provided entry and any provided associated content
   virtual bool AddConversation(mojom::ConversationPtr conversation,
                                std::vector<std::string> contents,
@@ -67,6 +85,10 @@ class AIChatDatabase : public syncer::SyncMetadataStore {
       std::string_view conversation_uuid,
       mojom::ConversationTurnPtr entry,
       std::optional<std::string> editing_id = std::nullopt);
+
+  // Adds a new thread's metadata to the database. A no-op if the thread's
+  // uuid already exists.
+  virtual bool AddConversationThread(mojom::ThreadPtr thread);
 
   virtual bool UpdateToolUseEvent(std::string_view entry_uuid,
                                   size_t event_order,
@@ -85,6 +107,11 @@ class AIChatDatabase : public syncer::SyncMetadataStore {
                                            uint64_t total_tokens,
                                            uint64_t trimmed_tokens);
 
+  // Updates the token information of the thread with the provided UUID
+  virtual bool UpdateThreadTokenInfo(std::string_view thread_uuid,
+                                     uint64_t total_tokens,
+                                     uint64_t trimmed_tokens);
+
   // Deletes the conversation with the provided UUID
   virtual bool DeleteConversation(std::string_view conversation_uuid);
 
@@ -96,8 +123,13 @@ class AIChatDatabase : public syncer::SyncMetadataStore {
   // Drops all data and tables in the database, and re-creates empty tables
   virtual bool DeleteAllData();
 
-  virtual bool DeleteAssociatedWebContent(std::optional<base::Time> begin_time,
-                                          std::optional<base::Time> end_time);
+  // Clears (sets to NULL) the url/title/last_contents of associated content for
+  // every conversation that has an entry dated within [begin_time, end_time].
+  // Returns the entries whose content was actually cleared, so callers can
+  // propagate the change; returns std::nullopt if the operation failed.
+  virtual std::optional<std::vector<ClearedAssociatedContentEntry>>
+  DeleteAssociatedWebContent(std::optional<base::Time> begin_time,
+                             std::optional<base::Time> end_time);
 
   // Reads all sync metadata (entity metadata + data type state) into the batch.
   bool GetAllSyncMetadata(syncer::MetadataBatch* metadata_batch);
@@ -119,6 +151,7 @@ class AIChatDatabase : public syncer::SyncMetadataStore {
  private:
   friend class AIChatDatabaseTest;
   friend class AIChatDatabaseMigrationTest;
+  FRIEND_TEST_ALL_PREFIXES(AIChatDatabaseTest, ConversationThreadEntries);
 
   sql::Database& GetDB();
 
@@ -129,7 +162,9 @@ class AIChatDatabase : public syncer::SyncMetadataStore {
   sql::InitStatus InitInternal();
 
   std::vector<mojom::ConversationTurnPtr> GetConversationEntries(
-      std::string_view conversation_id);
+      sql::Statement& statement);
+  std::vector<mojom::ThreadPtr> GetConversationThreads(
+      std::string_view conversation_uuid);
   std::vector<mojom::ContentArchivePtr> GetArchiveContentsForConversation(
       std::string_view conversation_uuid);
 

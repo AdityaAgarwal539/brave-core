@@ -1,9 +1,9 @@
 diff --git a/chrome/browser/about_flags.cc b/chrome/browser/about_flags.cc
-index 3c88210919d4c790023b99fdb367773753653459..c3127570da7f18057ad12d81d2fe12b6b28e7748 100644
+index d93bc4f0da9d38e1dfda1f89c04565b1d10a0e20..b95980a572dc144b6406bcd3c6228795ae7f8d32 100644
 --- a/chrome/browser/about_flags.cc
 +++ b/chrome/browser/about_flags.cc
-@@ -4739,6 +4739,7 @@ const FeatureEntry::FeatureVariation kToolbarGlowUpVariations[] = {
- //
+@@ -4937,6 +4937,7 @@ constexpr char kEnterpriseIsolatedModeInternalName[] =
+ 
  // When adding a new choice, add it to the end of the list.
  const FeatureEntry kFeatureEntries[] = {
 +    BRAVE_ABOUT_FLAGS_FEATURE_ENTRIES

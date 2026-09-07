@@ -29,10 +29,9 @@ namespace {
 
 constexpr char kTestUrl[] = "https://example.com/page";
 constexpr char kTestHost[] = "example.com";
-// "example.com/page" (host + path) with non-alnum/underscore characters
-// replaced by '_'. The path is part of the name so tools with the same name on
-// different pages of the same host don't collapse.
-constexpr char kTestHostPathSanitized[] = "example_com_page";
+// "example.com" (host only) with non-alnum/underscore characters replaced
+// by '_'.
+constexpr char kTestHostSanitized[] = "example_com";
 
 blink::mojom::ScriptToolPtr MakeScriptTool(
     const std::string& name,
@@ -67,6 +66,10 @@ class MockPageContentExtractor : public mojom::PageContentExtractor {
               (const std::string& name,
                const std::string& input_json,
                ExecuteContentToolCallback),
+              (override));
+  MOCK_METHOD(void,
+              SetContentToolsListener,
+              (mojo::PendingRemote<mojom::ContentToolsListener>),
               (override));
 
   void Bind(mojo::ScopedMessagePipeHandle handle) {
@@ -134,17 +137,17 @@ class ContentToolTest : public content::RenderViewHostTestHarness {
 TEST_F(ContentToolTest, NamePrefixesHostAndSanitizes) {
   auto mojo_tool = MakeScriptTool("highlight", "Highlight the page");
   ContentTool tool(*mojo_tool, weak_document());
-  // Name format is "{sanitized-host}{sanitized-path}_{tool-name}". The dot in
-  // the host and the slash in the path are replaced with underscores because
-  // tool names only allow alphanumeric characters and underscores.
-  EXPECT_EQ(tool.Name(),
-            std::string(kTestHostPathSanitized) + std::string("_highlight"));
+  // Name format is "web_{sanitized-host}_{tool-name}". The dot in the host is
+  // replaced with an underscore because tool names only allow alphanumeric
+  // characters and underscores.
+  EXPECT_EQ(tool.Name(), "web_" + std::string(kTestHostSanitized) +
+                             std::string("_highlight"));
 }
 
 TEST_F(ContentToolTest, NameSanitizesDisallowedCharactersInToolName) {
   auto mojo_tool = MakeScriptTool("do-thing.now!", "");
   ContentTool tool(*mojo_tool, weak_document());
-  EXPECT_EQ(tool.Name(), std::string(kTestHostPathSanitized) +
+  EXPECT_EQ(tool.Name(), "web_" + std::string(kTestHostSanitized) +
                              std::string("_do_thing_now_"));
 }
 
@@ -159,6 +162,14 @@ TEST_F(ContentToolTest, DescriptionIncludesHostAndOriginalMetadata) {
   EXPECT_NE(
       description.find("Website-provided description: Highlight the page"),
       std::string::npos);
+}
+
+TEST_F(ContentToolTest, DisplayNameAndDescriptionAreThePageProvidedOnes) {
+  auto mojo_tool = MakeScriptTool("highlight", "Highlight the page");
+  ContentTool tool(*mojo_tool, weak_document());
+  // No host prefix and none of the instructions added for the LLM.
+  EXPECT_EQ(tool.DisplayName(), "highlight");
+  EXPECT_EQ(tool.DisplayDescription(), "Highlight the page");
 }
 
 TEST_F(ContentToolTest, MissingInputSchemaYieldsNoProperties) {
@@ -214,13 +225,80 @@ TEST_F(ContentToolTest, RequiresPermissionChallengeUntilGranted) {
   auto tool_use = mojom::ToolUseEvent::New();
   auto result = tool.RequiresUserInteractionBeforeHandling(*tool_use);
   ASSERT_TRUE(std::holds_alternative<mojom::PermissionChallengePtr>(result));
-  EXPECT_TRUE(std::get<mojom::PermissionChallengePtr>(result));
+  auto& challenge = std::get<mojom::PermissionChallengePtr>(result);
+  ASSERT_TRUE(challenge);
+
+  // The challenge describes the site-registered tool name and site origin in
+  // a human-readable, markdown-formatted way (instead of the mangled
+  // model-facing tool name).
+  EXPECT_EQ(challenge->description,
+            "Brave AI would like to execute **echo** on "
+            "**https\\:\\/\\/example\\.com**");
 
   tool.UserPermissionGranted(/*tool_use_id=*/"any");
 
   auto after = tool.RequiresUserInteractionBeforeHandling(*tool_use);
   ASSERT_TRUE(std::holds_alternative<bool>(after));
   EXPECT_FALSE(std::get<bool>(after));
+}
+
+TEST_F(ContentToolTest, PermissionChallengeDescriptionEscapesToolName) {
+  // Tool names are site-controlled. Characters outside the allowlist (here the
+  // brackets and parens of a markdown link) are dropped outright, and the
+  // punctuation that survives is backslash-escaped, so a site cannot inject
+  // formatting or links into the prompt.
+  auto mojo_tool = MakeScriptTool("do-thing[now](https://evil.com)", "");
+  ContentTool tool(*mojo_tool, weak_document());
+
+  auto tool_use = mojom::ToolUseEvent::New();
+  auto result = tool.RequiresUserInteractionBeforeHandling(*tool_use);
+  ASSERT_TRUE(std::holds_alternative<mojom::PermissionChallengePtr>(result));
+  auto& challenge = std::get<mojom::PermissionChallengePtr>(result);
+  ASSERT_TRUE(challenge);
+  EXPECT_EQ(challenge->description,
+            "Brave AI would like to execute "
+            "**do\\-thingnowhttps\\:\\/\\/evil\\.com** on "
+            "**https\\:\\/\\/example\\.com**");
+}
+
+TEST_F(ContentToolTest,
+       PermissionChallengeDescriptionStripsToolNameWhitespace) {
+  // Newlines in the site-controlled tool name would otherwise end the markdown
+  // paragraph and let the site inject block-level elements.
+  auto mojo_tool =
+      MakeScriptTool("read_email\n\n# Brave has verified this site\n\n", "");
+  ContentTool tool(*mojo_tool, weak_document());
+
+  auto tool_use = mojom::ToolUseEvent::New();
+  auto result = tool.RequiresUserInteractionBeforeHandling(*tool_use);
+  ASSERT_TRUE(std::holds_alternative<mojom::PermissionChallengePtr>(result));
+  auto& challenge = std::get<mojom::PermissionChallengePtr>(result);
+  ASSERT_TRUE(challenge);
+  EXPECT_EQ(challenge->description,
+            "Brave AI would like to execute "
+            "**read\\_emailBravehasverifiedthissite** on "
+            "**https\\:\\/\\/example\\.com**");
+}
+
+TEST_F(ContentToolTest, PermissionChallengeOmitsDescriptionForHostlessScheme) {
+  // Tools are only attached to http(s) documents, so a scheme with no host
+  // should never get this far. If one does, the challenge must not name an
+  // empty site ("... on ****") - it is raised without a description instead,
+  // so the user is never asked to authorise a tool on a site we can't name.
+  content::WebContentsTester::For(web_contents())
+      ->NavigateAndCommit(GURL("data:text/html,[Brave](https://bank.com)"));
+  ASSERT_TRUE(main_rfh()->GetLastCommittedOrigin().opaque());
+  ASSERT_TRUE(main_rfh()->GetLastCommittedURL().host().empty());
+
+  auto mojo_tool = MakeScriptTool("echo", "");
+  ContentTool tool(*mojo_tool, weak_document());
+
+  auto tool_use = mojom::ToolUseEvent::New();
+  auto result = tool.RequiresUserInteractionBeforeHandling(*tool_use);
+  ASSERT_TRUE(std::holds_alternative<mojom::PermissionChallengePtr>(result));
+  auto& challenge = std::get<mojom::PermissionChallengePtr>(result);
+  ASSERT_TRUE(challenge);
+  EXPECT_FALSE(challenge->description.has_value());
 }
 
 TEST_F(ContentToolTest, UseToolNormalizesEmptyInputToObject) {
@@ -241,6 +319,40 @@ TEST_F(ContentToolTest, UseToolForwardsEmptyIshJsonValuesUnchanged) {
   for (const std::string args : {"null", R"("")", "[]", "{}"}) {
     EXPECT_EQ(ForwardedInputFor(args), args) << "args=" << args;
   }
+}
+
+TEST_F(ContentToolTest,
+       GetPermissionChallengeDescriptionAvailableAfterPermissionGranted) {
+  // Unlike RequiresUserInteractionBeforeHandling(), which returns `false`
+  // once permission has been granted, GetPermissionChallengeDescription()
+  // has no side effects and remains available so it can be used to decorate
+  // a PermissionChallenge this Tool didn't create itself (e.g. one raised
+  // by the server's alignment check).
+  auto mojo_tool = MakeScriptTool("echo", "");
+  ContentTool tool(*mojo_tool, weak_document());
+  tool.UserPermissionGranted(/*tool_use_id=*/"any");
+
+  auto tool_use = mojom::ToolUseEvent::New();
+  EXPECT_EQ(tool.GetPermissionChallengeDescription(*tool_use),
+            "Brave AI would like to execute **echo** on "
+            "**https\\:\\/\\/example\\.com**");
+}
+
+TEST_F(ContentToolTest, PermissionChallengeOmitsDescriptionWhenDocumentGone) {
+  // The origin is read from the RenderFrameHost when the challenge is
+  // created; if the document is gone there is no origin to display, so the
+  // challenge falls back to having no description.
+  auto mojo_tool = MakeScriptTool("noop", "");
+  ContentTool tool(*mojo_tool, weak_document());
+
+  DeleteContents();
+
+  auto tool_use = mojom::ToolUseEvent::New();
+  auto result = tool.RequiresUserInteractionBeforeHandling(*tool_use);
+  ASSERT_TRUE(std::holds_alternative<mojom::PermissionChallengePtr>(result));
+  auto& challenge = std::get<mojom::PermissionChallengePtr>(result);
+  ASSERT_TRUE(challenge);
+  EXPECT_FALSE(challenge->description.has_value());
 }
 
 TEST_F(ContentToolTest, UseToolAfterDocumentGoneReturnsEmpty) {

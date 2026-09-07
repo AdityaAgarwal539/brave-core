@@ -30,10 +30,10 @@ void RegisterProfilePrefs() {
 
   RegisterProfileStringPref(prefs::kDiagnosticId, "");
 
-  RegisterProfileBooleanPref(prefs::kOptedInToNotificationAds, true);
+  RegisterProfileBooleanPref(prefs::kNotificationsEnabled, true);
   RegisterProfileInt64Pref(prefs::kMaximumNotificationAdsPerHour, -1);
 
-  RegisterProfileBooleanPref(prefs::kOptedInToSearchResultAds, true);
+  RegisterProfileBooleanPref(prefs::kSponsoredEnabled, true);
 
   RegisterProfileBooleanPref(prefs::kShouldAllowSubdivisionTargeting, false);
   RegisterProfileStringPref(prefs::kSubdivisionTargetingUserSelectedSubdivision,
@@ -60,8 +60,6 @@ void RegisterProfilePrefs() {
   RegisterProfileListPref(prefs::kSaveAds);
   RegisterProfileListPref(prefs::kMarkedAsInappropriate);
 
-  RegisterProfileBooleanPref(prefs::kHasMigratedClientState, true);
-
   RegisterProfileStringPref(prefs::kBrowserVersionNumber, "");
 
   // Rewards prefs.
@@ -73,9 +71,6 @@ void RegisterProfilePrefs() {
   // New tab page background image prefs.
   RegisterProfileBooleanPref(
       ntp_background_images::prefs::kNewTabPageShowBackgroundImage, true);
-  RegisterProfileBooleanPref(ntp_background_images::prefs::
-                                 kNewTabPageShowSponsoredImagesBackgroundImage,
-                             true);
   RegisterProfileBooleanPref(
       ntp_background_images::prefs::kNewTabPageSponsoredImagesSurveyPanelist,
       true);

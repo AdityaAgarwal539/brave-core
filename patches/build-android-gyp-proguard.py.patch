@@ -1,12 +1,13 @@
 diff --git a/build/android/gyp/proguard.py b/build/android/gyp/proguard.py
-index d292c2de7e564fa29072b0b52b12347fb8122e9c..cd507a427d62a61f5ce807c7dcf4a6b5cc5db3a4 100755
+index 11a7a5838ba398f446304b505e9007e4788bddb2..fae1b80106e45145d70088c26bd7a7bd08c3c61f 100755
 --- a/build/android/gyp/proguard.py
 +++ b/build/android/gyp/proguard.py
-@@ -416,6 +416,7 @@ def _OptimizeWithR8(options, config_paths, libraries, dynamic_config_data):
-         '--pg-map-output',
-         tmp_mapping_path,
-     ]
-+    cmd.remove('--map-id-template'); cmd.remove(f'{options.source_file} ({options.package_name})') # required to omit package check for mapping file
- 
-     if options.uses_split:
-       cmd += ['--isolated-splits']
+@@ -487,8 +487,6 @@ def _OptimizeWithR8(options, config_paths, libraries, dynamic_config_data):
+             '{}:{}'.format(options.r8_path, options.custom_r8_path),
+             'org.chromium.build.CustomR8',
+             '--no-data-resources',
+-            '--map-id-template',
+-            f'{options.source_file} ({options.package_name})',
+             '--source-file-template',
+             options.source_file,
+             '--output',

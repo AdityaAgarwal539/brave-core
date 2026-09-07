@@ -18,11 +18,12 @@
 #include "base/debug/stack_trace.h"
 #include "base/feature_list.h"
 #include "base/notimplemented.h"
+#include "base/task/sequenced_task_runner.h"
 #include "brave/browser/ui/color/brave_color_id.h"
 #include "brave/browser/ui/tabs/brave_tab_prefs.h"
 #include "brave/browser/ui/tabs/public/vertical_tab_controller.h"
 #include "brave/browser/ui/views/frame/brave_browser_view.h"
-#include "brave/browser/ui/views/frame/vertical_tabs/vertical_tab_strip_container_view.h"
+#include "brave/browser/ui/views/frame/vertical_tabs/vertical_tab_strip_region_view.h"
 #include "brave/browser/ui/views/tabs/brave_tab.h"
 #include "brave/browser/ui/views/tabs/brave_tab_group_header.h"
 #include "brave/browser/ui/views/tabs/brave_tab_strip.h"
@@ -30,6 +31,7 @@
 #include "brave/ui/color/nala/nala_color_id.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -128,6 +130,10 @@ BraveTabContainer::BraveTabContainer(
       brave_tabs::kVerticalTabsShowScrollbar, prefs,
       base::BindRepeating(&BraveTabContainer::UpdateScrollBarVisibility,
                           base::Unretained(this)));
+  floating_mode_pref_.Init(
+      brave_tabs::kVerticalTabsFloatingEnabled, prefs,
+      base::BindRepeating(&BraveTabContainer::UpdateScrollBarVisibility,
+                          base::Unretained(this)));
 
   // Create separator view between pinned and unpinned tabs
   separator_ = AddChildView(std::make_unique<views::View>());
@@ -152,15 +158,19 @@ BraveTabContainer::~BraveTabContainer() {
   // closed tabs were cleaned up from OnTabCloseAnimationCompleted().
   CancelAnimation();
   DCHECK(closing_tabs_.empty()) << "There are dangling closed tabs.";
-  DCHECK(!layout_locked_)
-      << "The lock returned by LockLayout() shouldn't outlive this object";
+  // Note: |layout_locked_| may still be true here. The unlock closure
+  // returned by LockLayout() is bound to a weak pointer, so a lock that
+  // outlives this object is benign (e.g. the window is closed while a
+  // session-restore insert batch holds the lock).
 }
 
 base::OnceClosure BraveTabContainer::LockLayout() {
   DCHECK(!layout_locked_) << "LockLayout() doesn't allow reentrance";
   layout_locked_ = true;
+  // Bind weakly: during session restore the closure is posted to the task
+  // queue, and the window (with this container) can be closed before it runs.
   return base::BindOnce(&BraveTabContainer::OnUnlockLayout,
-                        base::Unretained(this));
+                        weak_factory_.GetWeakPtr());
 }
 
 bool BraveTabContainer::ShouldShowVerticalTabs() const {
@@ -169,14 +179,34 @@ bool BraveTabContainer::ShouldShowVerticalTabs() const {
   return vtc && vtc->ShouldShowBraveVerticalTabs();
 }
 
+void BraveTabContainer::SetVerticalTabStripRegionView(
+    BraveVerticalTabStripRegionView* region_view) {
+  vertical_tab_strip_region_view_ = region_view;
+}
+
 views::ScrollView::ScrollBarMode BraveTabContainer::GetScrollBarMode() const {
   if (!ShouldShowVerticalTabs()) {
     return views::ScrollView::ScrollBarMode::kDisabled;
   }
 
-  return *should_show_scroll_bar_
-             ? views::ScrollView::ScrollBarMode::kEnabled
-             : views::ScrollView::ScrollBarMode::kHiddenButEnabled;
+  if (!*should_show_scroll_bar_) {
+    return views::ScrollView::ScrollBarMode::kHiddenButEnabled;
+  }
+
+  // Even when the scroll bar pref is on, don't show it while the vertical
+  // tab strip is collapsed to a floating mode. It's because when a user tries
+  // to grab the scrollbar, vertical tab will be expanded so showing scroll bar
+  // has no point.
+  auto* vtc = VerticalTabController::FromBrowser(
+      tab_slot_controller_->GetBrowserWindowInterface());
+  if (vtc && vtc->IsFloatingVerticalTabsEnabled() &&
+      vertical_tab_strip_region_view_ &&
+      vertical_tab_strip_region_view_->state() ==
+          BraveVerticalTabStripRegionView::State::kCollapsed) {
+    return views::ScrollView::ScrollBarMode::kHiddenButEnabled;
+  }
+
+  return views::ScrollView::ScrollBarMode::kEnabled;
 }
 
 gfx::Size BraveTabContainer::CalculatePreferredSize(
@@ -284,24 +314,38 @@ bool BraveTabContainer::ShouldTabBeVisible(const Tab* tab) const {
       return true;
     }
 
-    // Handle unpinned tabs in vertical tabs mode.
-    // Only show tab if it is not hidden under the pinned tab area.
-    if (auto tab_index = tabs_view_model_.GetIndexOfView(tab)) {
-      const auto tab_bottom =
-          tabs_view_model_.ideal_bounds(*tab_index).bottom();
-      return tab_bottom > GetPinnedTabsAreaBottom();
+    // Handle unpinned tabs in vertical tabs mode. Only show tabs that
+    // intersect the viewport: tabs scrolled up under the pinned tab area and
+    // tabs scrolled down below the container bottom are hidden. Ideal bounds
+    // already include the current scroll offset (see UpdateIdealBounds), so
+    // comparing against [pinned area bottom, height()] tests viewport
+    // intersection.
+    if (auto tab_index = GetTabIndex(tab)) {
+      const auto& ideal_bounds = tabs_view_model_.ideal_bounds(*tab_index);
+      const int pinned_tabs_area_bottom =
+          visibility_pass_cache_
+              ? visibility_pass_cache_->pinned_tabs_area_bottom
+              : GetPinnedTabsAreaBottom();
+      if (ideal_bounds.bottom() <= pinned_tabs_area_bottom) {
+        return false;
+      }
+      return ideal_bounds.y() < height();
     }
   } else if (scroll_direction == views::LayoutOrientation::kHorizontal) {
     if (tab->data().pinned || tab->dragging()) {
       return TabContainerImpl::ShouldTabBeVisible(tab);
     }
 
-    if (auto tab_index = tabs_view_model_.GetIndexOfView(tab)) {
+    if (auto tab_index = GetTabIndex(tab)) {
       // Show unpinned tabs only if they are within unpinned tab area.
       // If tabs are fully occluded by pinned tabs area, we should hide the
       // tabs.
+      const int pinned_tabs_area_boundary =
+          visibility_pass_cache_
+              ? visibility_pass_cache_->pinned_tabs_area_boundary
+              : GetPinnedTabsAreaBoundary();
       return tabs_view_model_.ideal_bounds(*tab_index).right() >
-             GetPinnedTabsAreaBoundary();
+             pinned_tabs_area_boundary;
     }
   }
 
@@ -310,14 +354,31 @@ bool BraveTabContainer::ShouldTabBeVisible(const Tab* tab) const {
 
 std::vector<Tab*> BraveTabContainer::AddTabs(
     std::vector<TabInsertionParams> tabs_params) {
+  // Session restore inserts tabs one batch after another, and every insert
+  // triggers a full O(tab count) strip layout. Lock the layout for the rest
+  // of the current task batch and post the unlock closure, so all inserts
+  // that pile up in the task queue are laid out in a single pass.
+  if (GetScrollDirection() && !layout_locked_ && IsSessionRestoreInProgress()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE,
+                                                             LockLayout());
+  }
+
   std::vector<Tab*> added_tabs =
       TabContainerImpl::AddTabs(std::move(tabs_params));
-  if (GetScrollDirection()) {
+  // Session restore inserts many background tabs back-to-back; scrolling to
+  // each one forces an extra full strip relayout per insert. The active tab
+  // is scrolled into view on activation anyway (see SetActiveTab).
+  if (GetScrollDirection() && !IsSessionRestoreInProgress()) {
     for (Tab* const tab : added_tabs) {
       ScrollTabToBeVisible(tab);
     }
   }
   return added_tabs;
+}
+
+bool BraveTabContainer::IsSessionRestoreInProgress() const {
+  auto* browser = tab_slot_controller_->GetBrowserWindowInterface();
+  return browser && SessionRestore::IsRestoring(browser->GetProfile());
 }
 
 void BraveTabContainer::StartInsertTabAnimation(int model_index) {
@@ -526,6 +587,16 @@ void BraveTabContainer::PaintBoundingBoxForSplitTab(
 }
 
 void BraveTabContainer::OnUnlockLayout() {
+  if (IsSessionRestoreInProgress()) {
+    // Session restore for this profile is still (or again) in progress by
+    // the time this deferred task runs (e.g. during the profile chooser
+    // startup flow). Wait for it to finish rather than unlocking early.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&BraveTabContainer::OnUnlockLayout,
+                                  weak_factory_.GetWeakPtr()));
+    return;
+  }
+
   layout_locked_ = false;
 
   InvalidateIdealBounds();
@@ -609,7 +680,26 @@ void BraveTabContainer::SetTabSlotVisibility() {
     }
   }
 
+  // The superclass call below queries ShouldTabBeVisible() for every tab;
+  // precompute what those queries need so one pass is O(n log n) instead of
+  // O(n^2).
+  if (GetScrollDirection()) {
+    VisibilityPassCache cache;
+    cache.pinned_tab_count = layout_helper_->GetPinnedTabCount();
+    cache.pinned_tabs_area_bottom = GetPinnedTabsAreaBottom();
+    cache.pinned_tabs_area_boundary = GetPinnedTabsAreaBoundary();
+    std::vector<std::pair<const Tab*, size_t>> indices;
+    indices.reserve(tabs_view_model_.view_size());
+    for (size_t i = 0; i < tabs_view_model_.view_size(); ++i) {
+      indices.emplace_back(tabs_view_model_.view_at(i), i);
+    }
+    cache.tab_indices = base::flat_map<const Tab*, size_t>(std::move(indices));
+    visibility_pass_cache_.emplace(std::move(cache));
+  }
+
   TabContainerImpl::SetTabSlotVisibility();
+
+  visibility_pass_cache_.reset();
 
   if (GetScrollDirection()) {
     // Even though TabContainerImpl::SetTabSlotVisibility() already updates the
@@ -733,6 +823,14 @@ void BraveTabContainer::ScrollTabToBeVisible(Tab* tab) {
 
 void BraveTabContainer::OnScrollableHorizontalTabStripPrefChanged() {
   // only called when tabs::kBraveScrollableTabStrip feature flag is enabled.
+
+  // Refreshs all small accent icon layers of tabs.
+  int tab_count = GetTabCount();
+  for (int i = 0; i < tab_count; ++i) {
+    BraveTab* tab = views::AsViewClass<BraveTab>(GetTabAtModelIndex(i));
+    CHECK(tab);
+    tab->UpdateSmallAccentIconLayer();
+  }
 
   if (!IsHorizontalScrollableTabStripEnabled()) {
     SetScrollOffset(0);
@@ -1820,9 +1918,22 @@ bool BraveTabContainer::IsPinned(const Tab* tab) const {
   // AddTabToViewModel -> layout_helper_->InsertTabAt) before calling
   // StartInsertTabAnimation, so GetIndexOfView(tab) returns the correct index
   // and GetPinnedTabCount() is already accurate when IsPinned() is called.
-  const auto pinned_tab_count = layout_helper_->GetPinnedTabCount();
-  auto tab_index = tabs_view_model_.GetIndexOfView(tab);
+  const size_t pinned_tab_count = visibility_pass_cache_
+                                      ? visibility_pass_cache_->pinned_tab_count
+                                      : layout_helper_->GetPinnedTabCount();
+  auto tab_index = GetTabIndex(tab);
   return tab_index && *tab_index < pinned_tab_count;
+}
+
+std::optional<size_t> BraveTabContainer::GetTabIndex(const Tab* tab) const {
+  if (visibility_pass_cache_) {
+    auto it = visibility_pass_cache_->tab_indices.find(tab);
+    if (it == visibility_pass_cache_->tab_indices.end()) {
+      return std::nullopt;
+    }
+    return it->second;
+  }
+  return tabs_view_model_.GetIndexOfView(tab);
 }
 
 bool BraveTabContainer::ShouldShowHorizontalScrollButton() const {

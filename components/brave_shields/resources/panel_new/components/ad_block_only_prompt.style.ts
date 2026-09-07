@@ -15,6 +15,12 @@ export const style = scoped.css`
     color: ${color.systemfeedback.infoText};
   }
 
+  a {
+    color: inherit;
+    text-decoration: underline;
+    white-space: nowrap;
+  }
+
   .actions {
     margin-top: 16px;
     display: flex;

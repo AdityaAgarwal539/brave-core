@@ -241,6 +241,34 @@ extension Strings {
     value: "Unfortunately, Brave crashed or did not close properly.\nRestore your tabs?",
     comment: "Restore Tabs Prompt Description"
   )
+  public static let enableCrashReporterAlertTitle = NSLocalizedString(
+    "EnableCrashReporterAlertTitle",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Enable automatic crash reports",
+    comment: "The title on an alert presented to the user after the app crashes"
+  )
+  public static let enableCrashReporterAlertMessage = NSLocalizedString(
+    "EnableCrashReporterAlertMessage",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "If you experience a crash or freeze, Brave can automatically send anonymous diagnostic reports to fix the issue. You can always turn this off in Settings later.",
+    comment: "The message on an alert presented to the user after the app crashes"
+  )
+  public static let enableCrashReporterConfirmButtonTitle = NSLocalizedString(
+    "EnableCrashReporterConfirmButtonTitle",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Enable",
+    comment: "The confirmation button title on an alert presented to the user after the app crashes which will enable crash reporting"
+  )
+  public static let enableCrashReporterDenyButtonTitle = NSLocalizedString(
+    "EnableCrashReporterDenyButtonTitle",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Not Now",
+    comment: "The button title on an alert presented to the user after the app crashes that ignores the alert"
+  )
   public static let restoreTabNegativeButtonTitle = NSLocalizedString(
     "RestoreTabNegativeButtonTitle",
     tableName: "BraveShared",
@@ -1168,6 +1196,20 @@ extension Strings {
       value: "Shred All Tabs",
       comment: "A button title that when tapped allows users to shred all of their tabs"
     )
+    public static let viewHistoryMenuItemLabel = NSLocalizedString(
+      "tabGrid.viewHistoryMenuItemLabel",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "History",
+      comment: "Label for history menu item button that when tapped presents the users history & recently closed tabs"
+    )
+    public static let viewSyncedTabsMenuItemLabel = NSLocalizedString(
+      "tabGrid.viewSyncedTabsMenuItemLabel",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "Sync",
+      comment: "Label for synced tabs menu item that when tapped presents the users synced tabs"
+    )
     public static let viewHistoryAccessibilityLabel = NSLocalizedString(
       "tabGrid.viewHistoryAccessibilityLabel",
       tableName: "BraveShared",
@@ -1195,6 +1237,27 @@ extension Strings {
       bundle: .module,
       value: "Private Browsing",
       comment: "Accessibility label for the regular browsing option in the browsing mode picker"
+    )
+    public static let tabsCountFormatSingular = NSLocalizedString(
+      "tabGrid.tabsCountFormatSingular",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "%lld Tab",
+      comment: "A label in the tab tray mode switcher shown when there is 1 regular tab open e.g. '1 Tab'"
+    )
+    public static let tabsCountFormatPlural = NSLocalizedString(
+      "tabGrid.tabsCountFormatPlural",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "%lld Tabs",
+      comment: "A label in the tab tray mode switcher shown when there are 0 or more than 1 regular tabs open e.g. '129 Tabs'"
+    )
+    public static let privateBrowsingModeTitle = NSLocalizedString(
+      "tabGrid.privateBrowsingModeTitle",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "Private",
+      comment: "A label in the tab tray mode switcher for private browsing mode"
     )
     public static let privateBrowsingInfoTitle = NSLocalizedString(
       "tabGrid.privateBrowsingInfoTitle",
@@ -2311,6 +2374,43 @@ extension Strings {
         comment: "Description to explain the daily usage ping toggle"
       )
 
+    public static let sendCrashReportsTitle =
+      NSLocalizedString(
+        "settings.sendCrashReportsTitle",
+        tableName: "BraveShared",
+        bundle: .module,
+        value: "Send crash reports",
+        comment: "Title to explain the send crash reports toggle"
+      )
+
+    public static let sendCrashReportsDescription =
+      NSLocalizedString(
+        "settings.sendCrashReportsDescription",
+        tableName: "BraveShared",
+        bundle: .module,
+        value: "Send anonymous diagnostic reports if you experience a crash or freeze.",
+        comment: "Description to explain the send crash reports toggle"
+      )
+
+    public static let sponsoredAdsEnabledTitle =
+      NSLocalizedString(
+        "settings.sponsoredAdsEnabledTitle",
+        tableName: "BraveShared",
+        bundle: .module,
+        value: "Enable Sponsored Ads",
+        comment: "Title of the settings toggle that enables Sponsored Ads"
+      )
+
+    public static let sponsoredAdsEnabledDescription =
+      NSLocalizedString(
+        "settings.sponsoredAdsEnabledDescription",
+        tableName: "BraveShared",
+        bundle: .module,
+        value:
+          "Help support Brave's mission to build an independent, user-first Web with Sponsored Ads. We measure ad performance privately, without identifying you.",
+        comment: "Description under the settings toggle that enables Sponsored Ads"
+      )
+
     public static let surveyPanelistTitle =
       NSLocalizedString(
         "settings.surveyPanelistTitle",
@@ -3038,35 +3138,6 @@ extension Strings {
     value: "Persistent Private Browsing",
     comment: "Setting to allow the app to restore private browsing tabs"
   )
-  public static let shieldsDefaults = NSLocalizedString(
-    "ShieldsDefaults",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Brave Shields Global Defaults",
-    comment: "Section title for adbblock, tracking protection, HTTPS-E, and cookies"
-  )
-  public static let shieldsDefaultsFooter = NSLocalizedString(
-    "ShieldsDefaultsFooter",
-    tableName: "BraveShared",
-    bundle: .module,
-    value:
-      "These are the default Shields settings for new sites. Changing these won't affect your existing per-site settings.",
-    comment: "Section footer for global shields defaults"
-  )
-  public static let HTTPSEverywhere = NSLocalizedString(
-    "HTTPSEverywhere",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Upgrade Connections to HTTPS",
-    comment: ""
-  )
-  public static let HTTPSEverywhereDescription = NSLocalizedString(
-    "HTTPSEverywhereDescription",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Opens sites using secure HTTPS instead of HTTP when possible.",
-    comment: ""
-  )
   public static let googleSafeBrowsing = NSLocalizedString(
     "GoogleSafeBrowsing",
     tableName: "BraveShared",
@@ -3096,67 +3167,6 @@ extension Strings {
     value:
       "See which websites you spend the most time on, and set browsing limits. [Learn More](%@)",
     comment: ""
-  )
-  public static let blockScripts = NSLocalizedString(
-    "BlockScripts",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Block Scripts",
-    comment: ""
-  )
-  public static let blockScriptsDescription = NSLocalizedString(
-    "BlockScriptsDescription",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Blocks JavaScript (may break sites).",
-    comment: ""
-  )
-  public static let fingerprintingProtection = NSLocalizedString(
-    "FingerprintingProtection",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Block Fingerprinting",
-    comment: ""
-  )
-  public static let fingerprintingProtectionDescription = NSLocalizedString(
-    "FingerprintingProtectionDescription",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Makes it harder for sites to recognize your device's distinctive characteristics. ",
-    comment: ""
-  )
-  public static let autoRedirectAMPPages = NSLocalizedString(
-    "AutoRedirectAMPPages",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Auto-Redirect AMP Pages",
-    comment:
-      "This is a title for a setting toggle that enables/disables auto-redirect of Google's AMP (Accelerated Mobile Page) pages to the original (non-AMP) pages. The text 'AMP' is not to be translated."
-  )
-  public static let autoRedirectAMPPagesDescription = NSLocalizedString(
-    "AutoRedirectAMPPagesDescription",
-    tableName: "BraveShared",
-    bundle: .module,
-    value:
-      "Always visit original (non-AMP) page URLs, instead of Google's Accelerated Mobile Page versions",
-    comment:
-      "This is a description for a setting toggle that enables/disables auto-redirect of Google's AMP (Accelerated Mobile Page) pages to the original (non-AMP) pages. The text 'AMP' and 'Accelerated Mobile Page' is not to be translated."
-  )
-  public static let autoRedirectTrackingURLs = NSLocalizedString(
-    "AutoRedirectTrackingURLs",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Auto-Redirect Tracking URLs",
-    comment:
-      "This is a title for a setting toggle that enables/disables auto-redirection of tracking pages (Debouncing). Debouncing skips certain intermediate tracker pages and goes directly to the target without the intermediate tracker page."
-  )
-  public static let autoRedirectTrackingURLsDescription = NSLocalizedString(
-    "AutoRedirectTrackingURLsDescription",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Enable support for bypassing top-level redirect tracking URLs",
-    comment:
-      "This is a description for a setting toggle that enables/disables auto-redirect of tracking URLs (i.e. Debouncing)."
   )
   public static let support = NSLocalizedString(
     "Support",
@@ -3361,65 +3371,6 @@ extension Strings {
     value: "Blocking Monitor",
     comment: "title for section showing page blocking statistics"
   )
-  public static let siteShieldSettings = NSLocalizedString(
-    "SiteShieldSettings",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Shields",
-    comment: "Brave panel topmost title"
-  )
-  public static let adsAndTrackers = NSLocalizedString(
-    "AdsAndTrackers",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Ads and Trackers",
-    comment: "individual blocking statistic title"
-  )
-  public static let HTTPSUpgrades = NSLocalizedString(
-    "HTTPSUpgrades",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "HTTPS Upgrades",
-    comment: "individual blocking statistic title"
-  )
-  public static let scriptsBlocked = NSLocalizedString(
-    "ScriptsBlocked",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Scripts Blocked",
-    comment: "individual blocking statistic title"
-  )
-  public static let fingerprintingMethods = NSLocalizedString(
-    "FingerprintingMethods",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Fingerprinting Methods",
-    comment: "individual blocking statistic title"
-  )
-  public static let shieldsOverview = NSLocalizedString(
-    "ShieldsOverview",
-    tableName: "BraveShared",
-    bundle: .module,
-    value:
-      "Site Shields allow you to control when ads and trackers are blocked for each site that you visit. If you prefer to see ads on a specific site, you can enable them here.",
-    comment: "shields overview message"
-  )
-  public static let shieldsOverviewFooter = NSLocalizedString(
-    "ShieldsOverviewFooter",
-    tableName: "BraveShared",
-    bundle: .module,
-    value:
-      "Note: Some sites may require scripts to work properly so this shield is turned off by default.",
-    comment: "shields overview footer message"
-  )
-  public static let useRegionalAdblock = NSLocalizedString(
-    "UseRegionalAdblock",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Use regional adblock",
-    comment:
-      "Setting to allow user in non-english locale to use adblock rules specifc to their language"
-  )
   public static let newFolderDefaultName = NSLocalizedString(
     "NewFolderDefaultName",
     tableName: "BraveShared",
@@ -3561,6 +3512,14 @@ extension Strings {
     bundle: .module,
     value: "Ask Brave",
     comment: "Title for Ask Brave menu item. Brave is the company name and should not be translated"
+  )
+  public static let leoVoiceInputMenuItem = NSLocalizedString(
+    "LeoVoiceInputMenuItem",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Leo Voice Input",
+    comment:
+      "Title for Brave Leo voice input menu item. Brave Leo is the name of a product and should not be translated"
   )
   public static let passwordsMenuItem = NSLocalizedString(
     "PasswordsMenuItem",
@@ -4230,14 +4189,6 @@ extension Strings {
       comment:
         "A selection to let the users see sponsored image backgrounds when opening a new tab."
     )
-    public static let settingsSponsoredImagesAndVideosSelection = NSLocalizedString(
-      "ntp.settingsSponsoredImagesAndVideosSelection",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Sponsored Images & Videos",
-      comment:
-        "A selection to let the users see sponsored image and video backgrounds when opening a new tab."
-    )
     public static let settingsAutoOpenKeyboard = NSLocalizedString(
       "ntp.settingsAutoOpenKeyboard",
       tableName: "BraveShared",
@@ -4257,233 +4208,6 @@ extension Strings {
 
   }
 
-}
-
-// MARK: - Popover Views
-extension Strings {
-  public struct Popover {
-    public static let closeShieldsMenu = NSLocalizedString(
-      "PopoverShieldsMenuClose",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Close Shields Menu",
-      comment: "Description for closing the `Brave Shields` popover menu that is displayed."
-    )
-  }
-}
-
-// MARK: - Shields
-extension Strings {
-  public struct Shields {
-    public static let toggleHint = NSLocalizedString(
-      "BraveShieldsToggleHint",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Double-tap to toggle Brave Shields",
-      comment: "The accessibility hint spoken when focused on the main shields toggle"
-    )
-    public static let statusTitle = NSLocalizedString(
-      "BraveShieldsStatusTitle",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Brave Shields",
-      comment: "Context: 'Brave Shields Up' or 'Brave Shields Down'"
-    )
-    public static let statusValueUp = NSLocalizedString(
-      "BraveShieldsStatusValueUp",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Up",
-      comment: "Context: The 'Up' in 'Brave Shields Up'"
-    )
-    public static let statusValueDown = NSLocalizedString(
-      "BraveShieldsStatusValueDown",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Down",
-      comment: "Context: The 'Down' in 'Brave Shields Down'"
-    )
-    public static let blockedCountLabel = NSLocalizedString(
-      "BraveShieldsBlockedCountLabel",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Ads and other creepy things blocked",
-      comment: "The number of ads and trackers blocked will be next to this"
-    )
-    public static let blockedInfoButtonAccessibilityLabel = NSLocalizedString(
-      "BraveShieldsBlockedInfoButtonAccessibilityLabel",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Learn more",
-      comment:
-        "What the screen reader will read out when the user has VoiceOver on and taps on the question-mark info button on the shields panel"
-    )
-    public static let siteBroken = NSLocalizedString(
-      "BraveShieldsSiteBroken",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "If this site appears broken, try Shields down",
-      comment: ""
-    )
-    public static let advancedControls = NSLocalizedString(
-      "BraveShieldsAdvancedControls",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Advanced controls",
-      comment: ""
-    )
-    public static let aboutBraveShieldsTitle = NSLocalizedString(
-      "AboutBraveShields",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "About Brave Shields",
-      comment: "The title of the screen explaining Brave Shields"
-    )
-    public static let aboutBraveShieldsBody = NSLocalizedString(
-      "AboutBraveShieldsBody",
-      tableName: "BraveShared",
-      bundle: .module,
-      value:
-        "Sites often include cookies and scripts which try to identify you and your device. They want to work out who you are and follow you across the web — tracking what you do on every site.\n\nBrave blocks these things so that you can browse without being followed around.",
-      comment: "The body of the screen explaining Brave Shields"
-    )
-    public static let shieldsDownDisclaimer = NSLocalizedString(
-      "ShieldsDownDisclaimer",
-      tableName: "BraveShared",
-      bundle: .module,
-      value:
-        "You're browsing this site without Brave's privacy protections. Does it not work right with Shields up?",
-      comment: ""
-    )
-    public static let globalControls = NSLocalizedString(
-      "BraveShieldsGlobalControls",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Global Controls",
-      comment: ""
-    )
-    public static let globalChangeButton = NSLocalizedString(
-      "BraveShieldsGlobalChangeButton",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Change Shields Global Defaults",
-      comment: ""
-    )
-    public static let siteReportedTitle = NSLocalizedString(
-      "SiteReportedTitle",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Thank You",
-      comment: ""
-    )
-    public static let siteReportedBody = NSLocalizedString(
-      "SiteReportedBody",
-      tableName: "BraveShared",
-      bundle: .module,
-      value:
-        "Thanks for letting Brave's developers know that there's something wrong with this site. We'll do our best to fix it!",
-      comment: ""
-    )
-
-    // MARK: Submit report
-    public static let reportABrokenSite = NSLocalizedString(
-      "ReportABrokenSite",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Report a Broken Site",
-      comment: ""
-    )
-    public static let reportBrokenSiteBody1 = NSLocalizedString(
-      "ReportBrokenSiteBody1",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Let Brave's developers know that this site isn't working as expected:",
-      comment:
-        "First part of the report a broken site copy. After the colon is a new line and then a website address"
-    )
-    public static let reportBrokenSiteBody2 = NSLocalizedString(
-      "ReportBrokenSiteBody2",
-      tableName: "BraveShared",
-      bundle: .module,
-      value:
-        "Note: The report sent to Brave servers will include the site address, Brave version number, Shields settings, VPN status, and language settings.",
-      comment:
-        "This is the info text that is presented when a user is submitting a web-compatibility report."
-    )
-    public static let reportBrokenSubmitButtonTitle = NSLocalizedString(
-      "ReportBrokenSubmitButtonTitle",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Submit",
-      comment: ""
-    )
-
-    /// A label for a text entry field where the user can provide additional details for a web-compatibility report
-    public static let reportBrokenAdditionalDetails = NSLocalizedString(
-      "ReportBrokenAdditionalDetails",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Additional details (optional)",
-      comment:
-        "A label for a text entry field where the user can provide additional details for a web-compatibility report"
-    )
-
-    /// A label for a text entry field where the user can provide additional details for a web-compatibility report
-    public static let reportBrokenAdditionalDetailsRequired = NSLocalizedString(
-      "reportBrokenAdditionalDetailsRequired",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Additional details",
-      comment:
-        "A label for a text entry field where the user can provide additional details for a web-compatibility report"
-    )
-
-    /// A label for drop down where the user can provide a category for a web-compatibility report
-    public static let reportBrokenCategory = NSLocalizedString(
-      "reportBrokenCategory",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "What's the main issue you're seeing?",
-      comment:
-        "A label for a drop down where the user provides a category for a web-compatibility report"
-    )
-
-    /// A placeholder for the drop down where the user can provide a category for a web-compatibility report
-    public static let reportBrokenPlaceholder = NSLocalizedString(
-      "ReportBrokenPlaceholder",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Select one option",
-      comment:
-        "A placeholder for a drop down where the user provides a category for a web-compatibility report"
-    )
-
-    public static let reportBrokenContactMe = NSLocalizedString(
-      "ReportBrokenContactMe",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Contact me at: (optional)",
-      comment:
-        "A label for a text entry field where the user can provide contact details within a web-compatibilty report"
-    )
-
-    public static let reportBrokenContactMeSuggestions = NSLocalizedString(
-      "ReportBrokenContactMeSuggestions",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Email, Twitter, etc.",
-      comment:
-        "A placeholder for a text entry field within a web-compatibilty report which shows a few suggestions of what the user should enter for their contact contact details (in a 'Contact me at: (optional)' field)."
-    )
-
-    public static let reportBrokenContactMeDescription = NSLocalizedString(
-      "ReportBrokenContactMeDescription",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "If you provide contact info it will be stored for reporting broken sites in the future.",
-      comment: "Contact info storing description"
-    )
-  }
 }
 
 // MARK: ShieldEducation
@@ -7782,6 +7506,28 @@ extension Strings {
       value: "on %@",
       comment: "This is a suffix statement. example: SomeChannel on Twitter"
     )
+    public static let settingsResetTitle = NSLocalizedString(
+      "rewards.settingsResetTitle",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "Reset",
+      comment: "Title of a button that resets the user's Brave Rewards profile"
+    )
+    public static let settingsResetConfirmationTitle = NSLocalizedString(
+      "rewards.settingsResetConfirmationTitle",
+      tableName: "BraveShared",
+      bundle: .module,
+      value: "Reset Brave Rewards",
+      comment: "Title of a confirmation dialog shown before resetting Brave Rewards"
+    )
+    public static let settingsResetConfirmationMessage = NSLocalizedString(
+      "rewards.settingsResetConfirmationMessage",
+      tableName: "BraveShared",
+      bundle: .module,
+      value:
+        "By resetting, your current Brave Rewards profile will be deleted, and Brave Rewards will no longer be enabled.",
+      comment: "Message of a confirmation dialog shown before resetting Brave Rewards"
+    )
   }
 }
 
@@ -7801,20 +7547,6 @@ extension Strings {
 // MARK: - Ads
 extension Strings {
   public struct Ads {
-    public static let myFirstAdTitle = NSLocalizedString(
-      "MyFirstAdTitle",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "This is your first Brave ad",
-      comment: ""
-    )
-    public static let myFirstAdBody = NSLocalizedString(
-      "MyFirstAdBody",
-      tableName: "BraveShared",
-      bundle: .module,
-      value: "Tap here to learn more.",
-      comment: ""
-    )
     public static let open = NSLocalizedString(
       "BraveRewardsOpen",
       tableName: "BraveShared",
@@ -8157,30 +7889,6 @@ extension Strings {
     value: "No Saved Website Data",
     comment:
       "Shown when the user has no website data (such as cookies, caches, or local storage) persisted to their device."
-  )
-
-  public static let blockCookieConsentNotices = NSLocalizedString(
-    "BlockCookieConsentNotices",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Block Cookie Consent Notices",
-    comment: "A title for a setting that enables cookie consent notices"
-  )
-
-  public static let braveShieldsSaveContactInfo = NSLocalizedString(
-    "BraveShieldsSaveContactInfo",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "Store contact information for future broken site reports",
-    comment: "Shields panel toggle label that would save webcompat report contact info data when enabled."
-  )
-
-  public static let braveShieldsSaveContactInfoDescription = NSLocalizedString(
-    "BraveShieldsSaveContactInfoDescription",
-    tableName: "BraveShared",
-    bundle: .module,
-    value: "If you provide contact info it will be stored for future reports",
-    comment: "Description for shields panel toggle label that would save webcompat report contact info data when enabled."
   )
 }
 
@@ -9555,5 +9263,40 @@ extension Strings {
     value: "Open in tab",
     comment:
       "Accessibility text for an icon button which will exit QuickView mode and open the current page in a regular tab."
+  )
+}
+
+// MARK: - Background Downloading
+extension Strings {
+  public static let backgroundDownloadingTitleSingleDownload = NSLocalizedString(
+    "backgroundDownloadingTitleSingleDownload",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Downloading \"%@\"",
+    comment: "A title that appears in the dynamic island when a download is continuing while Brave is backgrounded. %@ is replaced with a file name"
+  )
+
+  public static let backgroundDownloadingTitleMultiDownload = NSLocalizedString(
+    "backgroundDownloadingTitleMultiDownload",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Downloading %lld files",
+    comment: "A title that appears in the dynamic island when a download is continuing while Brave is backgrounded. %lld is replaced with the number of active downloads"
+  )
+
+  public static let backgroundDownloadingSubtitleWithExpectedSize = NSLocalizedString(
+    "backgroundDownloadingSubtitleWithExpectedSize",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "%@ of %@",
+    comment: "A subtitle that appears in the dynamic island when a download is continuing while Brave is backgrounded. The %@'s are replaced with a progress and a file size. E.g. '1MB of 20MB'"
+  )
+
+  public static let backgroundDownloadingSubtitle = NSLocalizedString(
+    "backgroundDownloadingSubtitle",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "%@",
+    comment: "A subtitle that appears in the dynamic island when a download is continuing while Brave is backgrounded. The %@'s are replaced with the current downloaded amount (e.g. '20MB')"
   )
 }

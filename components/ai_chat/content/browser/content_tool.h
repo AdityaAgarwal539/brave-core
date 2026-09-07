@@ -30,12 +30,16 @@ class ContentTool : public Tool {
   // Tool overrides:
   std::string_view Name() const override;
   std::string_view Description() const override;
+  std::string_view DisplayName() const override;
+  std::string_view DisplayDescription() const override;
   std::optional<base::DictValue> InputProperties() const override;
   std::optional<std::vector<std::string>> RequiredProperties() const override;
   std::variant<bool, mojom::PermissionChallengePtr>
   RequiresUserInteractionBeforeHandling(
       const mojom::ToolUseEvent& tool_use) const override;
   void UserPermissionGranted(const std::string& tool_use_id) override;
+  std::optional<std::string> GetPermissionChallengeDescription(
+      const mojom::ToolUseEvent& tool_use) const override;
 
   void UseTool(const std::string& input_json,
                UseToolCallback callback) override;
@@ -44,7 +48,10 @@ class ContentTool : public Tool {
   bool user_permission_granted_ = false;
 
   content::WeakDocumentPtr rfh_;
+  // As registered by the page. |name_| and |description_| are the model-facing
+  // variants, host-prefixed and augmented with instructions respectively.
   std::string internal_tool_name_;
+  std::string internal_tool_description_;
   std::string name_;
   std::string description_;
   std::optional<base::DictValue> input_properties_;

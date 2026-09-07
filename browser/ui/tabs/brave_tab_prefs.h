@@ -27,6 +27,8 @@ inline constexpr char kVerticalTabsHideCompletelyWhenCollapsed[] =
     "brave.tabs.vertical_tabs_hide_completely_when_collapsed";
 inline constexpr char kVerticalTabsFloatingEnabled[] =
     "brave.tabs.vertical_tabs_floating_enabled";
+inline constexpr char kVerticalTabsShowToggleButton[] =
+    "brave.tabs.vertical_tabs_show_toggle_button";
 inline constexpr char kVerticalTabsExpandedWidth[] =
     "brave.tabs.vertical_tabs_expanded_width";
 inline constexpr char kVerticalTabsOnRight[] =
@@ -61,6 +63,12 @@ inline constexpr char kTabMinWidthMode[] = "brave.tabs.min_width_mode";
 // scrolls when there are more tabs than fit. When false, tabs shrink instead.
 inline constexpr char kScrollableHorizontalTabStrip[] =
     "brave.tabs.scrollable_horizontal_tab_strip";
+
+// When true, tabs that have an accent (e.g. container tabs) always show the
+// mini (small) accent icon instead of the large one, regardless of the tab's
+// width.
+inline constexpr char kAlwaysUseMiniAccentIcon[] =
+    "brave.tabs.always_use_mini_accent_icon";
 
 // Integer values stored in prefs; stable for migration. kDefault is reserved so
 // the product default can change without migrating explicit user choices.

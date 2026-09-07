@@ -91,7 +91,7 @@ protocol NewTabPageDelegate: AnyObject {
   func brandedImageCalloutActioned(_ state: BrandedImageCalloutState)
   func showNTPOnboarding()
   func showNewTabTakeoverInfoBarIfNeeded()
-  func isURLBarInOverlayMode() -> Bool
+  func isNewTabPageOccluded() -> Bool
 }
 
 /// The new tab page. Shows users a variety of information, including stats and
@@ -123,8 +123,6 @@ class NewTabPageViewController: UIViewController {
   private var background: NewTabPageBackground
   private let backgroundView = NewTabPageBackgroundView()
   private let backgroundButtonsView: NewTabPageBackgroundButtonsView
-  private var videoAdPlayer: NewTabPageVideoAdPlayer?
-  private var videoButtonsView = NewTabPageVideoAdButtonsView()
 
   // Track the ID of the last viewed sponsored background to prevent duplicate
   // viewed impressions.
@@ -148,7 +146,6 @@ class NewTabPageViewController: UIViewController {
   private let feedDataSource: FeedDataSource
   private let feedOverlayView = NewTabPageFeedOverlayView()
   private var preventReloadOnBraveNewsEnabledChange = false
-  private var didAttemptBackgroundVideoAutoplay = false
 
   private let notifications: NewTabPageNotifications
   private var cancellables: Set<AnyCancellable> = []
@@ -173,7 +170,7 @@ class NewTabPageViewController: UIViewController {
       privateBrowsingManager: privateBrowsingManager,
       profilePrefs: profilePrefs
     )
-    background = NewTabPageBackground(dataSource: dataSource, rewards: rewards)
+    background = NewTabPageBackground(dataSource: dataSource)
     notifications = NewTabPageNotifications(rewards: rewards)
     collectionView = NewTabCollectionView(frame: .zero, collectionViewLayout: layout)
     super.init(nibName: nil, bundle: nil)
@@ -275,14 +272,10 @@ class NewTabPageViewController: UIViewController {
       setupBackgroundImage()
 
       let isTabVisible = viewIfLoaded?.window != nil
-      setupBackgroundVideoIfNeeded(shouldCreatePlayer: isTabVisible)
       if isTabVisible {
         // `viewDidAppear` is not called when the view is already visible, so
-        // report the viewed impression event and load the video asset here
-        // if needed.
+        // report the viewed impression event here if needed.
         reportSponsoredBackgroundViewedEventIfNeeded()
-
-        loadAndAutoplayBackgroundVideoAdIfNeeded()
       }
     }
 
@@ -325,7 +318,6 @@ class NewTabPageViewController: UIViewController {
 
     view.addSubview(backgroundView)
     view.insertSubview(gradientView, aboveSubview: backgroundView)
-    view.addSubview(videoButtonsView)
     view.addSubview(collectionView)
     view.addSubview(feedOverlayView)
 
@@ -356,11 +348,7 @@ class NewTabPageViewController: UIViewController {
     }
 
     setupBackgroundImage()
-    setupBackgroundVideoIfNeeded(shouldCreatePlayer: true)
     backgroundView.snp.makeConstraints {
-      $0.edges.equalToSuperview()
-    }
-    videoButtonsView.snp.makeConstraints {
       $0.edges.equalToSuperview()
     }
     collectionView.snp.makeConstraints {
@@ -408,8 +396,6 @@ class NewTabPageViewController: UIViewController {
     // to use it.
     backgroundView.layoutIfNeeded()
 
-    updateVideoAdPlayer()
-
     calculateBackgroundCenterPoints()
   }
 
@@ -417,8 +403,6 @@ class NewTabPageViewController: UIViewController {
     super.viewDidAppear(animated)
 
     reportSponsoredBackgroundViewedEventIfNeeded()
-
-    loadAndAutoplayBackgroundVideoAdIfNeeded()
 
     presentNotification()
 
@@ -437,15 +421,6 @@ class NewTabPageViewController: UIViewController {
     super.willMove(toParent: parent)
 
     backgroundView.imageView.image = parent == nil ? nil : background.backgroundImage
-
-    if parent == nil {
-      videoAdPlayer?.cancelPlayIfNeeded()
-      videoAdPlayer?.resetPlayer()
-    } else {
-      videoAdPlayer?.createPlayer()
-      videoAdPlayer?.seekToStopFrame()
-    }
-    backgroundView.playerLayer.player = videoAdPlayer?.player
 
     lastViewedSponsoredBackgroundId = nil
   }
@@ -477,139 +452,6 @@ class NewTabPageViewController: UIViewController {
         // visible
         break
       }
-    }
-  }
-
-  private func fadeOutCollectionViewAndShowVideoButtons() {
-    self.videoButtonsView.isHidden = false
-    self.gradientView.isHidden = true
-
-    UIView.animate(
-      withDuration: 0.3,
-      animations: { [weak self] in
-        self?.collectionView.alpha = 0
-      },
-      completion: { [weak self] _ in
-        self?.collectionView.isHidden = true
-        self?.collectionView.alpha = 1
-      }
-    )
-  }
-
-  private func fadeInCollectionViewAndHideVideoButtons() {
-    videoButtonsView.isHidden = true
-    gradientView.isHidden = false
-    collectionView.isHidden = false
-    collectionView.alpha = 0
-    UIView.animate(
-      withDuration: 0.3,
-      animations: { [weak self] in
-        self?.collectionView.alpha = 1
-        self?.videoAdPlayer?.seekToStopFrame()
-      }
-    )
-  }
-
-  func setupBackgroundVideoIfNeeded(shouldCreatePlayer: Bool) {
-    videoButtonsView.isHidden = true
-
-    guard let backgroundVideoPath = background.backgroundVideoPath else {
-      videoAdPlayer = nil
-      backgroundView.resetPlayerLayer()
-      backgroundButtonsView.resetVideoBackgroundButtons()
-      return
-    }
-
-    gradientView.isHidden = false
-    videoAdPlayer = NewTabPageVideoAdPlayer(backgroundVideoPath)
-    if shouldCreatePlayer {
-      videoAdPlayer?.createPlayer()
-    }
-
-    backgroundView.setupPlayerLayer(backgroundVideoPath, player: videoAdPlayer?.player)
-
-    videoButtonsView.tappedBackgroundVideo = { [weak videoAdPlayer] in
-      guard let videoAdPlayer else {
-        return false
-      }
-      return videoAdPlayer.togglePlay()
-    }
-    videoButtonsView.tappedCancelButton = { [weak videoAdPlayer] in
-      videoAdPlayer?.cancelPlayIfNeeded()
-    }
-
-    backgroundButtonsView.activeButton = .none
-    backgroundButtonsView.tappedPlayButton = { [weak self] in
-      self?.videoAdPlayer?.startPlayback()
-    }
-    backgroundButtonsView.tappedBackgroundDuringAutoplay = { [weak self] in
-      self?.videoAdPlayer?.startPlayback()
-    }
-
-    videoAdPlayer?.didCancelPlaybackEvent = { [weak self] in
-      guard let self = self else { return }
-      self.fadeInCollectionViewAndHideVideoButtons()
-    }
-    videoAdPlayer?.didStartAutoplayEvent = { [weak self] in
-      self?.backgroundButtonsView.videoAutoplayStarted()
-    }
-    videoAdPlayer?.didFinishAutoplayEvent = { [weak self] in
-      guard let self = self else { return }
-      self.backgroundButtonsView.videoAutoplayFinished()
-      if case .sponsoredMedia(let background, _) = self.background.currentBackground {
-        self.backgroundButtonsView.activeButton = .brandLogo(background.logo)
-      }
-      self.backgroundButtonsView.alpha = 0
-      UIView.animate(
-        withDuration: 0.3,
-        animations: { [weak self] in
-          self?.backgroundButtonsView.alpha = 1
-        }
-      )
-    }
-    videoAdPlayer?.didFinishPlaybackEvent = { [weak self] in
-      guard let self = self else { return }
-      self.fadeInCollectionViewAndHideVideoButtons()
-      self.reportSponsoredBackgroundEvent(.media100)
-    }
-    videoAdPlayer?.didStartPlaybackEvent = { [weak self] in
-      guard let self = self else { return }
-      self.fadeOutCollectionViewAndShowVideoButtons()
-      self.reportSponsoredBackgroundEvent(.mediaPlay)
-    }
-    videoAdPlayer?.didPlay25PercentEvent = { [weak self] in
-      self?.reportSponsoredBackgroundEvent(.media25)
-    }
-  }
-
-  private func loadAndAutoplayBackgroundVideoAdIfNeeded() {
-    guard background.currentBackground != nil else { return }
-    let shouldAutoplay =
-      shouldShowBackgroundVideo()
-      && delegate?.isURLBarInOverlayMode() != true
-      && !didAttemptBackgroundVideoAutoplay
-    videoAdPlayer?.loadAndAutoplayVideoAssetIfNeeded(
-      shouldAutoplay: shouldAutoplay
-    )
-    // Autoplay is only attempted once per tab open to avoid background changes
-    // triggering autoplay when the tab is already in use.
-    didAttemptBackgroundVideoAutoplay = true
-  }
-
-  private func shouldShowBackgroundVideo() -> Bool {
-    let isLandscape = view.window?.windowScene?.interfaceOrientation.isLandscape == true
-    return !(isLandscape && UIDevice.isPhone)
-  }
-
-  private func updateVideoAdPlayer() {
-    backgroundView.playerLayer.frame = view.bounds
-
-    if shouldShowBackgroundVideo() {
-      backgroundView.playerLayer.isHidden = false
-    } else {
-      // Hide the player layer in landscape mode on iPhone.
-      backgroundView.playerLayer.isHidden = true
-      videoAdPlayer?.cancelPlayIfNeeded()
     }
   }
 
@@ -686,7 +528,7 @@ class NewTabPageViewController: UIViewController {
   private func reportSponsoredBackgroundViewedEventIfNeeded() {
     // Only record a sponsored background viewed impression when the NTP
     // background is not covered by the URL bar overlay.
-    if delegate?.isURLBarInOverlayMode() == true {
+    if delegate?.isNewTabPageOccluded() == true {
       return
     }
 
@@ -695,10 +537,10 @@ class NewTabPageViewController: UIViewController {
     }
 
     // Ensure we only record a viewed impression once per placement id.
-    if lastViewedSponsoredBackgroundId == newTabPageAd.placementID {
+    if lastViewedSponsoredBackgroundId == newTabPageAd.placementId {
       return
     }
-    lastViewedSponsoredBackgroundId = newTabPageAd.placementID
+    lastViewedSponsoredBackgroundId = newTabPageAd.placementId
 
     delegate?.showNewTabTakeoverInfoBarIfNeeded()
     reportSponsoredBackgroundEvent(.viewedImpression)
@@ -712,7 +554,7 @@ class NewTabPageViewController: UIViewController {
       case .sponsoredMedia(let sponsoredBackground, let newTabPageAd) = background.currentBackground
     {
       rewards.ads.triggerNewTabPageAdEvent(
-        newTabPageAd.placementID,
+        newTabPageAd.placementId,
         creativeInstanceId: sponsoredBackground.creativeInstanceId,
         metricType: sponsoredBackground.metricType,
         eventType: event,
@@ -808,8 +650,11 @@ class NewTabPageViewController: UIViewController {
         collectionView.deleteItems(at: [IndexPath(item: 0, section: section)])
       }
 
-      // scroll to offset .zero to preserve padding above section
-      collectionView.setContentOffset(.zero, animated: true)
+      // scroll to the top to preserve padding above section
+      collectionView.setContentOffset(
+        .init(x: 0, y: -collectionView.adjustedContentInset.top),
+        animated: true
+      )
       backgroundButtonsView.setNeedsLayout()
       collectionView.verticalScrollIndicatorInsets = .zero
       UIView.animate(withDuration: 0.25) {
@@ -922,7 +767,7 @@ class NewTabPageViewController: UIViewController {
           self.feedOverlayView.loaderView.isHidden = true
         }
       )
-      if collectionView.contentOffset.y == collectionView.contentInset.top {
+      if collectionView.contentOffset.y == -collectionView.adjustedContentInset.top {
         collectionView.reloadData()
         collectionView.layoutIfNeeded()
         let cells = collectionView.indexPathsForVisibleItems
@@ -969,7 +814,7 @@ class NewTabPageViewController: UIViewController {
         _completeLoading()
       }
     case (_, .loading):
-      if collectionView.contentOffset.y == collectionView.contentInset.top
+      if collectionView.contentOffset.y == -collectionView.adjustedContentInset.top
         || collectionView.numberOfItems(inSection: section) == 0
       {
         feedOverlayView.loaderView.isHidden = false
@@ -989,7 +834,7 @@ class NewTabPageViewController: UIViewController {
 
   @objc private func checkForUpdatedFeed() {
     if !isBraveNewsVisible || Preferences.BraveNews.isShowingOptIn.value { return }
-    if collectionView.contentOffset.y == collectionView.contentInset.top {
+    if collectionView.contentOffset.y == -collectionView.adjustedContentInset.top {
       // Reload contents if the user is not currently scrolled into the feed
       loadFeedContents()
     } else {
@@ -1045,15 +890,13 @@ class NewTabPageViewController: UIViewController {
     if case .loading = feedDataSource.state {
       return
     }
-    let todayStart =
-      collectionView.frame.height - feedOverlayView.headerView.bounds.height - 32 - 16
     newContentAvailableDismissTimer = nil
     feedOverlayView.newContentAvailableButton.isLoading = true
     loadFeedContents { [weak self] in
       guard let self = self else { return }
       self.feedOverlayView.hideNewContentAvailableButton()
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-        self.collectionView.setContentOffset(CGPoint(x: 0, y: todayStart), animated: true)
+        self.scrollToBraveNews()
       }
     }
   }
@@ -1094,11 +937,34 @@ class NewTabPageViewController: UIViewController {
 
   private func tappedSponsorButton(_ logo: NTPSponsoredImageLogo) {
     UIImpactFeedbackGenerator(style: .medium).vibrate()
-    if let url = logo.destinationURL {
-      delegate?.navigateToInput(url.absoluteString, inNewTab: false, switchingToPrivateMode: false)
+    reportSponsoredBackgroundEvent(.clicked)
+
+    guard let url = logo.destinationURL else { return }
+    if url.scheme != "https"
+      || !Preferences.General.followUniversalLinks.value
+      || (Preferences.General.keepYouTubeInBrave.value && url.isYouTubeURL)
+    {
+      delegate?.navigateToInput(
+        url.absoluteString,
+        inNewTab: false,
+        switchingToPrivateMode: false
+      )
+      return
     }
 
-    reportSponsoredBackgroundEvent(.clicked)
+    // Try to open the destination URL as a universal link in case there is
+    // an installed app configured to open it. Fall back to loading the URL
+    // in the browser if no app opened it.
+    UIApplication.shared.open(url, options: [.universalLinksOnly: true]) {
+      [weak self] didOpen in
+      if !didOpen {
+        self?.delegate?.navigateToInput(
+          url.absoluteString,
+          inNewTab: false,
+          switchingToPrivateMode: false
+        )
+      }
+    }
   }
 
   private func handleFavoriteAction(favorite: Favorite, action: BookmarksAction) {
@@ -1186,14 +1052,20 @@ extension NewTabPageViewController {
     if collectionView.numberOfItems(inSection: newsSection) > 0 {
       // Hide the buttons as Brave News feeds appear
       backgroundButtonsView.alpha =
-        1.0 - max(0.0, min(1.0, (scrollView.contentOffset.y - scrollView.contentInset.top) / 16))
+        1.0
+        - max(
+          0.0,
+          min(1.0, (scrollView.contentOffset.y + scrollView.adjustedContentInset.top) / 16)
+        )
       // Show the header as Brave News feeds appear
       // Offset of where Brave News starts
-      let todayStart =
-        collectionView.frame.height - feedOverlayView.headerView.bounds.height - 32 - 16
+      let braveNewsStart =
+        layout.layoutAttributesForItem(at: IndexPath(item: 0, section: newsSection))?.frame.minY
+        ?? collectionView.frame.height
+      let todayStart = braveNewsStart - scrollView.adjustedContentInset.top
       // Offset of where the header should begin becoming visible
-      let alphaInStart = collectionView.frame.height / 2.0
-      let value = scrollView.contentOffset.y
+      let alphaInStart = todayStart / 2.0
+      let value = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
       let alpha = max(0.0, min(1.0, (value - alphaInStart) / (todayStart - alphaInStart)))
       feedOverlayView.headerView.alpha = alpha
 
@@ -1201,7 +1073,7 @@ extension NewTabPageViewController {
         && !feedOverlayView.newContentAvailableButton.isLoading
       {
         let velocity = scrollView.panGestureRecognizer.velocity(in: scrollView).y
-        if velocity > 0 && collectionView.contentOffset.y < todayStart {
+        if velocity > 0 && value < todayStart {
           // Scrolling up
           self.feedOverlayView.hideNewContentAvailableButton()
         } else if velocity < 0 {
@@ -1223,7 +1095,7 @@ extension NewTabPageViewController {
         }
       }
 
-      if scrollView.contentOffset.y >= todayStart {
+      if value >= todayStart {
         recordBraveNewsUsageP3A()
       }
     }
@@ -1235,9 +1107,15 @@ extension NewTabPageViewController {
       return
     }
     // Offset of where Brave News starts
-    let todayStart =
-      collectionView.frame.height - feedOverlayView.headerView.bounds.height - 32 - 16
-    collectionView.contentOffset.y = todayStart
+    guard let section = layout.braveNewsSection,
+      collectionView.numberOfItems(inSection: section) != 0,
+      let item = layout.layoutAttributesForItem(at: IndexPath(item: 0, section: section))
+    else {
+      return
+    }
+    // FIXME: Use size of header + padding
+    collectionView.contentOffset.y =
+      item.frame.minY - collectionView.adjustedContentInset.top - 56
   }
 
   // MARK: - P3A
@@ -1701,7 +1579,7 @@ extension NewTabPageViewController {
 
 // MARK: - URL bar overlay
 extension NewTabPageViewController {
-  func urlBarDidLeaveOverlayMode() {
+  func searchContainerDidDismiss() {
     reportSponsoredBackgroundViewedEventIfNeeded()
   }
 }

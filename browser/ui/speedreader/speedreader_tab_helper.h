@@ -59,6 +59,10 @@ class SpeedreaderTabHelper
 
     virtual void OnTuneBubbleClosed() {}
     virtual void OnContentsReady() {}
+
+    // Called whenever the tab's distill state may have changed, so observers
+    // can refresh anything derived from `PageDistillState()`.
+    virtual void OnDistillStateUpdated() {}
   };
 
   ~SpeedreaderTabHelper() override;
@@ -82,6 +86,15 @@ class SpeedreaderTabHelper
   void ProcessIconClick();
 
   DistillState PageDistillState() const { return distill_state_; }
+
+  // Sets the distill state directly, bypassing the state machine that
+  // Transit() normally enforces (e.g. ViewOriginal -> Distilling ->
+  // Distilled), navigation, and the real distillation pipeline. For unit
+  // tests only.
+  void SetDistillStateForTesting(const DistillState& state) {
+    distill_state_ = state;
+    UpdateUI();
+  }
 
   // returns nullptr if no bubble currently shown
   SpeedreaderBubbleView* speedreader_bubble_view() const;
@@ -184,7 +197,7 @@ class SpeedreaderTabHelper
 
   std::string single_show_content_;
 
-  DistillState distill_state_{DistillStates::ViewOriginal()};
+  DistillState distill_state_{ViewOriginal()};
 
   raw_ref<SpeedreaderService> speedreader_service_;
 

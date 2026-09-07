@@ -30,6 +30,7 @@ source_set("brave_wallet") {
     "//brave/components/brave_wallet/common:mojom",
     "//brave/components/brave_wallet/common/buildflags",
     "//chrome/browser:browser_process",
+    "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//components/keyed_service/content",
@@ -140,6 +141,7 @@ source_set("tab_helper") {
     "//brave/components/brave_wallet/common/buildflags",
     "//chrome/browser/content_settings:content_settings_factory",
     "//components/permissions",
+    "//components/tabs:public",
     "//components/user_prefs",
     "//content/public/browser",
   ]
@@ -147,11 +149,7 @@ source_set("tab_helper") {
   public_deps = [ "//brave/components/brave_wallet/common:mojom" ]
 
   if (!is_android) {
-    deps += [
-      "//brave/browser/ui/brave_wallet",
-      "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/tabs:tab_strip",
-    ]
+    deps += [ "//brave/browser/ui/brave_wallet" ]
   }
 }
 
@@ -256,6 +254,7 @@ source_set("browser_tests") {
       "//brave/browser/ui/sidebar:sidebar_impl",
       "//brave/components/brave_wallet/browser",
       "//brave/components/brave_wallet/browser:pref_names",
+      "//brave/components/brave_wallet/browser:test_support",
       "//brave/components/brave_wallet/browser:utils",
       "//brave/components/brave_wallet/common",
       "//brave/components/brave_wallet/common:common_constants",

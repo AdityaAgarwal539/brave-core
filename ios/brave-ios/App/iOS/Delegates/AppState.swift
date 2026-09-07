@@ -3,7 +3,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import AIChat
 import Brave
 import BraveCore
 import BraveNews
@@ -27,6 +26,7 @@ private let adsRewardsLog = Logger(
 /// Class that does startup initialization
 /// Everything in this class can only be execute ONCE
 /// IE: BraveCore initialization, BuildChannel, Migrations, etc.
+@MainActor
 public class AppState {
   private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app-state")
 
@@ -38,6 +38,9 @@ public class AppState {
   public let profile: LegacyBrowserProfile
   public let newsFeedDataSource: FeedDataSource
   public let uptimeMonitor = UptimeMonitor()
+  public let defaultProfileLoader = DefaultProfileLoader()
+  public let downloadBackgroundTaskModel: DownloadBackgroundTaskScheduler?
+
   private var didBecomeActive = false
 
   public var state: State = .launching(options: [:], active: false) {
@@ -110,6 +113,18 @@ public class AppState {
 
     newsFeedDataSource = FeedDataSource()
 
+    #if !targetEnvironment(simulator)
+    if #available(iOS 26.0, *) {
+      downloadBackgroundTaskModel = DownloadBackgroundTaskScheduler(
+        taskIdentifier: "\(Bundle.main.bundleIdentifier!).download"
+      )
+    } else {
+      downloadBackgroundTaskModel = nil
+    }
+    #else
+    downloadBackgroundTaskModel = nil
+    #endif
+
     // Setup Custom URL scheme handlers
     setupCustomSchemeHandlers()
   }
@@ -119,6 +134,27 @@ public class AppState {
     case active
     case backgrounded
     case terminating
+  }
+
+  /// Loads BraveCore's default profile at most once, even when requested concurrently by multiple scenes
+  public final class DefaultProfileLoader {
+    private var task: Task<BraveProfileController, Never>?
+
+    @MainActor
+    public func profileController(braveCore: BraveCoreMain) async -> BraveProfileController {
+      if let profileController = braveCore.profileController {
+        return profileController
+      }
+      if let task {
+        return await task.value
+      }
+      let task = Task {
+        await braveCore.loadDefaultProfile()
+      }
+      self.task = task
+      defer { self.task = nil }
+      return await task.value
+    }
   }
 
   private static func setupConstants() {

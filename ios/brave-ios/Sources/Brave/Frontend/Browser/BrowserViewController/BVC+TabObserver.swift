@@ -71,8 +71,7 @@ extension BrowserViewController: TabObserver {
         }
         // dismiss wallet notification (e.g. after redirect to different origin)
         removeWalletNotificationAndClearOrigin()
-      } else if FeatureList.kBraveWalletWebUIIOS?.enabled == true,
-        profileController.braveWalletAPI.isAllowed,
+      } else if profileController.braveWalletAPI.isAllowed,
         let selectedTabVisibleURL = selectedTab.visibleURL,
         selectedTabVisibleURL.isWalletWebUIURL
       {
@@ -83,15 +82,20 @@ extension BrowserViewController: TabObserver {
         updateURLBarWalletButton()
       }
     }
+  }
 
-    hideToastsOnNavigationStartIfNeeded(tabManager)
+  public func tabWasShown(_ tab: some TabState) {
+    if #available(iOS 26.0, *) {
+      updateWebViewObscuredInsets()
+    }
   }
 
   public func tabDidCommitNavigation(_ tab: some TabState) {
-    // Reset the stored http request now that load has committed.
-    tab.upgradedHTTPSRequest = nil
-    tab.upgradeHTTPSTimeoutTimer?.invalidate()
-    tab.upgradeHTTPSTimeoutTimer = nil
+    // Odd Chromium behaviour resets the web views obscured insets when a navigation starts due to
+    // a bug with their fullscreen support, so we must set this again after a commit
+    if #available(iOS 26.0, *) {
+      updateWebViewObscuredInsets()
+    }
 
     // Clear the current request url and the redirect source url
     // We don't need these values after the request has been comitted
@@ -102,45 +106,6 @@ extension BrowserViewController: TabObserver {
     // Dismiss any alerts that are showing on page navigation.
     if let alert = tab.shownPromptAlert {
       alert.dismiss(animated: false)
-    }
-
-    // Providers need re-initialized when changing origin to align with desktop in
-    // `BraveContentBrowserClient::RegisterBrowserInterfaceBindersForFrame`
-    // https://github.com/brave/brave-core/blob/1.52.x/browser/brave_content_browser_client.cc#L608
-    if profileController.braveWalletAPI.isAllowed {
-      tab.wallet?.clearSolanaConnectedAccounts()
-
-      if let walletHelper = tab.wallet {
-        let committedOrigin = tab.lastCommittedURL?.origin
-        if let provider = profileController.braveWalletAPI.ethereumProvider(
-          with: walletHelper,
-          origin: committedOrigin,
-          isPrivateBrowsing: tab.isPrivate
-        ) {
-          // The Ethereum provider will fetch allowed accounts from it's delegate (the tab)
-          // on initialization. Fetching allowed accounts requires the origin; so we need to
-          // initialize after `commitedURL` / `url` are updated above
-          walletHelper.walletEthProvider = provider
-          walletHelper.walletEthProvider?.initialize(eventsListener: walletHelper)
-        }
-        if let provider = profileController.braveWalletAPI.solanaProvider(
-          with: walletHelper,
-          origin: committedOrigin,
-          isPrivateBrowsing: tab.isPrivate
-        ) {
-          walletHelper.walletSolProvider = provider
-          walletHelper.walletSolProvider?.initialize(eventsListener: walletHelper)
-        }
-        if WalletConstants.isCardanoDAppSupportEnabled,
-          let provider = profileController.braveWalletAPI.cardanoProvider(
-            with: walletHelper,
-            origin: committedOrigin,
-            isPrivateBrowsing: tab.isPrivate
-          )
-        {
-          tab.walletCardanoProvider = provider
-        }
-      }
     }
 
     // The toolbar and url bar changes can not be
@@ -169,7 +134,6 @@ extension BrowserViewController: TabObserver {
   }
 
   public func tabDidCommitSameDocumentNavigation(_ tab: some TabState) {
-    tab.browserData?.resetExternalAlertProperties()
 
     if !Preferences.Privacy.privateBrowsingOnly.value,
       !tab.isPrivate || Preferences.Privacy.persistentPrivateBrowsing.value
@@ -202,18 +166,9 @@ extension BrowserViewController: TabObserver {
     )
     tab.browserData?.reportPageLoad(to: rewards, redirectChain: tab.redirectChain)
 
-    Task {
-      await tab.wallet?.updateEthereumProperties()
-      await tab.wallet?.updateSolanaProperties()
-    }
-
     if tab.visibleURL?.isLocal == false {
       // Set rewards inter site url as new page load url.
       tab.rewardsXHRLoadURL = tab.visibleURL
-    }
-
-    if tab.wallet?.walletEthProvider != nil {
-      tab.wallet?.emitEthereumEvent(.connect)
     }
 
     if let lastCommittedURL = tab.lastCommittedURL {
@@ -230,11 +185,6 @@ extension BrowserViewController: TabObserver {
   public func tab(_ tab: some TabState, didFailNavigationWithError error: any Error) {
     let error = error as NSError
     if error.code == Int(CFNetworkErrors.cfurlErrorCancelled.rawValue) {
-      // load cancelled / user stopped load. Cancel https upgrade fallback timer.
-      tab.upgradedHTTPSRequest = nil
-      tab.upgradeHTTPSTimeoutTimer?.invalidate()
-      tab.upgradeHTTPSTimeoutTimer = nil
-
       if tab === tabManager.selectedTab {
         if let displayURL = tab.visibleURL?.displayURL {
           updateToolbarCurrentURL(displayURL)
@@ -244,20 +194,6 @@ extension BrowserViewController: TabObserver {
         updateWebViewPageZoom(tab: tab)
       }
       return
-    }
-
-    if let url = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
-      // Check for invalid upgrade to https
-      if url.scheme == "https",  // verify failing url was https
-        let response = handleInvalidHTTPSUpgrade(
-          tab: tab,
-          responseURL: url
-        )
-      {
-        // load original or strict mode interstitial
-        tab.loadRequest(response)
-        return
-      }
     }
   }
 

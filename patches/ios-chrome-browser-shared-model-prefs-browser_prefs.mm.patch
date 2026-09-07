@@ -1,20 +1,36 @@
 diff --git a/ios/chrome/browser/shared/model/prefs/browser_prefs.mm b/ios/chrome/browser/shared/model/prefs/browser_prefs.mm
-index 1f19d4388211816c9a8ea705793466e12d4cc4d4..25dd83a8e6d28f3541d28518ec7a85cf81f09ccf 100644
+index 43e265031941223c5d5eedbb20678ea297478834..7aaf8c077e7af12fb6592a9e3284183839288c6f 100644
 --- a/ios/chrome/browser/shared/model/prefs/browser_prefs.mm
 +++ b/ios/chrome/browser/shared/model/prefs/browser_prefs.mm
-@@ -486,6 +486,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
-   // Deprecated 01/2026.
-   registry->RegisterListPref(kMagicStackSafetyCheckNotificationsShown);
-   registry->RegisterListPref(kBottomOmniboxByDefault);
-+  BRAVE_REGISTER_LOCAL_STATE_PREFS
+@@ -505,6 +505,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
+   registry->RegisterBooleanPref(kMetricsConsentRestructureFeatureState, false);
+   registry->RegisterTimePref(kObsoleteManagementPlatformLastLogTime,
+                              base::Time());
++  brave::RegisterLocalStatePrefs(registry);
  }
  
  void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
-@@ -959,6 +960,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
-   registry->RegisterIntegerPref(kPreallocatedAddressesNext, 0);
-   registry->RegisterTimePref(kFirstPlusAddressCreationTime, base::Time());
-   registry->RegisterTimePref(kLastPlusAddressFillingTime, base::Time());
-+  BRAVE_REGISTER_BROWSER_STATE_PREFS
+@@ -997,6 +998,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
+   registry->RegisterBooleanPref("autofill.wallet_import_enabled", true);
+   registry->RegisterBooleanPref("sync.autofill_wallet_import_enabled_migrated",
+                                 false);
++  brave::RegisterBrowserStatePrefs(registry);
  }
  
  // This method should be periodically pruned of year+ old migrations.
+@@ -1028,6 +1030,7 @@ void MigrateObsoleteLocalStatePrefs(PrefService* prefs) {
+ 
+   // Added 07/2026.
+   prefs->ClearPref(kObsoleteManagementPlatformLastLogTime);
++  brave::MigrateObsoleteLocalStatePrefs(prefs);
+ }
+ 
+ // This method should be periodically pruned of year+ old migrations.
+@@ -1103,6 +1106,7 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
+   // Added 08/2026.
+   prefs->ClearPref("autofill.wallet_import_enabled");
+   prefs->ClearPref("sync.autofill_wallet_import_enabled_migrated");
++  brave::MigrateObsoleteProfilePrefs(prefs);
+ }
+ 
+ void MigrateObsoleteUserDefault() {

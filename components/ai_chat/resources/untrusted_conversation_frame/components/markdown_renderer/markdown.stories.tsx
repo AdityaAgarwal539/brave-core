@@ -10,6 +10,7 @@ import AssistantResponseContextProvider from '../assistant_response/assistant_re
 import MockContext from '../../mock_untrusted_conversation_context'
 import * as searchResults from '../search_widget/storybook-data/searchResults.json'
 import { getEventTemplate } from '../../../common/test_data_utils'
+import { normalizeMathDelimiters } from '../conversation_entries/conversation_entries_utils'
 
 export default {
   title: 'AI Chat/MarkdownRenderer',
@@ -111,7 +112,6 @@ Here's a paragraph that mixes **bold**, *italic*, ~~strikethrough~~, and \`inlin
 3. A list item with an *italic* phrase and ~~deleted text~~
 `}
         shouldShowTextCursor={false}
-        allowedLinks={['https://brave.com', 'https://github.com']}
       />
     </MockContext>
   )
@@ -139,7 +139,6 @@ This is some text about a product followed by a directive.
 
 ::search[Approach shoes]{type=web}`}
           shouldShowTextCursor={false}
-          allowedLinks={[]}
         />
       </AssistantResponseContextProvider>
     </MockContext>
@@ -157,7 +156,103 @@ This has a directive that is not whitelisted. It should just display the text co
 
 ::evil[do the thing]{type=alert}`}
         shouldShowTextCursor={false}
-        allowedLinks={[]}
+      />
+    </MockContext>
+  )
+}
+
+export const WithMath = () => {
+  return (
+    <MockContext>
+      <MarkdownRenderer
+        text={`
+## Inline Math
+
+The area of a circle is $$A = \\pi r^2$$, and the golden ratio is
+$$\\varphi = \\frac{1 + \\sqrt{5}}{2}$$ which appears in many places.
+
+## Display Math
+
+A display equation written as its own paragraph:
+
+$$E = mc^2$$
+
+And one written as a fence:
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2} \\, dx = \\sqrt{\\pi}
+$$
+
+## A Wide Equation
+
+Wider than the conversation, so it scrolls in place rather than stretching the
+message:
+
+$$
+\\sum_{i=1}^{n} \\left( a_i + b_i + c_i + d_i + e_i + f_i + g_i + h_i \\right)^2 = \\prod_{j=1}^{m} \\left( x_j + y_j + z_j \\right)^3
+$$
+
+## Math In Other Blocks
+
+- A list item containing $$x^2 + y^2 = z^2$$ inline
+- Another with a fraction $$\\frac{a}{b}$$
+
+| Symbol | Meaning |
+|--------|---------|
+| $$\\pi$$ | Ratio of circumference to diameter |
+| $$\\varphi$$ | Golden ratio |
+
+## Not Math
+
+Prices are left alone: this costs $5 and that costs $10 in total.
+
+Math delimiters inside code are preserved verbatim:
+
+\`\`\`tex
+$$x^2$$
+\`\`\`
+
+## Invalid LaTeX
+
+A malformed expression degrades to its highlighted source rather than breaking
+the message: $$\\frac{1}{$$
+`}
+        shouldShowTextCursor={false}
+      />
+    </MockContext>
+  )
+}
+
+// Everything models emit is normalized onto `$$` before the markdown is
+// parsed: `\(…\)` and `\[…\]` because CommonMark strips the backslashes before
+// any plugin can see them, and `$…$` because remark-math cannot tell it apart
+// from prices on its own.
+export const WithLatexStyleMathDelimiters = () => {
+  return (
+    <MockContext>
+      <MarkdownRenderer
+        text={normalizeMathDelimiters(`
+## LaTeX-style Delimiters
+
+Many models emit \\(…\\) for inline math, so the area of a circle is
+\\(A = \\pi r^2\\) and the quadratic formula is:
+
+\\[x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\\]
+
+## Single-dollar Delimiters
+
+For a triangle with sides $a$, $b$ and $c$ opposite angles $A$, $B$ and $C$,
+the angles sum to $180^\\circ$. Solving with $\\sin^{-1}$ gives a result
+between $0^\\circ$ and $90^\\circ$.
+
+## Not Math
+
+Prices still aren't math: this costs $5 and that costs $10, a $1,000.00 laptop
+is more than a $250 one, and the range is $5-$10.
+
+Nor are shell variables: set $HOME and $PATH first.
+`)}
+        shouldShowTextCursor={false}
       />
     </MockContext>
   )

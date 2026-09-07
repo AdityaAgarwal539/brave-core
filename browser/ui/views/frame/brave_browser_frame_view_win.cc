@@ -34,9 +34,9 @@ BraveBrowserFrameViewWin::BraveBrowserFrameViewWin(
   auto* browser = browser_view->browser();
   DCHECK(browser);
   frame_graphic_ =
-      std::make_unique<BraveWindowFrameGraphic>(browser->profile());
+      std::make_unique<BraveWindowFrameGraphic>(browser->GetProfile());
 
-  auto* prefs = browser->profile()->GetPrefs();
+  auto* prefs = browser->GetProfile()->GetPrefs();
   using_vertical_tabs_.Init(
       brave_tabs::kVerticalTabsEnabled, prefs,
       base::BindRepeating(&BraveBrowserFrameViewWin::OnVerticalTabsPrefsChanged,
@@ -155,8 +155,8 @@ int BraveBrowserFrameViewWin::NonClientHitTest(const gfx::Point& point) {
   }
 
   auto* browser = GetBrowserView()->browser();
-  if (auto overridden_result = browser->browser_window_features()
-                                   ->brave_non_client_hit_test_helper()
+  if (auto overridden_result = browser->GetFeatures()
+                                   .brave_non_client_hit_test_helper()
                                    ->NonClientHitTest(GetBrowserView(), point);
       overridden_result != HTNOWHERE) {
     return overridden_result;

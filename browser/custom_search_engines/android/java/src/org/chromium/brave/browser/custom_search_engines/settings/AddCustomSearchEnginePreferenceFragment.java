@@ -18,8 +18,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
-import androidx.activity.OnBackPressedCallback;
-
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -34,6 +32,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
+import org.chromium.chrome.browser.theme.BraveDynamicColors;
 import org.chromium.components.browser_ui.settings.search.BaseSearchIndexProvider;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -85,17 +84,6 @@ public class AddCustomSearchEnginePreferenceFragment extends ChromeBaseSettingsF
 
         initViews(rootView);
         updateToolbarTitle();
-
-        OnBackPressedCallback callback =
-                new OnBackPressedCallback(true) {
-                    @Override
-                    public void handleOnBackPressed() {
-                        handleBackPressed();
-                    }
-                };
-        requireActivity()
-                .getOnBackPressedDispatcher()
-                .addCallback(getViewLifecycleOwner(), callback);
 
         return rootView;
     }
@@ -196,6 +184,7 @@ public class AddCustomSearchEnginePreferenceFragment extends ChromeBaseSettingsF
         mAddSearchEngineButton = (Button) rootView.findViewById(R.id.add_search_engine_button);
         if (mAddSearchEngineButton != null) {
             mAddSearchEngineButton.setEnabled(mIsEditMode);
+            BraveDynamicColors.applyToFilledButtonIfEnabled(mAddSearchEngineButton);
         }
 
         handleClickListeners();
@@ -377,11 +366,13 @@ public class AddCustomSearchEnginePreferenceFragment extends ChromeBaseSettingsF
     }
 
     private void handleBackPressed() {
-        if (getParentFragmentManager().getBackStackEntryCount() > 0) {
-            getParentFragmentManager().popBackStack();
-        } else {
-            requireActivity().finish(); // Close activity if no fragments left
-        }
+        // Mirror the toolbar Up button: forward to the OnBackPressedDispatcher so the active
+        // settings host navigates back to the previous screen. Depending on the hosting mode this
+        // is the SlidingPaneLayout (multi-column single-pane), the fragment back stack (single
+        // column, single activity), or the activity itself (multi-activity mode). Manually
+        // finishing the activity or popping a specific fragment manager closes all of settings in
+        // multi-column mode, where the detail pane has no back-stack entry.
+        requireActivity().getOnBackPressedDispatcher().onBackPressed();
     }
 
     private @Nullable TemplateUrl getTemplateUrlByKeyword(String keyword) {

@@ -90,12 +90,20 @@ class EngineConsumer {
 
   using ConversationHistory = std::vector<mojom::ConversationTurnPtr>;
 
+  // A non-owning view of conversation history passed to engines.
+  using ConversationHistoryView = std::vector<const mojom::ConversationTurn*>;
+
+  // Converts an owning conversation history into a non-owning view for use
+  // with engine methods that take ConversationHistoryView.
+  static ConversationHistoryView ToHistoryView(
+      const ConversationHistory& conversation_history);
+
   using GetSuggestedTopicsCallback = base::OnceCallback<void(
       base::expected<std::vector<std::string>, mojom::APIError>)>;
   using GetFocusTabsCallback = base::OnceCallback<void(
       base::expected<std::vector<std::string>, mojom::APIError>)>;
 
-  static std::string GetPromptForEntry(const mojom::ConversationTurnPtr& entry);
+  static std::string GetPromptForEntry(const mojom::ConversationTurn& entry);
 
   EngineConsumer(ModelService* model_service, PrefService* prefs);
   EngineConsumer(const EngineConsumer&) = delete;
@@ -108,7 +116,7 @@ class EngineConsumer {
 
   virtual void GenerateAssistantResponse(
       PageContentsMap&& page_contents,
-      const ConversationHistory& conversation_history,
+      const ConversationHistoryView& conversation_history,
       bool is_temporary_chat,
       const std::vector<base::WeakPtr<Tool>>& tools,
       std::optional<std::string_view> preferred_tool_name,
@@ -170,17 +178,24 @@ class EngineConsumer {
   static std::string BuildSkillDefinitionMessage(
       const mojom::SkillEntryPtr& skill);
 
+  // Whether an empty array is a meaningful answer or a failure. Filtering
+  // tabs by topic can legitimately match nothing, whereas suggesting topics
+  // for a non-empty tab list should always produce something.
+  enum class EmptyResult { kIsError, kIsValid };
+
   // A helper function to extract vector of strings from tab organization
   // related responses (e.g. GetSuggestedTopics and GetFocusTabs).
   static base::expected<std::vector<std::string>, mojom::APIError>
-  GetStrArrFromTabOrganizationResponses(std::vector<GenerationResult>& results);
+  GetStrArrFromTabOrganizationResponses(
+      std::vector<GenerationResult>& results,
+      EmptyResult empty_result = EmptyResult::kIsError);
 
  protected:
   // Check if we should call GenerationCompletedCallback early based on the
   // conversation history. Ex. empty history, or if the last entry is not a
   // human message.
   bool CanPerformCompletionRequest(
-      const ConversationHistory& conversation_history) const;
+      const ConversationHistoryView& conversation_history) const;
 
   void OnConversationTitleGenerated(
       GenerationCompletedCallback completion_callback,

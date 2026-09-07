@@ -8,8 +8,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 
 // Utils
-import BraveCoreThemeProvider from '../../../../common/BraveCoreThemeProvider'
-import { createMockStore } from '../../../utils/test-utils'
+import {
+  createMockStore,
+  WalletTestThemeProvider,
+} from '../../../utils/test-utils'
 
 // Components
 import { AllowAddChangeNetworkPanel } from './allow_add_change_network_panel'
@@ -25,9 +27,9 @@ describe('AllowAddChangeNetworkPanel', () => {
     const store = createMockStore({})
     const { container } = render(
       <Provider store={store}>
-        <BraveCoreThemeProvider>
+        <WalletTestThemeProvider>
           <AllowAddChangeNetworkPanel {...props} />
-        </BraveCoreThemeProvider>
+        </WalletTestThemeProvider>
       </Provider>,
     )
     return { container }
@@ -43,21 +45,21 @@ describe('AllowAddChangeNetworkPanel', () => {
       expect(container).toBeInTheDocument()
 
       // Check if the header is displayed
-      expect(screen.getByText('braveWalletAddNetwork')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_ADD_NETWORK)).toBeInTheDocument()
 
       // Check if the title is displayed for add network
       expect(
-        screen.getByText('braveWalletAllowAddNetworkTitle'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_ADD_NETWORK_TITLE),
       ).toBeInTheDocument()
 
       // Check if the description is displayed
       expect(
-        screen.getByText('braveWalletAllowAddNetworkDescription'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_ADD_NETWORK_DESCRIPTION),
       ).toBeInTheDocument()
 
       // Check if the learn more button is displayed
       expect(
-        screen.getByText('braveWalletAllowAddNetworkLearnMoreButton'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_ADD_NETWORK_LEARN_MORE_BUTTON),
       ).toBeInTheDocument()
 
       // Check if the network name is displayed
@@ -74,13 +76,13 @@ describe('AllowAddChangeNetworkPanel', () => {
 
       // Check if the details button is displayed
       expect(
-        screen.getByText('braveWalletAllowAddNetworkDetailsButton'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_ADD_NETWORK_DETAILS_BUTTON),
       ).toBeInTheDocument()
 
       // Check if the action buttons are displayed
-      expect(screen.getByText('braveWalletButtonCancel')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_BUTTON_CANCEL)).toBeInTheDocument()
       expect(
-        screen.getByText('braveWalletAllowAddNetworkButton'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_ADD_NETWORK_BUTTON),
       ).toBeInTheDocument()
     })
   })
@@ -96,30 +98,30 @@ describe('AllowAddChangeNetworkPanel', () => {
 
       // Check if the header is displayed
       expect(
-        screen.getAllByText('braveWalletAllowChangeNetworkButton'),
+        screen.getAllByText(S.BRAVE_WALLET_ALLOW_CHANGE_NETWORK_BUTTON),
       ).toHaveLength(2)
 
       // Check if the title is displayed for switch network
       expect(
-        screen.getByText('braveWalletAllowChangeNetworkTitle'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_CHANGE_NETWORK_TITLE),
       ).toBeInTheDocument()
 
       // Check if the description is displayed
       expect(
-        screen.getByText('braveWalletAllowChangeNetworkDescription'),
+        screen.getByText(S.BRAVE_WALLET_ALLOW_CHANGE_NETWORK_DESCRIPTION),
       ).toBeInTheDocument()
 
       // Check if the "From" network info is displayed
-      expect(screen.getByText('braveWalletFrom:')).toBeInTheDocument()
+      expect(screen.getByText('BRAVE_WALLET_FROM:')).toBeInTheDocument()
 
       // Check if the "To" network info is displayed
-      expect(screen.getByText('braveWalletSwapTo:')).toBeInTheDocument()
+      expect(screen.getByText('BRAVE_WALLET_SWAP_TO:')).toBeInTheDocument()
 
       // Check if the details button is displayed
-      expect(screen.getByText('braveWalletDetails')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_DETAILS)).toBeInTheDocument()
 
       // Check if the cancel button is displayed
-      expect(screen.getByText('braveWalletButtonCancel')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_BUTTON_CANCEL)).toBeInTheDocument()
     })
   })
 
@@ -134,9 +136,12 @@ describe('AllowAddChangeNetworkPanel', () => {
         mockAddChainRequest.originInfo.eTldPlusOne,
       )
 
-      // Check if the favicon is displayed
-      const favIcon = container.querySelector('img[src*="chrome://favicon2"]')
+      // In tests/Storybook, site favicons are unavailable so a placeholder
+      // icon stub is shown instead of chrome://favicon2.
+      const originCard = screen.getByTestId('origin-info-card')
+      const favIcon = originCard.querySelector('img')
       expect(favIcon).toBeInTheDocument()
+      expect(favIcon).toHaveAttribute('src', 'test-file-stub')
     })
   })
 })

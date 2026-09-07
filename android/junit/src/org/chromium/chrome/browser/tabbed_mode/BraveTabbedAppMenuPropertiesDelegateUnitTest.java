@@ -8,6 +8,8 @@ package org.chromium.chrome.browser.tabbed_mode;
 import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -34,6 +36,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowPackageManager;
 
 import org.chromium.base.BraveFeatureList;
+import org.chromium.base.BravePreferenceKeys;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -69,6 +72,7 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowTestUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.preferences.BravePref;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
@@ -109,7 +113,7 @@ import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.google_apis.gaia.GoogleServiceAuthError;
 import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
-import org.chromium.ui.accessibility.AccessibilityState;
+import org.chromium.ui.accessibility.AccessibilityStateTestHelper;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.url.JUnitTestGURLs;
@@ -126,6 +130,7 @@ import java.util.List;
     ChromeFeatureList.GLIC,
     ChromeFeatureList.LENS_OVERLAY_ANDROID,
     ChromeFeatureList.SUBMENUS_IN_APP_MENU,
+    ChromeFeatureList.SUBMENUS_IN_APP_MENU_LFF,
     DomDistillerFeatures.READER_MODE_DISTILL_IN_APP,
     BraveFeatureList.BRAVE_SHRED,
 })
@@ -187,6 +192,7 @@ public class BraveTabbedAppMenuPropertiesDelegateUnitTest {
     private final SettableMonotonicObservableSupplier<ReadAloudController>
             mReadAloudControllerSupplier = ObservableSuppliers.createMonotonic();
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
+    private SaveAndShareItemBuilder mSaveAndShareItemBuilder;
 
     private BraveTabbedAppMenuPropertiesDelegate mTabbedAppMenuPropertiesDelegate;
 
@@ -199,6 +205,8 @@ public class BraveTabbedAppMenuPropertiesDelegateUnitTest {
 
     // Used to ensure all the combinations are tested.
     private final boolean[] mFlagCombinations = new boolean[1 << 5];
+
+    private final boolean mCanActivateTabLayoutToggleMenu = true;
 
     @Before
     public void setUp() {
@@ -286,10 +294,19 @@ public class BraveTabbedAppMenuPropertiesDelegateUnitTest {
                         /* openInAppMenuItemProvider= */ null,
                         /* recentlyClosedEntriesManagerSupplier= */ () ->
                                 mRecentlyClosedEntriesManager,
-                        () -> mSideUiStateProvider);
+                        () -> mSideUiStateProvider,
+                        /* xrSpaceModeObservableSupplier= */ ObservableSuppliers.createNonNull(
+                                false),
+                        /* canActivateTabLayoutToggleMenu= */ () ->
+                                mCanActivateTabLayoutToggleMenu);
         delegate.setIsJunitTesting(true);
         BaseRobolectricTestRule.runAllBackgroundAndUi();
         mTabbedAppMenuPropertiesDelegate = Mockito.spy(delegate);
+        mSaveAndShareItemBuilder =
+                Mockito.spy(
+                        mTabbedAppMenuPropertiesDelegate.getSaveAndShareItemBuilderForTesting());
+        mTabbedAppMenuPropertiesDelegate.setSaveAndShareItemBuilderForTesting(
+                mSaveAndShareItemBuilder);
 
         MultiWindowTestUtils.resetInstanceInfo();
 
@@ -300,7 +317,11 @@ public class BraveTabbedAppMenuPropertiesDelegateUnitTest {
 
     @After
     public void tearDown() {
-        AccessibilityState.setIsKnownScreenReaderEnabledForTesting(false);
+        AccessibilityStateTestHelper.setIsKnownScreenReaderEnabledForTesting(false);
+        // Reset the "Enable tab groups" master switch to its default so it does not leak into
+        // other tests in the run.
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(BravePreferenceKeys.BRAVE_TAB_GROUPS_FEATURE_ENABLED, true);
     }
 
     private void assertMenuItemsAreEqual(
@@ -359,6 +380,78 @@ public class BraveTabbedAppMenuPropertiesDelegateUnitTest {
             R.id.exit_id,
         };
         assertMenuItemsAreEqual(modelList, expectedItems);
+    }
+
+    @Test
+    @Config(qualifiers = "sw320dp")
+    public void testBravePageMenuItems_TabGroupsDisabled_RemovesAddToGroup() {
+        // With the "Enable tab groups" master switch off, the "Add to group" entry must be gone.
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(BravePreferenceKeys.BRAVE_TAB_GROUPS_FEATURE_ENABLED, false);
+
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.NTP_URL);
+        when(mTab.isNativePage()).thenReturn(true);
+        when(mNativePage.isPdf()).thenReturn(false);
+        when(mTab.getNativePage()).thenReturn(mNativePage);
+        doReturn(false)
+                .when(mTabbedAppMenuPropertiesDelegate)
+                .shouldShowTranslateMenuItem(any(Tab.class));
+
+        assertEquals(MenuGroup.PAGE_MENU, mTabbedAppMenuPropertiesDelegate.getMenuGroup());
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        // Same as testBravePageMenuItems_Ntp but with add_to_group_menu_id removed.
+        Integer[] expectedItems = {
+            R.id.new_tab_menu_id,
+            R.id.new_incognito_tab_menu_id,
+            R.id.divider_line_id,
+            R.id.open_history_menu_id,
+            R.id.downloads_menu_id,
+            R.id.all_bookmarks_menu_id,
+            R.id.brave_wallet_id,
+            R.id.brave_leo_id,
+            R.id.recent_tabs_menu_id,
+            R.id.divider_line_id,
+            R.id.preferences_id,
+            R.id.set_default_browser,
+            R.id.brave_news_id,
+            R.id.request_brave_vpn_id,
+            R.id.brave_customize_menu_id,
+            R.id.exit_id,
+        };
+        assertMenuItemsAreEqual(modelList, expectedItems);
+    }
+
+    @Test
+    @Config(qualifiers = "sw320dp")
+    public void testCustomizeMenu_TabGroupsEnabled_IncludesAddToGroup() {
+        // Default state: the master switch is on, so the Customize menu offers "Add to group".
+        MVCListAdapter.ModelList modelList =
+                mTabbedAppMenuPropertiesDelegate.buildMainMenuModelListWithPolicy();
+        assertTrue(menuContainsId(modelList, R.id.add_to_group_menu_id));
+    }
+
+    @Test
+    @Config(qualifiers = "sw320dp")
+    public void testCustomizeMenu_TabGroupsDisabled_OmitsAddToGroup() {
+        // With the master switch off, "Add to group" must not appear in the Customize menu list.
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(BravePreferenceKeys.BRAVE_TAB_GROUPS_FEATURE_ENABLED, false);
+
+        MVCListAdapter.ModelList modelList =
+                mTabbedAppMenuPropertiesDelegate.buildMainMenuModelListWithPolicy();
+        assertFalse(menuContainsId(modelList, R.id.add_to_group_menu_id));
+    }
+
+    private static boolean menuContainsId(MVCListAdapter.ModelList modelList, int menuItemId) {
+        for (MVCListAdapter.ListItem item : modelList) {
+            if (item.model.containsKey(AppMenuItemProperties.MENU_ITEM_ID)
+                    && item.model.get(AppMenuItemProperties.MENU_ITEM_ID) == menuItemId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Test
@@ -596,8 +689,9 @@ public class BraveTabbedAppMenuPropertiesDelegateUnitTest {
                 .when(mTabbedAppMenuPropertiesDelegate)
                 .shouldShowMoveToOtherWindow();
         doReturn(options.showPaintPreview())
-                .when(mTabbedAppMenuPropertiesDelegate)
+                .when(mSaveAndShareItemBuilder)
                 .shouldShowPaintPreview(anyBoolean(), any(Tab.class));
+
         when(mWebsitePreferenceBridgeJniMock.getContentSetting(any(), anyInt(), any(), any()))
                 .thenReturn(
                         options.isAutoDarkEnabled()

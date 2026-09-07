@@ -11,6 +11,14 @@ import Foundation
 #if DEBUG
 
 extension BraveWallet.BlockchainToken {
+  /// Returns a copy of the `BlockchainToken` with the given `visible` flag and `isSpam` flag.
+  func copy(asVisibleAsset isVisible: Bool, isSpam: Bool = false) -> Self {
+    (self.copy() as! Self).then {
+      $0.visible = isVisible
+      $0.isSpam = isSpam
+    }
+  }
+
   static let previewToken: BraveWallet.BlockchainToken = .init(
     contractAddress: "",
     name: "Ethereum",
@@ -29,7 +37,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.MainnetChainId,
     coin: .eth,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let previewDaiToken: BraveWallet.BlockchainToken = .init(
@@ -50,7 +58,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.MainnetChainId,
     coin: .eth,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockUSDCToken: BraveWallet.BlockchainToken = .init(
@@ -71,7 +79,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.MainnetChainId,
     coin: .eth,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockSolToken: BraveWallet.BlockchainToken = .init(
@@ -92,7 +100,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.SolanaMainnet,
     coin: .sol,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockSpdToken: BraveWallet.BlockchainToken = .init(
@@ -113,7 +121,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.SolanaMainnet,
     coin: .sol,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockERC721NFTToken: BraveWallet.BlockchainToken = .init(
@@ -134,7 +142,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.MainnetChainId,
     coin: .eth,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockSolanaNFTToken: BraveWallet.BlockchainToken = .init(
@@ -155,7 +163,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.SolanaMainnet,
     coin: .sol,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockFilToken: BraveWallet.BlockchainToken = .init(
@@ -176,7 +184,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.FilecoinMainnet,
     coin: .fil,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockBTCToken: BraveWallet.BlockchainToken = .init(
@@ -197,7 +205,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.BitcoinMainnet,
     coin: .btc,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockZecToken: BraveWallet.BlockchainToken = .init(
@@ -218,7 +226,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.ZCashMainnet,
     coin: .zec,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockAdaToken: BraveWallet.BlockchainToken = .init(
@@ -239,7 +247,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.CardanoMainnet,
     coin: .ada,
-    isShielded: false
+    zcashTokenType: .none
   )
 
   static let mockMinToken: BraveWallet.BlockchainToken = .init(
@@ -260,7 +268,7 @@ extension BraveWallet.BlockchainToken {
     coingeckoId: "",
     chainId: BraveWallet.CardanoMainnet,
     coin: .ada,
-    isShielded: false
+    zcashTokenType: .none
   )
 }
 
@@ -605,7 +613,7 @@ extension BraveWallet.TransactionInfo {
         .init(
           zecTxData:
               .init(
-                useShieldedPool: false,
+                zcashTokenType: .transparent,
                 to: "t1J3jktmALhAhc2neCSyBrLBhxjTercFhCM",
                 sendingMaxAmount: false,
                 memo: nil,

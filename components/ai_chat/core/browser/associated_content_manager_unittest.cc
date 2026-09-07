@@ -49,6 +49,7 @@ class MockAIChatCredentialManager : public AIChatCredentialManager {
     std::move(callback).Run(mojom::PremiumStatus::Inactive,
                             mojom::PremiumInfo::New());
   }
+  MOCK_METHOD(void, PutCredentialInCache, (CredentialCacheEntry), (override));
 };
 
 }  // namespace
@@ -117,10 +118,12 @@ TEST_F(AssociatedContentManagerUnitTest,
   conversation_handler_->associated_content_manager()->AddContent(&content);
 
   auto turn = mojom::ConversationTurn::New(
-      "test-turn-uuid", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
+      "test-turn-uuid", std::nullopt /* thread_uuid */,
+      mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
       "Test human message", std::nullopt, std::nullopt, std::nullopt,
       base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   // Initially, GetAssociatedContent should not have conversation_turn_uuid set
   auto initial_content = conversation_handler_->associated_content_manager()
@@ -163,10 +166,12 @@ TEST_F(AssociatedContentManagerUnitTest,
       &second_content);
 
   auto turn = mojom::ConversationTurn::New(
-      "test-turn-uuid", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
+      "test-turn-uuid", std::nullopt /* thread_uuid */,
+      mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
       "Test human message", std::nullopt, std::nullopt, std::nullopt,
       base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   // Associate content with turn
   conversation_handler_->associated_content_manager()
@@ -206,16 +211,18 @@ TEST_F(AssociatedContentManagerUnitTest,
       &first_content);
 
   auto turn1 = mojom::ConversationTurn::New(
-      "turn-1", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Test human message 1", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      "turn-1", std::nullopt /* thread_uuid */, mojom::CharacterType::HUMAN,
+      mojom::ActionType::QUERY, "Test human message 1", std::nullopt,
+      std::nullopt, std::nullopt, base::Time::Now(), std::nullopt, std::nullopt,
+      nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   auto turn2 = mojom::ConversationTurn::New(
-      "turn-2", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Test human message 2", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      "turn-2", std::nullopt /* thread_uuid */, mojom::CharacterType::HUMAN,
+      mojom::ActionType::QUERY, "Test human message 2", std::nullopt,
+      std::nullopt, std::nullopt, base::Time::Now(), std::nullopt, std::nullopt,
+      nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   // Associate the first content with turn 1
   conversation_handler_->associated_content_manager()
@@ -264,16 +271,20 @@ TEST_F(AssociatedContentManagerUnitTest,
   conversation_handler_->associated_content_manager()->AddContent(&content);
 
   auto turn1 = mojom::ConversationTurn::New(
-      "test-turn-uuid-1", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
+      "test-turn-uuid-1", std::nullopt /* thread_uuid */,
+      mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
       "First human message", std::nullopt, std::nullopt, std::nullopt,
       base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   auto turn2 = mojom::ConversationTurn::New(
-      "test-turn-uuid-2", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
+      "test-turn-uuid-2", std::nullopt /* thread_uuid */,
+      mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
       "Second human message", std::nullopt, std::nullopt, std::nullopt,
       base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   // Associate content with first turn
   conversation_handler_->associated_content_manager()
@@ -303,10 +314,11 @@ TEST_F(AssociatedContentManagerUnitTest,
        AssociateUnsentContentWithTurn_RequiresUuid) {
   // Create turn without UUID - should crash
   auto turn_without_uuid = mojom::ConversationTurn::New(
-      std::nullopt, mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Test human message", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      std::nullopt, std::nullopt /* thread_uuid */, mojom::CharacterType::HUMAN,
+      mojom::ActionType::QUERY, "Test human message", std::nullopt,
+      std::nullopt, std::nullopt, base::Time::Now(), std::nullopt, std::nullopt,
+      nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   EXPECT_DEATH_IF_SUPPORTED(
       conversation_handler_->associated_content_manager()
@@ -348,10 +360,11 @@ TEST_F(AssociatedContentManagerUnitTest, GetCachedContentsMap_MultipleContent) {
   conversation_handler_->associated_content_manager()->AddContent(&content2);
 
   auto turn = mojom::ConversationTurn::New(
-      "turn-1", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Test human message", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      "turn-1", std::nullopt /* thread_uuid */, mojom::CharacterType::HUMAN,
+      mojom::ActionType::QUERY, "Test human message", std::nullopt,
+      std::nullopt, std::nullopt, base::Time::Now(), std::nullopt, std::nullopt,
+      nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   conversation_handler_->associated_content_manager()
       ->AssociateUnsentContentWithTurn(turn);
@@ -376,10 +389,11 @@ TEST_F(AssociatedContentManagerUnitTest,
 
   // Associate content 1 & 2 with turn 1
   auto turn1 = mojom::ConversationTurn::New(
-      "turn-1", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Test human message", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      "turn-1", std::nullopt /* thread_uuid */, mojom::CharacterType::HUMAN,
+      mojom::ActionType::QUERY, "Test human message", std::nullopt,
+      std::nullopt, std::nullopt, base::Time::Now(), std::nullopt, std::nullopt,
+      nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   conversation_handler_->associated_content_manager()
       ->AssociateUnsentContentWithTurn(turn1);
@@ -389,10 +403,11 @@ TEST_F(AssociatedContentManagerUnitTest,
   conversation_handler_->associated_content_manager()->AddContent(&content3);
 
   auto turn2 = mojom::ConversationTurn::New(
-      "turn-2", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Test human message", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      "turn-2", std::nullopt /* thread_uuid */, mojom::CharacterType::HUMAN,
+      mojom::ActionType::QUERY, "Test human message", std::nullopt,
+      std::nullopt, std::nullopt, base::Time::Now(), std::nullopt, std::nullopt,
+      nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   // Associate content 3 with turn 2
   conversation_handler_->associated_content_manager()
@@ -425,10 +440,11 @@ TEST_F(AssociatedContentManagerUnitTest,
       &content_to_remove);
 
   auto turn = mojom::ConversationTurn::New(
-      "removal-turn", mojom::CharacterType::HUMAN, mojom::ActionType::QUERY,
-      "Removal test", std::nullopt, std::nullopt, std::nullopt,
-      base::Time::Now(), std::nullopt, std::nullopt, nullptr /* skill */, false,
-      std::nullopt, nullptr);
+      "removal-turn", std::nullopt /* thread_uuid */,
+      mojom::CharacterType::HUMAN, mojom::ActionType::QUERY, "Removal test",
+      std::nullopt, std::nullopt, std::nullopt, base::Time::Now(), std::nullopt,
+      std::nullopt, nullptr /* skill */, false, std::nullopt, nullptr,
+      std::vector<std::string>{} /* child_thread_uuids */);
 
   // Associate both content items with the turn
   conversation_handler_->associated_content_manager()
@@ -652,6 +668,44 @@ TEST_F(AssociatedContentManagerUnitTest,
   EXPECT_TRUE(manager->GetTools().empty());
 }
 
+TEST_F(AssociatedContentManagerUnitTest, GetToolInfos_DescribesTools) {
+  NiceMock<MockAssociatedContent> content;
+  EXPECT_CALL(content, GetContentTools)
+      .WillRepeatedly(
+          [](AssociatedContentDelegate::GetContentToolsCallback cb) {
+            std::vector<std::unique_ptr<Tool>> tools;
+            tools.push_back(std::make_unique<NiceMock<MockTool>>(
+                "browse_store", "Browse OR navigate to store collections."));
+            tools.push_back(std::make_unique<NiceMock<MockTool>>(
+                "cancel_cart", "Remove all items from the cart."));
+            std::move(cb).Run(std::move(tools));
+          });
+
+  auto* manager = conversation_handler_->associated_content_manager();
+  manager->AddContent(&content);
+
+  base::test::TestFuture<std::vector<mojom::ToolInfoPtr>> infos;
+  manager->GetToolInfos(content.uuid(), infos.GetCallback());
+  const auto& result = infos.Get();
+  ASSERT_EQ(2u, result.size());
+  EXPECT_EQ("browse_store", result[0]->name);
+  EXPECT_EQ("Browse OR navigate to store collections.", result[0]->description);
+  EXPECT_EQ("cancel_cart", result[1]->name);
+  EXPECT_EQ("Remove all items from the cart.", result[1]->description);
+}
+
+TEST_F(AssociatedContentManagerUnitTest, GetToolInfos_UnknownContentIsEmpty) {
+  // The dialog can outlive the content it was opened for, e.g. if the user
+  // detaches the tab while it's open.
+  NiceMock<MockAssociatedContent> content;
+  auto* manager = conversation_handler_->associated_content_manager();
+  manager->AddContent(&content);
+
+  base::test::TestFuture<std::vector<mojom::ToolInfoPtr>> infos;
+  manager->GetToolInfos("not-an-attached-content", infos.GetCallback());
+  EXPECT_TRUE(infos.Get().empty());
+}
+
 TEST_F(AssociatedContentManagerUnitTest,
        AddContent_TriggersUpdateAndNotifiesConversation) {
   // Test that removed content doesn't appear in the cached contents map
@@ -679,6 +733,39 @@ TEST_F(AssociatedContentManagerUnitTest,
   ASSERT_EQ(1u, conversation_->associated_content.size());
   EXPECT_EQ(conversation_->associated_content[0]->content_type,
             mojom::ContentType::VideoTranscript);
+}
+
+// Content is attached before it can offer tools: a workspace only registers
+// them once its hidden page has loaded, long after it was attached.
+TEST_F(AssociatedContentManagerUnitTest, SurfacesToolsAttachedAfterTheFact) {
+  NiceMock<MockAssociatedContent> associated_content;
+  associated_content.SetUrl(GURL("https://example.com"));
+  conversation_handler_->associated_content_manager()->AddContent(
+      &associated_content);
+
+  ASSERT_EQ(1u, conversation_->associated_content.size());
+  ASSERT_FALSE(conversation_->associated_content[0]->tools_attached);
+
+  associated_content.set_tools_attached(true);
+
+  ASSERT_EQ(1u, conversation_->associated_content.size());
+  EXPECT_TRUE(conversation_->associated_content[0]->tools_attached);
+}
+
+TEST_F(AssociatedContentManagerUnitTest, SurfacesToolsBeingDetached) {
+  NiceMock<MockAssociatedContent> associated_content;
+  associated_content.SetUrl(GURL("https://example.com"));
+  conversation_handler_->associated_content_manager()->AddContent(
+      &associated_content);
+  associated_content.set_tools_attached(true);
+
+  ASSERT_EQ(1u, conversation_->associated_content.size());
+  ASSERT_TRUE(conversation_->associated_content[0]->tools_attached);
+
+  associated_content.set_tools_attached(false);
+
+  ASSERT_EQ(1u, conversation_->associated_content.size());
+  EXPECT_FALSE(conversation_->associated_content[0]->tools_attached);
 }
 
 }  // namespace ai_chat

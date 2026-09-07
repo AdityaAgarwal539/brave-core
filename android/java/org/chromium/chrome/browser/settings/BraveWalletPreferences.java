@@ -8,14 +8,11 @@ package org.chromium.chrome.browser.settings;
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.text.style.ForegroundColorSpan;
 
 import androidx.preference.Preference;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -29,14 +26,13 @@ import org.chromium.chrome.browser.app.BraveActivity;
 import org.chromium.chrome.browser.app.domain.WalletModel;
 import org.chromium.chrome.browser.crypto_wallet.BraveWalletServiceFactory;
 import org.chromium.chrome.browser.crypto_wallet.util.WalletConstants;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.util.TabUtils;
-import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.search.BaseSearchIndexProvider;
 import org.chromium.mojo.bindings.ConnectionErrorHandler;
 import org.chromium.mojo.system.MojoException;
-import org.chromium.ui.text.SpanApplier;
 
 @NullMarked
 public class BraveWalletPreferences extends BravePreferenceFragment
@@ -71,9 +67,8 @@ public class BraveWalletPreferences extends BravePreferenceFragment
             ObservableSuppliers.createMonotonic();
 
     public static boolean getPrefWeb3NotificationsEnabled() {
-        SharedPreferences sharedPreferences = ContextUtils.getAppSharedPreferences();
-
-        return sharedPreferences.getBoolean(PREF_BRAVE_WALLET_WEB3_NOTIFICATIONS, true);
+        return ChromeSharedPreferences.getInstance()
+                .readBoolean(PREF_BRAVE_WALLET_WEB3_NOTIFICATIONS, true);
     }
 
     @Override
@@ -138,6 +133,11 @@ public class BraveWalletPreferences extends BravePreferenceFragment
         return mPageTitle;
     }
 
+    @Override
+    public String getMainMenuKey() {
+        return "brave_wallet";
+    }
+
     private void setupDefaultWalletPreference(
             final BraveDialogPreference walletPreference,
             @DefaultWallet.EnumType final Integer defaultWallet) {
@@ -186,17 +186,11 @@ public class BraveWalletPreferences extends BravePreferenceFragment
                                         .setChecked(isNftDiscoveryEnabled));
         mWeb3NftDiscoverySwitch.setOnPreferenceChangeListener(this);
 
-        ChromeBasePreference learnMorePreference =
+        BraveInlineTextButtonPreference learnMorePreference =
                 findPreference(BRAVE_WALLET_WEB3_NFT_DISCOVERY_LEARN_MORE);
         if (learnMorePreference != null) {
-            learnMorePreference.setTitle(
-                    SpanApplier.applySpans(
-                            getString(R.string.settings_enable_nft_discovery_desc),
-                            new SpanApplier.SpanInfo(
-                                    "<LINK_1>",
-                                    "</LINK_1>",
-                                    new ForegroundColorSpan(
-                                            requireContext().getColor(R.color.brave_link)))));
+            learnMorePreference.setTextButtonTitle(
+                    getString(R.string.settings_enable_nft_discovery_desc));
             learnMorePreference.setOnPreferenceClickListener(
                     preference -> {
                         TabUtils.openUrlInCustomTab(
@@ -255,10 +249,8 @@ public class BraveWalletPreferences extends BravePreferenceFragment
     }
 
     public void setPrefWeb3NotificationsEnabled(boolean enabled) {
-        SharedPreferences sharedPreferences = ContextUtils.getAppSharedPreferences();
-        SharedPreferences.Editor sharedPreferencesEditor = sharedPreferences.edit();
-        sharedPreferencesEditor.putBoolean(PREF_BRAVE_WALLET_WEB3_NOTIFICATIONS, enabled);
-        sharedPreferencesEditor.apply();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(PREF_BRAVE_WALLET_WEB3_NOTIFICATIONS, enabled);
     }
 
     @Override

@@ -4,6 +4,13 @@ _Plaster_ is an experimental tool being introduced in Brave to allow us to apply
 changes to upstream sources files, by relying on regex transformations to search
 for patterns and apply substitutions.
 
+> [!IMPORTANT]
+>
+> Before writing or modifying a plaster file, read
+> [Plaster Dos and Don'ts](plaster_dos_and_donts.md). It collects the rules and
+> examples that keep plasters robust across Chromium rebases, and is required
+> reading for anyone touching `rewrite/`.
+
 ## Why 🩹 _Plaster_
 
 The two traditional approaches to introduce changes to Chromium have been `git`
@@ -17,8 +24,8 @@ of unintended replacements.
 Using regexes, _Plaster_ avoids the brittleness of patch files, while providing
 matching mechanisms that are more flexible than the methods currently employed
 for macro replacement. This also means a language-agnostic way to approach
-source changes semantically, and in place. _Plaster_ changes can be both seen in
-place, as well as audited as patch files.
+source changes semantically. _Plaster_ changes can be both seen in place, as
+well as audited as patch files.
 
 ## How does it work
 
@@ -30,8 +37,9 @@ this document.
 
 > [!WARNING]
 >
-> At the moment, only plaster files to sources in Chromium's `src` repo are
-> supported.
+> At the moment, Chromium's `src` repo can be patched with plaster. Support for
+> more repos may be considered in the future, but it is not a priority at the
+> moment.
 
 Each plaster file will be used to apply changes into a given source, and then
 generate a patch for the effected changes.
@@ -117,22 +125,6 @@ substitutions:
       re_flags: [] # traditional Python `re` flag names, e.g. [DOTALL]
 ```
 
-For backward compatibility, the `regex` fields may also be placed bare directly
-on the item, without the `regex:` key:
-
-```yaml
-substitutions:
-  - description: ''
-    re_pattern: '' # or `pattern:` for a literal, escaped match
-    replace: ''
-```
-
-> [!WARNING]
->
-> This bare form is deprecated (`TODO(brave.dev/bug/56854)`) and will be removed
-> once all plasters are migrated. Prefer the `regex:` form above for all new
-> plasters.
-
 Use YAML's `|` / `|-` block scalars when you need multi-line `replace` or
 `description` values — `|` keeps a trailing newline, `|-` strips it.
 Single-quoted YAML strings preserve backslashes literally, which is useful for
@@ -144,19 +136,40 @@ YAML).
 The keyed rewrite (`regex:` above) is a **rewriter**. There is on-going work to
 introduce more rewriters. These are the ones we have supported for now.
 
-| Rewriter       | Kind | Description                                       |
-| -------------- | ---- | ------------------------------------------------- |
-| `regex`        | text | A Python `re.subn` substitution (the default).    |
-| `make_virtual` | AST  | Prepends `virtual ` to a C++ method declaration.  |
-| `add_friend`   | AST  | Adds a `friend` declaration to a private section. |
-| `drop_final`   | AST  | Removes `final` from a C++ class declaration.     |
+| Rewriter                                  | Namespace | Kind  | Description                                           |
+| ----------------------------------------- | --------- | ----- | ----------------------------------------------------- |
+| `regex`                                   | `all`     | text  | A Python `re.subn` substitution (the default).        |
+| `make_virtual`                            | `cxx`     | AST   | Prepends `virtual ` to a C++ method declaration.      |
+| `add_friend`                              | `cxx`     | AST   | Adds a `friend` declaration to a private section.     |
+| `drop_final`                              | `cxx`     | AST   | Removes `final` from a C++ class declaration.         |
+| `preempt_function_impl`                   | `cxx`     | AST   | Inserts at the top of a C++ function body.            |
+| `after_function_impl`                     | `cxx`     | AST   | Wraps a C++ function body and runs code after.        |
+| `rename_class`                            | `cxx`     | AST   | Renames a C++ class.                                  |
+| `add_to_protected`                        | `cxx`     | AST   | Adds a member to a class `protected:` section.        |
+| `add_to_public`                           | `cxx`     | AST   | Appends a member to a class `public:` section.        |
+| `add_enum_entries`                        | `cxx`     | AST   | Appends entries to the end of a C++ enum.             |
+| `set_feature_flag_default_state`          | `cxx`     | macro | Sets a `BASE_FEATURE`'s default state.                |
+| `insert_into_list`                        | `gn`      | gn    | Inserts value(s) into a target's list attribute.      |
+| `set_blink_runtime_enabled_feature_state` | `js`      | AST   | Sets a Blink runtime feature's `base_feature_status`. |
 
 Use `plaster --help` to discover rewriters and read their full docs:
 
 ```sh
-tools/cr/plaster.py --help                # overview of commands and rewriters
-tools/cr/plaster.py --help make_virtual   # full docs for a specific rewriter
+tools/cr/plaster.py --help                    # overview of commands and rewriters
+tools/cr/plaster.py --help make_virtual       # docs for every namespace it is in
+tools/cr/plaster.py --help cxx.make_virtual   # narrowed to the `cxx` namespace
 ```
+
+### File-wide options
+
+Besides `substitutions:`, a plaster file may set file-wide options at the top
+level:
+
+| Key                                            | Default | Description                                                                                   |
+| ---------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `blank_macros_for_ast_parsing`                 | `false` | Blank parse-blocking macros/conditionals before AST matching.                                 |
+| `blank_string_adjacent_macros_for_ast_parsing` | `false` | Blank a macro directly adjacent to a string literal before AST matching.                      |
+| `blank_metadata_header_macros`                 | `false` | Blank the Views `METADATA_HEADER`/`BEGIN_METADATA`/`END_METADATA` macros before AST matching. |
 
 ### Applying a plaster
 

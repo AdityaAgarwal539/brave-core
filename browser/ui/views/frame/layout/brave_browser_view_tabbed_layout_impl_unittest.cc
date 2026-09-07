@@ -9,11 +9,15 @@
 #include <optional>
 
 #include "build/build_config.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_delegate.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/views/layout/layout_provider.h"
+#include "ui/views/view.h"
 
 namespace {
 
@@ -47,6 +51,9 @@ class FakeBrowserViewLayoutDelegate : public BrowserViewLayoutDelegate {
   const ImmersiveModeController* GetImmersiveModeController() const override {
     return nullptr;
   }
+  BrowserAnimationController* GetAnimationController() const override {
+    return nullptr;
+  }
   ExclusiveAccessBubbleViews* GetExclusiveAccessBubble() const override {
     return nullptr;
   }
@@ -61,7 +68,15 @@ class FakeBrowserViewLayoutDelegate : public BrowserViewLayoutDelegate {
   void UpdateWindowControlsOverlay(const gfx::Rect&) override {}
   bool ShouldLayoutTabStrip() const override { return false; }
   int GetExtraInfobarOffset() const override { return 0; }
-  bool IsProjectsPanelVisible() const override { return false; }
+  bool IsOrganizerPanelVisible() const override { return false; }
+  base::CallbackListSubscription AddOnGlassModeChangedCallback(
+      base::RepeatingCallback<void(bool)> callback,
+      bool* current_state_out) override {
+    if (current_state_out) {
+      *current_state_out = false;
+    }
+    return base::CallbackListSubscription();
+  }
 
   bool ShouldShowVerticalTabs() const override { return false; }
   bool ShouldShowWindowTitleForVerticalTabs() const override { return false; }
@@ -74,13 +89,17 @@ class FakeBrowserViewLayoutDelegate : public BrowserViewLayoutDelegate {
   bool IsContentTypeSidePanelVisible() const override { return false; }
   bool IsFullscreenForBrowser() const override { return false; }
   bool IsFullscreenForTab() const override { return false; }
+  void UpdateContentsCornerRadii(const gfx::RoundedCornersF&) override {}
   bool IsFullscreen() const override { return false; }
 };
 
-// Mocks the CalculateSeparatorInfo() inputs exercised by the tests below:
-// IsToolbarVisible/IsBookmarkBarVisible drive the "no top UI" early return,
-// IsInfobarVisible and ShouldUseBraveWebViewRoundedCornersForContents drive
-// the mac fullscreen separator-suppression branch.
+// Mocks the CalculateSeparatorInfo() and GetContentsMargins() inputs
+// exercised by the tests below: IsToolbarVisible/IsBookmarkBarVisible drive
+// the "no top UI" early return, IsInfobarVisible and
+// ShouldUseBraveWebViewRoundedCornersForContents drive the mac fullscreen
+// separator-suppression branch, and GetBrowserWindowState additionally drives
+// the mac fullscreen-with-toolbar top-padding-suppression branch in
+// GetContentsMargins().
 class MockBrowserViewLayoutDelegate : public FakeBrowserViewLayoutDelegate {
  public:
   MOCK_METHOD(bool, IsToolbarVisible, (), (const, override));
@@ -90,7 +109,15 @@ class MockBrowserViewLayoutDelegate : public FakeBrowserViewLayoutDelegate {
               ShouldUseBraveWebViewRoundedCornersForContents,
               (),
               (const, override));
+  MOCK_METHOD(bool, IsFullscreenForTab, (), (const, override));
+  MOCK_METHOD(WindowState, GetBrowserWindowState, (), (const, override));
 };
+
+int GetWindowCornerRadius() {
+  return views::LayoutProvider::Get()->GetCornerRadiusMetric(
+      views::ShapeContextTokensOverride::
+          kRoundedCornersBorderRadiusAtWindowCorner);
+}
 
 }  // namespace
 
@@ -302,7 +329,7 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
 
   BrowserViewLayoutViews views;
   auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
-      std::move(mock), nullptr, std::move(views));
+      std::move(mock), std::move(views));
 
   // With no visible top UI, Brave's override returns a default-constructed
   // SeparatorInfo (no separators, no shadow box) before consulting upstream -
@@ -310,6 +337,72 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
   EXPECT_FALSE(layout->GetTopContainerSeparatorForTesting());
   EXPECT_FALSE(layout->GetMultiContentsSeparatorForTesting());
   EXPECT_FALSE(layout->GetShadowBoxForTesting());
+}
+
+// ---------------------------------------------------------------------------
+// CalculateContentsCornerRadii
+//
+// A corner that meets the window frame follows the window's own corner radius;
+// one that meets other browser UI uses the smaller border radius. These tests
+// cover the top corners, which depend on whether any top chrome is laid out
+// within the browser view. Note that the two radii only differ on macOS 26 and
+// later.
+// ---------------------------------------------------------------------------
+
+TEST(BraveBrowserViewTabbedLayoutImplTest,
+     CalculateContentsCornerRadiiEmptyWithoutRoundedCorners) {
+  views::LayoutProvider layout_provider;
+  auto mock =
+      std::make_unique<testing::NiceMock<MockBrowserViewLayoutDelegate>>();
+  EXPECT_CALL(*mock, ShouldUseBraveWebViewRoundedCornersForContents())
+      .WillRepeatedly(::testing::Return(false));
+
+  BrowserViewLayoutViews views;
+  auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
+      std::move(mock), std::move(views));
+
+  EXPECT_EQ(gfx::RoundedCornersF(),
+            layout->CalculateContentsCornerRadiiForTesting());
+}
+
+TEST(BraveBrowserViewTabbedLayoutImplTest,
+     CalculateContentsCornerRadiiEmptyInTabFullscreen) {
+  views::LayoutProvider layout_provider;
+  auto mock =
+      std::make_unique<testing::NiceMock<MockBrowserViewLayoutDelegate>>();
+  EXPECT_CALL(*mock, ShouldUseBraveWebViewRoundedCornersForContents())
+      .WillRepeatedly(::testing::Return(true));
+  EXPECT_CALL(*mock, IsFullscreenForTab())
+      .WillRepeatedly(::testing::Return(true));
+
+  BrowserViewLayoutViews views;
+  auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
+      std::move(mock), std::move(views));
+
+  // The web contents occupies the whole window, so nothing should be rounded.
+  EXPECT_EQ(gfx::RoundedCornersF(),
+            layout->CalculateContentsCornerRadiiForTesting());
+}
+
+TEST(BraveBrowserViewTabbedLayoutImplTest,
+     CalculateContentsCornerRadiiWindowCornersAtTopEdge) {
+  views::LayoutProvider layout_provider;
+  auto mock =
+      std::make_unique<testing::NiceMock<MockBrowserViewLayoutDelegate>>();
+  EXPECT_CALL(*mock, ShouldUseBraveWebViewRoundedCornersForContents())
+      .WillRepeatedly(::testing::Return(true));
+  EXPECT_CALL(*mock, IsInfobarVisible())
+      .WillRepeatedly(::testing::Return(false));
+
+  // No top container within the browser view, as in focus mode, where it is
+  // reparented into the top overlay.
+  BrowserViewLayoutViews views;
+  auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
+      std::move(mock), std::move(views));
+
+  const float window_radius = GetWindowCornerRadius();
+  EXPECT_EQ(gfx::RoundedCornersF(window_radius),
+            layout->CalculateContentsCornerRadiiForTesting());
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -327,7 +420,7 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
 
   BrowserViewLayoutViews views;
   auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
-      std::move(mock), nullptr, std::move(views));
+      std::move(mock), std::move(views));
   layout->SetWindowStateForTesting(
       BrowserViewLayoutDelegate::WindowState::kFullscreenWithToolbar);
 
@@ -351,7 +444,7 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
 
   BrowserViewLayoutViews views;
   auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
-      std::move(mock), nullptr, std::move(views));
+      std::move(mock), std::move(views));
   layout->SetWindowStateForTesting(
       BrowserViewLayoutDelegate::WindowState::kFullscreenWithToolbar);
 
@@ -373,7 +466,7 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
 
   BrowserViewLayoutViews views;
   auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
-      std::move(mock), nullptr, std::move(views));
+      std::move(mock), std::move(views));
   layout->SetWindowStateForTesting(
       BrowserViewLayoutDelegate::WindowState::kFullscreenWithToolbar);
 
@@ -395,7 +488,7 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
 
   BrowserViewLayoutViews views;
   auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
-      std::move(mock), nullptr, std::move(views));
+      std::move(mock), std::move(views));
   // Plain kFullscreen (toolbar auto-hidden), not kFullscreenWithToolbar.
   layout->SetWindowStateForTesting(
       BrowserViewLayoutDelegate::WindowState::kFullscreen);
@@ -404,6 +497,57 @@ TEST(BraveBrowserViewTabbedLayoutImplTest,
   // must keep upstream's separator (true here, since IsToolbarVisible() is
   // mocked true).
   EXPECT_TRUE(layout->GetTopContainerSeparatorForTesting());
+}
+
+// On macOS, when the window is in kFullscreenWithToolbar state, the top
+// container lives in an overlay widget positioned above the contents, so
+// the rounded-corners contents view no longer needs a top margin.
+TEST(BraveBrowserViewTabbedLayoutImplTest,
+     GetContentsMarginsMacFullscreenWithToolbarHidesTopPadding) {
+  auto mock =
+      std::make_unique<testing::NiceMock<MockBrowserViewLayoutDelegate>>();
+  EXPECT_CALL(*mock, ShouldUseBraveWebViewRoundedCornersForContents())
+      .WillRepeatedly(::testing::Return(true));
+  EXPECT_CALL(*mock, IsInfobarVisible())
+      .WillRepeatedly(::testing::Return(false));
+  EXPECT_CALL(*mock, GetBrowserWindowState())
+      .WillRepeatedly(::testing::Return(
+          BrowserViewLayoutDelegate::WindowState::kFullscreenWithToolbar));
+
+  BrowserViewLayoutViews views;
+  auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
+      std::move(mock), std::move(views));
+
+  // The top margin is suppressed, but the other sides still reserve room for
+  // the rounded-corners shadow.
+  gfx::Insets margins = layout->GetContentsMarginsForTesting();
+  EXPECT_EQ(0, margins.top());
+  EXPECT_EQ(kRoundedCornersContentsViewMargin, margins.left());
+  EXPECT_EQ(kRoundedCornersContentsViewMargin, margins.right());
+  EXPECT_EQ(kRoundedCornersContentsViewMargin, margins.bottom());
+}
+
+TEST(BraveBrowserViewTabbedLayoutImplTest,
+     GetContentsMarginsMacRegularFullscreenKeepsTopPadding) {
+  auto mock =
+      std::make_unique<testing::NiceMock<MockBrowserViewLayoutDelegate>>();
+  EXPECT_CALL(*mock, ShouldUseBraveWebViewRoundedCornersForContents())
+      .WillRepeatedly(::testing::Return(true));
+  EXPECT_CALL(*mock, IsInfobarVisible())
+      .WillRepeatedly(::testing::Return(false));
+  // Plain kFullscreen (toolbar auto-hidden), not kFullscreenWithToolbar.
+  EXPECT_CALL(*mock, GetBrowserWindowState())
+      .WillRepeatedly(::testing::Return(
+          BrowserViewLayoutDelegate::WindowState::kFullscreen));
+
+  BrowserViewLayoutViews views;
+  auto layout = std::make_unique<BraveBrowserViewTabbedLayoutImpl>(
+      std::move(mock), std::move(views));
+
+  // The mac-only branch is scoped to kFullscreenWithToolbar; plain kFullscreen
+  // must keep the top margin.
+  gfx::Insets margins = layout->GetContentsMarginsForTesting();
+  EXPECT_EQ(kRoundedCornersContentsViewMargin, margins.top());
 }
 
 #endif  // BUILDFLAG(IS_MAC)

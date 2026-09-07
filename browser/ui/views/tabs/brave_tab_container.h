@@ -12,7 +12,9 @@
 #include <vector>
 
 #include "base/callback_list.h"
+#include "base/containers/flat_map.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/tab_container_impl.h"
@@ -25,6 +27,8 @@
 namespace views {
 class ScrollView;
 }  // namespace views
+
+class BraveVerticalTabStripRegionView;
 
 class BraveTabContainer : public TabContainerImpl,
                           public views::ScrollBarController {
@@ -45,6 +49,12 @@ class BraveTabContainer : public TabContainerImpl,
 
   // Returns the ScrollBarMode for the scroll view used in vertical tab strip.
   views::ScrollView::ScrollBarMode GetScrollBarMode() const;
+
+  // Injected by BraveVerticalTabStripRegionView so this container can query
+  // the vertical tab strip's collapsed/expanded/floating state without
+  // depending on Browser/BrowserView lookups. Pass nullptr on teardown.
+  void SetVerticalTabStripRegionView(
+      BraveVerticalTabStripRegionView* region_view);
 
   // Returns the scroll direction if scrolling is enabled. Returns nullopt if
   // browser is null or scrolling is not enabled.
@@ -290,6 +300,14 @@ class BraveTabContainer : public TabContainerImpl,
   bool ShouldShowVerticalTabs() const;
   bool IsPinned(const Tab* tab) const;
 
+  // Returns the view model index of |tab|, served from
+  // |visibility_pass_cache_| during a visibility pass.
+  std::optional<size_t> GetTabIndex(const Tab* tab) const;
+
+  // Returns true while this container's profile is having its session
+  // restored.
+  bool IsSessionRestoreInProgress() const;
+
   // Called when the tree tabs enabled state changes.
   void OnTreeTabsEnabledChanged();
 
@@ -313,9 +331,29 @@ class BraveTabContainer : public TabContainerImpl,
   BooleanPrefMember show_vertical_tabs_;
   BooleanPrefMember tree_tabs_enabled_;
   BooleanPrefMember should_show_scroll_bar_;
+  BooleanPrefMember floating_mode_pref_;
   BooleanPrefMember scrollable_horizontal_tab_strip_;
 
+  // Injected via SetVerticalTabStripRegionView() by the
+  // BraveVerticalTabStripRegionView wrapping this tab strip. Used to look up
+  // the vertical tab strip's collapsed/expanded state.
+  raw_ptr<BraveVerticalTabStripRegionView> vertical_tab_strip_region_view_ =
+      nullptr;
+
   bool layout_locked_ = false;
+
+  // Per-pass cache for SetTabSlotVisibility(): the superclass queries
+  // ShouldTabBeVisible()/IsPinned() once per tab, and each query performs
+  // linear scans (GetIndexOfView, GetPinnedTabCount), making one visibility
+  // pass O(n^2) with large tab counts. Populated only for the duration of
+  // one SetTabSlotVisibility() call.
+  struct VisibilityPassCache {
+    size_t pinned_tab_count = 0;
+    int pinned_tabs_area_bottom = 0;
+    int pinned_tabs_area_boundary = 0;
+    base::flat_map<const Tab*, size_t> tab_indices;
+  };
+  std::optional<VisibilityPassCache> visibility_pass_cache_;
 
   // Size we last laid out at.
   std::optional<gfx::Size> last_layout_size_;
@@ -329,6 +367,8 @@ class BraveTabContainer : public TabContainerImpl,
 
   // Separator view between pinned and unpinned tabs
   raw_ptr<views::View> separator_ = nullptr;
+
+  base::WeakPtrFactory<BraveTabContainer> weak_factory_{this};
 };
 
 #endif  // BRAVE_BROWSER_UI_VIEWS_TABS_BRAVE_TAB_CONTAINER_H_

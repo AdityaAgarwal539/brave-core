@@ -1,19 +1,21 @@
 {
   "name": "brave-core",
-  "version": "1.94.69",
+  "version": "1.97.11",
   "description": "Brave browser for Android, iOS, Linux, macOS, and Windows",
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "pnpm:devPreinstall": "node ./build/commands/scripts/devPreinstall.ts",
     "help": "node ./build/commands/scripts/commands.js --help",
     "audit_deps": "node ./build/commands/scripts/audit.js -- --audit_dev_deps",
-    "init": "npm install --no-save --no-fund --no-audit && node ./build/commands/scripts/sync.js --init",
-    "sync": "npm install --no-save --no-fund --no-audit && node ./build/commands/scripts/sync.js",
+    "init": "pnpm install --frozen-lockfile && node ./build/commands/scripts/sync.ts --init",
+    "sync": "pnpm install --frozen-lockfile && node ./build/commands/scripts/sync.ts",
+    "get_build_var": "node ./build/commands/scripts/getBuildVar.ts",
     "delete_string_translations": "node ./build/commands/scripts/commands.js delete_string_translations",
-    "create_dist": "node ./build/commands/scripts/commands.js build --target=create_dist",
+    "create_dist": "node ./build/commands/scripts/build.ts --target=create_dist",
     "gclient": "node ./build/commands/scripts/gclient.js",
-    "build": "node ./build/commands/scripts/commands.js build",
-    "build_chromium_release": "node ./build/commands/scripts/commands.js build_chromium_release",
+    "build": "node ./build/commands/scripts/build.ts",
+    "build_chromium_release": "node ./build/commands/scripts/buildChromiumRelease.ts",
     "gn_check": "node ./build/commands/scripts/commands.js gn_check",
     "gn": "node ./build/commands/scripts/gn.js",
     "versions": "node ./build/commands/scripts/commands.js versions",
@@ -21,22 +23,22 @@
     "update_patches": "node ./build/commands/scripts/commands.js update_patches",
     "apply_patches": "node ./build/commands/scripts/commands.js apply_patches",
     "start": "node ./build/commands/scripts/commands.js start",
-    "network-audit": "node ./build/commands/scripts/commands.js test brave_network_audit_tests",
+    "network-audit": "node ./build/commands/scripts/test.ts brave_network_audit_tests",
     "push_l10n": "node ./build/commands/scripts/commands.js push_l10n",
     "pull_l10n": "node ./build/commands/scripts/commands.js pull_l10n",
     "chromium_rebase_l10n": "node ./build/commands/scripts/commands.js chromium_rebase_l10n",
-    "presubmit": "node ./build/commands/scripts/presubmit.js",
+    "presubmit": "node ./build/commands/scripts/presubmit.ts",
     "format": "node ./build/commands/scripts/format.ts",
     "mass_rename": "node ./build/commands/scripts/commands.js mass_rename",
     "docs": "node ./build/commands/scripts/commands.js docs",
-    "test": "node ./build/commands/scripts/commands.js test",
+    "test": "node ./build/commands/scripts/test.ts",
     "list_affected_tests": "node ./build/commands/scripts/commands.js list_affected_tests",
     "test:scripts": "node ./build/commands/scripts/testScripts.ts",
     "eslint": "eslint --quiet .",
-    "build-storybook": "node ./build/commands/scripts/commands.js build --target=brave:storybook && node --max-old-space-size=8192 ./node_modules/storybook/bin/index.cjs build -c .storybook -o .storybook-out",
-    "storybook": "storybook dev",
-    "test-unit": "jest",
-    "test-unit:wallet": "jest --coverage=false components/brave_wallet_ui",
+    "build-storybook": "node ./build/commands/scripts/storybook.ts --command=build",
+    "storybook": "node ./build/commands/scripts/storybook.ts --command=dev",
+    "test-unit": "node --no-sparkplug node_modules/jest/bin/jest.js",
+    "test-unit:wallet": "node --no-sparkplug node_modules/jest/bin/jest.js --coverage=false components/brave_wallet_ui",
     "update_symlink": "node ./build/commands/scripts/commands.js update_symlink",
     "build_fuzzer": "node ./build/commands/scripts/commands.js build_fuzzer",
     "fuzzer": "node ./build/commands/scripts/commands.js run_fuzzer",
@@ -47,7 +49,6 @@
     "update_wasm_resources": "node ./build/commands/scripts/updateWasmResources.js",
     "coverage_report": "node ./build/commands/scripts/commands.js coverage_report",
     "ai-chat-shared-conversation-lib-dev": "webpack serve --disable-interpret --config components/ai_chat/resources/shared_conversation_lib/webpack.config.ts --mode=development",
-    "ai-chat-shared-conversation-lib-prod": "webpack --disable-interpret --config components/ai_chat/resources/shared_conversation_lib/webpack.config.ts --mode=production",
     "generate_about_credits": "node ./build/commands/scripts/generateAboutCredits.js"
   },
   "repository": {
@@ -68,8 +69,8 @@
       "onFail": "error"
     },
     "packageManager": {
-      "name": "npm",
-      "version": ">=11.13.0",
+      "name": "pnpm",
+      "version": ">=11.11.0",
       "onFail": "error"
     }
   },
@@ -78,7 +79,7 @@
     "projects": {
       "chrome": {
         "dir": "src",
-        "tag": "151.0.7922.19",
+        "tag": "153.0.8010.28",
         "repository": {
           "url": "https://chromium.googlesource.com/chromium/src.git"
         },
@@ -89,7 +90,8 @@
         "custom_vars": {
           "checkout_clang_coverage_tools": true,
           "checkout_clangd": true,
-          "download_reclient": true
+          "download_reclient": true,
+          "gn_version": "git_revision:c7ffaf80713afbe5a4f4d95a605c0a98084374de"
         }
       },
       "depot_tools": {
@@ -123,8 +125,8 @@
     "@types/mdast": "4.0.4",
     "@types/node": "25.0.3",
     "@types/qr-image": "3.2.5",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@types/react-router": "5.1.20",
     "@types/react-router-dom": "5.3.3",
     "@types/react-syntax-highlighter": "15.5.11",
@@ -179,8 +181,8 @@
     "prettier": "3.5.3",
     "process": "0.11.10",
     "querystring-es3": "0.2.1",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "react-redux": "8.1.3",
     "recharts": "3.6.0",
     "redux": "4.1.0",
@@ -190,14 +192,13 @@
     "stream-browserify": "3.0.0",
     "stream-http": "3.2.0",
     "style-loader": "2.0.0",
-    "styled-components": "6.4.3",
+    "styled-components": "catalog:",
     "teamcity-service-messages": "0.1.14",
     "terser": "5.16.2",
     "terser-webpack-plugin": "5.4.0",
     "timers-browserify": "2.0.12",
     "ts-jest": "29.4.9",
     "ts-loader": "9.5.2",
-    "tsx": "4.19.2",
     "typesafe-actions": "2.2.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.54.0",
@@ -205,12 +206,12 @@
     "typescript-plugin-styled-components": "3.0.0",
     "webpack": "5.105.0",
     "webpack-cli": "5.1.4",
-    "webpack-dev-server": "5.2.5"
+    "webpack-dev-server": "5.2.6"
   },
   "dependencies": {
     "@brave/brave-ui": "0.40.6",
-    "@brave/leo": "github:brave/leo#9a2dbab610d619b6f7b39c853b9aff8c031f39d9",
-    "@brave/leo-sf-symbols": "github:brave/leo-sf-symbols#8edabba30a40320d2a9e6353a7c945cf528cf18d",
+    "@brave/leo": "github:brave/leo#53850d6d6b12ea0e675dba71c8460f51b22bf90a",
+    "@brave/leo-sf-symbols": "github:brave/leo-sf-symbols#d6c826a443dd10bc02e2349812fe3f9727460e0d",
     "@brave/wallet-standard-brave": "0.0.16",
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/sortable": "7.0.1",
@@ -219,7 +220,7 @@
     "@ledgerhq/hw-app-btc": "10.3.0",
     "@ledgerhq/hw-app-eth": "6.45.19",
     "@ledgerhq/hw-app-solana": "6.27.1",
-    "@ledgerhq/hw-transport-webhid": "6.29.0",
+    "@ledgerhq/hw-transport-webhid": "6.36.0",
     "@mozilla/readability": "0.6.0",
     "@reduxjs/toolkit": "1.9.0",
     "@solana/web3.js": "1.98.2",
@@ -237,6 +238,8 @@
     "events": "3.3.0",
     "history": "4.10.1",
     "jszip": "3.8.0",
+    "katex": "0.18.1",
+    "onnxruntime-web": "1.26.0",
     "prettier-bytes": "1.0.4",
     "qr-image": "3.2.0",
     "react-json-view-lite": "0.9.5",
@@ -251,27 +254,11 @@
     "redux-thunk": "2.4.1",
     "remark-directive": "4.0.0",
     "remark-gfm": "4.0.1",
+    "remark-math": "6.0.0",
     "remark-parse": "11.0.0",
     "throttleit": "1.0.0",
     "unified": "11.0.5",
     "unist-util-visit": "5.1.0",
     "webext-redux": "2.1.9"
-  },
-  "overrides": {
-    "axios": "1.16.0",
-    "elliptic": "6.6.1",
-    "esbuild": "0.28.1",
-    "prismjs": "1.30.0",
-    "protobufjs": "7.6.3",
-    "tiny-secp256k1": "1.1.7",
-    "uuid": "14.0.0",
-    "http-proxy-middleware": "2.0.10",
-    "react": "$react",
-    "react-dom": "$react-dom",
-    "@types/react": "$@types/react",
-    "@types/react-dom": "$@types/react-dom",
-    "@brave/brave-ui": {
-      "styled-components": "$styled-components"
-    }
   }
 }

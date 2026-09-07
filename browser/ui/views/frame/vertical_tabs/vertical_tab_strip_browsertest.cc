@@ -6,7 +6,6 @@
 #include <algorithm>
 
 #include "base/i18n/rtl.h"
-#include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
@@ -38,11 +37,11 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
-#include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -55,6 +54,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "content/public/test/browser_test.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/test/ui_controls.h"
@@ -87,62 +87,6 @@
 #include "ui/platform_window/common/platform_window_defaults.h"
 #endif
 
-namespace {
-
-class FullscreenNotificationObserver {
- public:
-  explicit FullscreenNotificationObserver(Browser* browser);
-
-  FullscreenNotificationObserver(const FullscreenNotificationObserver&) =
-      delete;
-  FullscreenNotificationObserver& operator=(
-      const FullscreenNotificationObserver&) = delete;
-
-  ~FullscreenNotificationObserver();
-
-  // Runs a loop until a fullscreen change is seen (unless one has already been
-  // observed, in which case it returns immediately).
-  void Wait();
-
-  void OnFullscreenStateChanged();
-
- protected:
-  bool observed_change_ = false;
-  // Subscription to be notified when the browser window enters fullscreen.
-  base::CallbackListSubscription fullscreen_subscription_;
-  base::RunLoop run_loop_;
-};
-
-FullscreenNotificationObserver::FullscreenNotificationObserver(
-    Browser* browser) {
-  // Observe changes to fullscreen state.
-  fullscreen_subscription_ =
-      ExclusiveAccessManager::From(browser)
-          ->fullscreen_controller()
-          ->RegisterOnFullscreenStateChanged(base::BindRepeating(
-              &FullscreenNotificationObserver::OnFullscreenStateChanged,
-              base::Unretained(this)));
-}
-
-FullscreenNotificationObserver::~FullscreenNotificationObserver() = default;
-
-void FullscreenNotificationObserver::OnFullscreenStateChanged() {
-  observed_change_ = true;
-  if (run_loop_.running()) {
-    run_loop_.Quit();
-  }
-}
-
-void FullscreenNotificationObserver::Wait() {
-  if (observed_change_) {
-    return;
-  }
-
-  run_loop_.Run();
-}
-
-}  // namespace
-
 class VerticalTabStripBrowserTest : public InProcessBrowserTest {
  public:
   VerticalTabStripBrowserTest() {
@@ -151,10 +95,10 @@ class VerticalTabStripBrowserTest : public InProcessBrowserTest {
   ~VerticalTabStripBrowserTest() override = default;
 
   const BraveBrowserView* browser_view() const {
-    return static_cast<BraveBrowserView*>(browser()->window());
+    return BraveBrowserView::GetBrowserViewForBrowser(browser());
   }
   BraveBrowserView* browser_view() {
-    return static_cast<BraveBrowserView*>(browser()->window());
+    return BraveBrowserView::GetBrowserViewForBrowser(browser());
   }
   BrowserFrameView* browser_non_client_frame_view() {
     return browser_view()->browser_widget()->GetFrameView();
@@ -341,8 +285,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, WindowTitle) {
   ToggleVerticalTabStrip();
 
 #if BUILDFLAG(IS_LINUX)
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kUseCustomChromeFrame,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kUseCustomChromeFrame,
+                                                  true);
 #endif
 
   // Pre-condition: Window title visibility differs per platform
@@ -397,16 +341,13 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, WindowTitle) {
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, NewTabVisibility) {
-  EXPECT_TRUE(
-      tab_strip_region_view()->new_tab_button_for_testing()->GetVisible());
+  EXPECT_TRUE(tab_strip_region_view()->new_tab_button()->GetVisible());
 
   ToggleVerticalTabStrip();
-  EXPECT_FALSE(
-      tab_strip_region_view()->new_tab_button_for_testing()->GetVisible());
+  EXPECT_FALSE(tab_strip_region_view()->new_tab_button()->GetVisible());
 
   ToggleVerticalTabStrip();
-  EXPECT_TRUE(
-      tab_strip_region_view()->new_tab_button_for_testing()->GetVisible());
+  EXPECT_TRUE(tab_strip_region_view()->new_tab_button()->GetVisible());
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, MinHeight) {
@@ -463,7 +404,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, VisualState) {
   EXPECT_EQ(inset_for_expanded_collapsed, region_view->GetInsets().width());
 
   // Try Expanding / collapsing
-  auto* prefs = browser()->profile()->GetOriginalProfile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetOriginalProfile()->GetPrefs();
   prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);
   EXPECT_EQ(State::kCollapsed, region_view->state());
   prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, false);
@@ -499,110 +440,6 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, VisualState) {
     region_view->OnMouseEntered(event);
     EXPECT_NE(State::kFloating, region_view->state());
   }
-}
-
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// * Mac test bots are not able to enter fullscreen.
-// * On Linux this test is flaky.
-#define MAYBE_Fullscreen DISABLED_Fullscreen
-#else
-#define MAYBE_Fullscreen Fullscreen
-#endif
-
-IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, MAYBE_Fullscreen) {
-  ToggleVerticalTabStrip();
-  ASSERT_TRUE(browser_view()
-                  ->vertical_tab_strip_host_view_->GetPreferredSize()
-                  .width());
-
-  auto* region_view = browser_view()
-                          ->vertical_tab_strip_container_view()
-                          ->vertical_tab_strip_region_view();
-  ASSERT_TRUE(region_view);
-  ASSERT_EQ(BraveVerticalTabStripRegionView::State::kExpanded,
-            region_view->state());
-
-  auto* fullscreen_controller = browser_view()
-                                    ->browser()
-                                    ->GetFeatures()
-                                    .exclusive_access_manager()
-                                    ->fullscreen_controller();
-  {
-    auto observer = FullscreenNotificationObserver(browser());
-    fullscreen_controller->ToggleBrowserFullscreenMode(/*user_initiated=*/true);
-    observer.Wait();
-  }
-
-  // Vertical tab strip should be invisible on browser fullscreen.
-  ASSERT_TRUE(fullscreen_controller->IsFullscreenForBrowser());
-  ASSERT_TRUE(browser_view()->IsFullscreen());
-  EXPECT_FALSE(browser_view()
-                   ->vertical_tab_strip_host_view_->GetPreferredSize()
-                   .width());
-
-  {
-    auto observer = FullscreenNotificationObserver(browser());
-    fullscreen_controller->ToggleBrowserFullscreenMode(/*user_initiated=*/true);
-    observer.Wait();
-  }
-  ASSERT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
-  ASSERT_FALSE(browser_view()->IsFullscreen());
-
-  // Exiting browser fullscreen restores the pre-fullscreen expanded state and
-  // makes the strip visible again.
-  EXPECT_EQ(BraveVerticalTabStripRegionView::State::kExpanded,
-            region_view->state());
-  EXPECT_TRUE(region_view->GetVisible());
-  EXPECT_TRUE(browser_view()
-                  ->vertical_tab_strip_host_view_->GetPreferredSize()
-                  .width());
-
-  {
-    auto observer = FullscreenNotificationObserver(browser());
-    // Vertical tab strip should become invisible on tab fullscreen.
-    fullscreen_controller->EnterFullscreenModeForTab(
-        browser_view()
-            ->browser()
-            ->tab_strip_model()
-            ->GetActiveWebContents()
-            ->GetPrimaryMainFrame());
-
-    observer.Wait();
-  }
-  ASSERT_TRUE(fullscreen_controller->IsTabFullscreen());
-  if (!browser_view()
-           ->vertical_tab_strip_host_view_->GetPreferredSize()
-           .width()) {
-    return;
-  }
-
-  base::RunLoop run_loop;
-  auto wait_until = base::BindLambdaForTesting(
-      [&](base::RepeatingCallback<bool()> predicate) {
-        if (predicate.Run()) {
-          return;
-        }
-
-        base::RepeatingTimer scheduler;
-        scheduler.Start(FROM_HERE, base::Milliseconds(100),
-                        base::BindLambdaForTesting([&]() {
-                          if (predicate.Run()) {
-                            run_loop.Quit();
-                          } else {
-                            LOG(ERROR) << browser_view()
-                                              ->vertical_tab_strip_host_view_
-                                              ->GetPreferredSize()
-                                              .width();
-                          }
-                        }));
-        run_loop.Run();
-      });
-
-  wait_until.Run(base::BindLambdaForTesting([&]() {
-    return !browser_view()
-                ->vertical_tab_strip_host_view_->GetPreferredSize()
-                .width();
-  }));
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, LayoutSanity) {
@@ -713,10 +550,69 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
   ASSERT_EQ(region_view->original_region_view_->height(), contents_view_height);
 }
 
+IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, LockLayoutCoalescesLayout) {
+  ToggleVerticalTabStrip();
+
+  auto* brave_tab_container = views::AsViewClass<BraveTabContainer>(
+      views::AsViewClass<BraveTabStrip>(
+          browser_view()->horizontal_tab_strip_for_testing())
+          ->GetTabContainerForTesting());
+  ASSERT_TRUE(brave_tab_container);
+
+  browser_view()->horizontal_tab_strip_for_testing()->StopAnimating();
+  InvalidateAndRunLayoutForVerticalTabStrip();
+
+  // Freeze layout the way AddTabs() does during session restore.
+  base::OnceClosure unlock = brave_tab_container->LockLayout();
+
+  AppendTab(browser());
+  AppendTab(browser());
+  InvalidateAndRunLayoutForVerticalTabStrip();
+
+  // While locked, inserts must not run any layout: the new tabs' ideal
+  // bounds stay unset and the preferred size is collapsed.
+  EXPECT_TRUE(brave_tab_container->CalculatePreferredSize({}).IsEmpty());
+  EXPECT_TRUE(brave_tab_container->GetIdealBounds(1).IsEmpty());
+  EXPECT_TRUE(brave_tab_container->GetIdealBounds(2).IsEmpty());
+
+  // Running the unlock closure lays out the whole batch in a single pass.
+  std::move(unlock).Run();
+  browser_view()->horizontal_tab_strip_for_testing()->StopAnimating();
+  InvalidateAndRunLayoutForVerticalTabStrip();
+
+  ASSERT_EQ(3, browser()->tab_strip_model()->count());
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_FALSE(brave_tab_container->GetIdealBounds(i).IsEmpty());
+  }
+  EXPECT_LT(brave_tab_container->GetIdealBounds(0).y(),
+            brave_tab_container->GetIdealBounds(1).y());
+  EXPECT_LT(brave_tab_container->GetIdealBounds(1).y(),
+            brave_tab_container->GetIdealBounds(2).y());
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
+                       LockLayoutClosureOutlivesTabContainer) {
+  ToggleVerticalTabStrip();
+
+  auto* brave_tab_container = views::AsViewClass<BraveTabContainer>(
+      views::AsViewClass<BraveTabStrip>(
+          browser_view()->horizontal_tab_strip_for_testing())
+          ->GetTabContainerForTesting());
+  ASSERT_TRUE(brave_tab_container);
+
+  base::OnceClosure unlock = brave_tab_container->LockLayout();
+  CloseBrowserSynchronously(browser());
+
+  // The unlock closure is bound to a weak pointer, so running it after the
+  // container has been destroyed (e.g. the window was closed while a
+  // session-restore batch held the lock) must be a safe no-op.
+  std::move(unlock).Run();
+}
+
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ScrollBarMode) {
   ToggleVerticalTabStrip();
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   auto* pref = prefs->FindPreference(brave_tabs::kVerticalTabsShowScrollbar);
 
   // Check if the default value is false
@@ -768,7 +664,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
 
   // Even if the pref is enabled, scrollbar should be disabled in horizontal
   // mode
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(brave_tabs::kVerticalTabsShowScrollbar, true);
   EXPECT_EQ(views::ScrollView::ScrollBarMode::kDisabled,
             brave_tab_container->GetScrollBarMode());
@@ -779,7 +675,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
                        ScrollBarVisibilityWithManyTabs) {
   ToggleVerticalTabStrip();
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(brave_tabs::kVerticalTabsShowScrollbar, true);
 
   auto* brave_tab_container = views::AsViewClass<BraveTabContainer>(
@@ -816,7 +712,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
                        DISABLED_ScrollBarBoundsWithPinnedTabs) {
   ToggleVerticalTabStrip();
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(brave_tabs::kVerticalTabsShowScrollbar, true);
 
   auto* brave_tab_container = views::AsViewClass<BraveTabContainer>(
@@ -905,7 +801,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
                        DISABLED_ScrollBarThumbState) {
   ToggleVerticalTabStrip();
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(brave_tabs::kVerticalTabsShowScrollbar, true);
 
   auto* brave_tab_container = views::AsViewClass<BraveTabContainer>(
@@ -1130,7 +1026,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ExpandedState) {
   // Given that kVerticalTabsExpandedStatePerWindow is false,
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   ASSERT_FALSE(
       prefs->GetBoolean(brave_tabs::kVerticalTabsExpandedStatePerWindow));
 
@@ -1150,12 +1046,11 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ExpandedState) {
   EXPECT_TRUE(prefs->GetBoolean(brave_tabs::kVerticalTabsCollapsed));
 
   // it affects all browsers.
-  auto* region_view_2 =
-      static_cast<BraveBrowserView*>(
-          Browser::Create(Browser::CreateParams(browser()->profile(), true))
-              ->window())
-          ->vertical_tab_strip_container_view_
-          ->vertical_tab_strip_region_view();
+  auto* region_view_2 = BraveBrowserView::GetBrowserViewForBrowser(
+                            CreateBrowserWindow(BrowserWindowCreateParams(
+                                browser()->GetProfile(), true)))
+                            ->vertical_tab_strip_container_view_
+                            ->vertical_tab_strip_region_view();
   EXPECT_EQ(State::kCollapsed, region_view_2->state());
 
   // Given that kVerticalTabsExpandedStatePerWindow is true,
@@ -1173,25 +1068,24 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ExpandedState) {
   EXPECT_EQ(State::kCollapsed, region_view_2->state());
 
   // Check expanded state is toggled via command.
-  auto* command_controller = browser()->command_controller();
+  auto* command_controller = chrome::BrowserCommandController::From(browser());
   command_controller->ExecuteCommandWithDisposition(
       IDC_TOGGLE_VERTICAL_TABS_EXPANDED, WindowOpenDisposition::CURRENT_TAB);
   EXPECT_EQ(State::kCollapsed, region_view_1->state());
 
   // And new browser should follow the preference.
   prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);
-  auto* region_view_3 =
-      static_cast<BraveBrowserView*>(
-          Browser::Create(Browser::CreateParams(browser()->profile(), true))
-              ->window())
-          ->vertical_tab_strip_container_view_
-          ->vertical_tab_strip_region_view();
+  auto* region_view_3 = BraveBrowserView::GetBrowserViewForBrowser(
+                            CreateBrowserWindow(BrowserWindowCreateParams(
+                                browser()->GetProfile(), true)))
+                            ->vertical_tab_strip_container_view_
+                            ->vertical_tab_strip_region_view();
   EXPECT_EQ(State::kCollapsed, region_view_3->state());
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ExpandedWidth) {
   // Given that kVerticalTabsExpandedStatePerWindow is false,
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   ASSERT_FALSE(
       prefs->GetBoolean(brave_tabs::kVerticalTabsExpandedStatePerWindow));
 
@@ -1208,12 +1102,11 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ExpandedWidth) {
   EXPECT_EQ(100, prefs->GetValue(brave_tabs::kVerticalTabsExpandedWidth));
 
   // it affects all browsers.
-  auto* region_view_2 =
-      static_cast<BraveBrowserView*>(
-          Browser::Create(Browser::CreateParams(browser()->profile(), true))
-              ->window())
-          ->vertical_tab_strip_container_view_
-          ->vertical_tab_strip_region_view();
+  auto* region_view_2 = BraveBrowserView::GetBrowserViewForBrowser(
+                            CreateBrowserWindow(BrowserWindowCreateParams(
+                                browser()->GetProfile(), true)))
+                            ->vertical_tab_strip_container_view_
+                            ->vertical_tab_strip_region_view();
   EXPECT_EQ(100, region_view_2->expanded_width_);
 
   // Given that kVerticalTabsExpandedStatePerWindow is true,
@@ -1229,12 +1122,11 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ExpandedWidth) {
 
   // And new browser should follow the preference.
   prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);
-  auto* region_view_3 =
-      static_cast<BraveBrowserView*>(
-          Browser::Create(Browser::CreateParams(browser()->profile(), true))
-              ->window())
-          ->vertical_tab_strip_container_view_
-          ->vertical_tab_strip_region_view();
+  auto* region_view_3 = BraveBrowserView::GetBrowserViewForBrowser(
+                            CreateBrowserWindow(BrowserWindowCreateParams(
+                                browser()->GetProfile(), true)))
+                            ->vertical_tab_strip_container_view_
+                            ->vertical_tab_strip_region_view();
   EXPECT_EQ(200, region_view_3->expanded_width_);
 }
 
@@ -1327,7 +1219,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripStringBrowserTest, ContextMenuString) {
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, PinningGroupedTab) {
   auto* tab_groups_service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-          browser()->profile());
+          browser()->GetProfile());
   ASSERT_TRUE(tab_groups_service);
   tab_groups_service->SetIsInitializedForTesting(true);
 
@@ -1429,9 +1321,9 @@ class VerticalTabStripDragAndDropBrowserTest
 #if BUILDFLAG(IS_WIN)
     // Sometimes, the window is not activated and it causes flakiness. In order
     // to make sure the window is the front, do these.
-    browser()->window()->Minimize();
-    browser()->window()->Restore();
-    browser()->window()->Activate();
+    BrowserWindow::FromBrowser(browser())->Minimize();
+    BrowserWindow::FromBrowser(browser())->Restore();
+    BrowserWindow::FromBrowser(browser())->Activate();
 #endif
   }
 };
@@ -1514,7 +1406,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripDragAndDropBrowserTest,
         int same_profile = 0;
         GlobalBrowserCollection::GetInstance()->ForEach(
             [&same_profile, this](BrowserWindowInterface* bwi) {
-              if (bwi->GetProfile() == browser()->profile()) {
+              if (bwi->GetProfile() == browser()->GetProfile()) {
                 ++same_profile;
               }
               return true;
@@ -1586,14 +1478,14 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, Sanity) {
   // Make sure browser works with both vertical tab and scrollable tab strip
   // https://github.com/brave/brave-browser/issues/28877
   ToggleVerticalTabStrip();
-  Browser::Create(Browser::CreateParams(browser()->profile(), true));
+  CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(), true));
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ToggleWithGroups) {
   // Deflake the test by setting TabGroupSyncService initialized.
   tab_groups::TabGroupSyncService* service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-          browser()->profile());
+          browser()->GetProfile());
   service->SetIsInitializedForTesting(true);
 
   // Make sure browser works with both vertical tab and scrollable tab strip
@@ -1602,6 +1494,42 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ToggleWithGroups) {
   AddTabToNewGroup(browser(), 0);
   ToggleVerticalTabStrip();  // To vertical tab strip
   ToggleVerticalTabStrip();  // To horizontal tab strip
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
+                       TabsBelowViewportAreHidden) {
+  ToggleVerticalTabStrip();
+
+  auto* brave_tab_container = views::AsViewClass<BraveTabContainer>(
+      views::AsViewClass<BraveTabStrip>(
+          browser_view()->horizontal_tab_strip_for_testing())
+          ->GetTabContainerForTesting());
+  ASSERT_TRUE(brave_tab_container);
+
+  auto* model = browser()->tab_strip_model();
+  browser_view()->horizontal_tab_strip_for_testing()->StopAnimating();
+
+  // Add tabs until the strip overflows the viewport by a few tab heights.
+  while (brave_tab_container->GetMaxScrollOffsetForTesting() <
+         3 * tabs::kVerticalTabHeight) {
+    AppendTab(browser());
+    browser_view()->horizontal_tab_strip_for_testing()->StopAnimating();
+    InvalidateAndRunLayoutForVerticalTabStrip();
+  }
+
+  // Scroll to the top: the first tab is in the viewport, the last tab is
+  // below it and must be hidden.
+  brave_tab_container->SetScrollOffsetForTesting(0);
+  InvalidateAndRunLayoutForVerticalTabStrip();
+  EXPECT_TRUE(GetTabAt(browser(), 0)->GetVisible());
+  EXPECT_FALSE(GetTabAt(browser(), model->count() - 1)->GetVisible());
+
+  // Scroll to the bottom: visibility flips.
+  brave_tab_container->SetScrollOffsetForTesting(
+      brave_tab_container->GetMaxScrollOffsetForTesting());
+  InvalidateAndRunLayoutForVerticalTabStrip();
+  EXPECT_FALSE(GetTabAt(browser(), 0)->GetVisible());
+  EXPECT_TRUE(GetTabAt(browser(), model->count() - 1)->GetVisible());
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, ScrollOffset) {
@@ -1755,7 +1683,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
   // Collapsing the tab strip shouldn't reset the scroll offset. Note that
   // collapsing only changes the tab strip width, so the max scroll offset
   // stays the same and no clamping should happen.
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);
   browser_view()->horizontal_tab_strip_for_testing()->StopAnimating();
   InvalidateAndRunLayoutForVerticalTabStrip();
@@ -1889,7 +1817,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
   // Deflake the test by setting TabGroupSyncService initialized.
   tab_groups::TabGroupSyncService* service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-          browser()->profile());
+          browser()->GetProfile());
   service->SetIsInitializedForTesting(true);
 
   auto* model = browser()->tab_strip_model();
@@ -1939,37 +1867,37 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
 // * Non-type argument of 'float' or 'double' for template is unsupported
 // * Passing template as argument of IN_PROC_BROWSER_TEST_F is not working
 // > thus, use macro instead.
-#define VERTICAL_TAB_STRIP_DPI_TEST(RATIO, DPI)                           \
-  class DPI##VerticalTabStripBrowserTest                                  \
-      : public VerticalTabStripBrowserTest {                              \
-   public:                                                                \
-    void SetUp() override {                                               \
-      base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(          \
-          "force-device-scale-factor", base::NumberToString(RATIO));      \
-      VerticalTabStripBrowserTest::SetUp();                               \
-    }                                                                     \
-    void SetUpOnMainThread() override {                                   \
-      VerticalTabStripBrowserTest::SetUpOnMainThread();                   \
-      /* Start up with vertical tab enabled - there shouldn't be crash */ \
-      ToggleVerticalTabStrip();                                           \
-    }                                                                     \
-  };                                                                      \
-                                                                          \
-  IN_PROC_BROWSER_TEST_F(DPI##VerticalTabStripBrowserTest, DPI) {         \
-    /* Manipulate size and state */                                       \
-    auto* prefs = browser()->profile()->GetOriginalProfile()->GetPrefs(); \
-    browser_view()->Maximize();                                           \
-    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);          \
-    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, false);         \
-    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);          \
-                                                                          \
-    browser_view()->Restore();                                            \
-    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);          \
-    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, false);         \
-    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);          \
-                                                                          \
-    /* Get back to horizontal tab strip - there shouldn't be crash */     \
-    ToggleVerticalTabStrip();                                             \
+#define VERTICAL_TAB_STRIP_DPI_TEST(RATIO, DPI)                              \
+  class DPI##VerticalTabStripBrowserTest                                     \
+      : public VerticalTabStripBrowserTest {                                 \
+   public:                                                                   \
+    void SetUp() override {                                                  \
+      base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(             \
+          "force-device-scale-factor", base::NumberToString(RATIO));         \
+      VerticalTabStripBrowserTest::SetUp();                                  \
+    }                                                                        \
+    void SetUpOnMainThread() override {                                      \
+      VerticalTabStripBrowserTest::SetUpOnMainThread();                      \
+      /* Start up with vertical tab enabled - there shouldn't be crash */    \
+      ToggleVerticalTabStrip();                                              \
+    }                                                                        \
+  };                                                                         \
+                                                                             \
+  IN_PROC_BROWSER_TEST_F(DPI##VerticalTabStripBrowserTest, DPI) {            \
+    /* Manipulate size and state */                                          \
+    auto* prefs = browser()->GetProfile()->GetOriginalProfile()->GetPrefs(); \
+    browser_view()->Maximize();                                              \
+    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);             \
+    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, false);            \
+    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);             \
+                                                                             \
+    browser_view()->Restore();                                               \
+    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);             \
+    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, false);            \
+    prefs->SetBoolean(brave_tabs::kVerticalTabsCollapsed, true);             \
+                                                                             \
+    /* Get back to horizontal tab strip - there shouldn't be crash */        \
+    ToggleVerticalTabStrip();                                                \
   }
 
 // Available DPIs on Windows
@@ -2022,7 +1950,7 @@ class VerticalTabStripScrollBarFlagTest : public VerticalTabStripBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripScrollBarFlagTest, MigrationTest) {
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
   auto* pref = prefs->FindPreference(brave_tabs::kVerticalTabsShowScrollbar);
   ASSERT_TRUE(pref);
 
@@ -2039,7 +1967,7 @@ class VerticalTabStripHideCompletelyTest : public VerticalTabStripBrowserTest {
   ~VerticalTabStripHideCompletelyTest() override = default;
 
   void SetHideCompletelyWhenCollapsed(bool hide) {
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         brave_tabs::kVerticalTabsHideCompletelyWhenCollapsed, hide);
   }
 
@@ -2087,7 +2015,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripHideCompletelyTest, GetMinimumWidth) {
   EXPECT_EQ(38, region_view->GetMinimumSize().width());
 
   // 41px w/o rounded corners.
-  browser()->profile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners, false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners,
+                                                  false);
   EXPECT_EQ(41, region_view->GetMinimumSize().width());
 
   region_view->ToggleState();
@@ -2206,6 +2135,38 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripHideCompletelyTest,
   EXPECT_FALSE(region_view->GetVisible());
 }
 
+IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest,
+                       HidingToggleButtonCollapsesAndForcesFloating) {
+  ToggleVerticalTabStrip();
+
+  auto* prefs = browser()->GetProfile()->GetPrefs();
+  auto* container_view =
+      browser_view()->vertical_tab_strip_container_view_.get();
+  ASSERT_TRUE(container_view);
+  auto* region_view = container_view->vertical_tab_strip_region_view();
+  ASSERT_TRUE(region_view);
+
+  // Vertical tabs default to expanded. Explicitly turn off floating mode.
+  prefs->SetBoolean(brave_tabs::kVerticalTabsFloatingEnabled, false);
+  ASSERT_EQ(BraveVerticalTabStripRegionView::State::kExpanded,
+            region_view->state());
+
+  // Hiding the toggle button should force the tab strip to collapse, since
+  // there is no other way to expand/collapse it, and should force floating
+  // mode on regardless of kVerticalTabsFloatingEnabled.
+  prefs->SetBoolean(brave_tabs::kVerticalTabsShowToggleButton, false);
+  EXPECT_EQ(BraveVerticalTabStripRegionView::State::kCollapsed,
+            region_view->state());
+  EXPECT_TRUE(prefs->GetBoolean(brave_tabs::kVerticalTabsCollapsed));
+  EXPECT_TRUE(VerticalTabController::FromBrowser(browser())
+                  ->IsFloatingVerticalTabsEnabled());
+
+  // Re-showing the toggle button should restore normal floating behavior.
+  prefs->SetBoolean(brave_tabs::kVerticalTabsShowToggleButton, true);
+  EXPECT_FALSE(VerticalTabController::FromBrowser(browser())
+                   ->IsFloatingVerticalTabsEnabled());
+}
+
 // Verifies that the vertical tab strip host view and the web contents are
 // positioned correctly in RTL mode for both "tab on left" and "tab on right"
 // user preferences. The layout flips the pref into a leading-edge boolean in
@@ -2219,7 +2180,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, VerticalTabLayoutInRTL) {
   // Disable rounded corners as vertical tab is 1px-off when it's on right-side.
   // This could make this test flaky.
   // https://github.com/brave/brave-browser/issues/53498
-  browser()->profile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners, false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners,
+                                                  false);
 
   auto* container_view =
       browser_view()->vertical_tab_strip_container_view_.get();
@@ -2232,7 +2194,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBrowserTest, VerticalTabLayoutInRTL) {
   auto* contents = browser_view()->contents_container();
   ASSERT_TRUE(contents);
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
 
   // Trigger RTL layout.
   base::i18n::ScopedRTLForTesting scoped_rtl(/*rtl=*/true);
@@ -2296,9 +2258,9 @@ IN_PROC_BROWSER_TEST_F(UpstreamVerticalTabsCrashTest, NoCrashOnStartup) {
   // then opening a new window. verifies no crash when kVerticalTabs is active
   // and kVerticalTabsEnabled is set, since tab_container_ may be null in that
   // configuration.
-  browser()->profile()->GetPrefs()->SetBoolean(prefs::kVerticalTabsEnabled,
-                                               true);
-  Browser* new_browser = CreateBrowser(browser()->profile());
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kVerticalTabsEnabled,
+                                                  true);
+  Browser* new_browser = CreateBrowser(browser()->GetProfile());
   ASSERT_TRUE(new_browser);
   EXPECT_EQ(1, new_browser->tab_strip_model()->count());
 }
@@ -2319,7 +2281,7 @@ class VerticalTabStripFocusModeTest : public VerticalTabStripBrowserTest {
   }
 
   void SetCollapsedPref(bool collapsed) {
-    browser()->profile()->GetOriginalProfile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetOriginalProfile()->GetPrefs()->SetBoolean(
         brave_tabs::kVerticalTabsCollapsed, collapsed);
   }
 
@@ -2351,6 +2313,14 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripFocusModeTest,
   focus_mode_controller()->SetEnabled(false);
   EXPECT_EQ(State::kExpanded, region_view->state());
   EXPECT_TRUE(region_view->GetVisible());
+
+  // Enabling vertical tabs when Focus Mode is already enabled should also hide
+  // the tabstrip.
+  ToggleVerticalTabStrip();
+  focus_mode_controller()->SetEnabled(true);
+  ToggleVerticalTabStrip();
+  EXPECT_EQ(State::kCollapsed, region_view->state());
+  EXPECT_FALSE(region_view->GetVisible());
 }
 
 // The state saved when entering floating mode is round-tripped: a strip that

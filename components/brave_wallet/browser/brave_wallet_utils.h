@@ -27,6 +27,11 @@ class CardanoAddress;
 // Returns true if Brave Wallet is allowed (not disabled by policy).
 bool IsAllowed(PrefService* prefs);
 
+// Returns true if the user has created a wallet. Reads the same pref as
+// KeyringService::IsWalletCreatedSync, for callers deciding whether to install
+// the dApp providers where no KeyringService is at hand.
+bool IsWalletCreated(PrefService* prefs);
+
 bool EncodeString(std::string_view input, std::string* output);
 bool EncodeStringArray(base::span<const std::string> input,
                        std::string* output);
@@ -74,14 +79,15 @@ std::string GetDefaultBaseCryptocurrency(PrefService* prefs);
 
 std::string GetEnsRegistryContractAddress(std::string_view chain_id);
 
-mojom::BlockchainTokenPtr GetUserAsset(PrefService* prefs,
-                                       mojom::CoinType coin,
-                                       std::string_view chain_id,
-                                       std::string_view address,
-                                       std::string_view token_id,
-                                       bool is_erc721,
-                                       bool is_erc1155,
-                                       bool is_shielded);
+mojom::BlockchainTokenPtr GetUserAsset(
+    PrefService* prefs,
+    mojom::CoinType coin,
+    std::string_view chain_id,
+    std::string_view address,
+    std::string_view token_id,
+    bool is_erc721,
+    bool is_erc1155,
+    mojom::ZCashTokenType zcash_token_type = mojom::ZCashTokenType::kNone);
 
 std::vector<mojom::BlockchainTokenPtr> GetAllUserAssets(PrefService* prefs);
 mojom::BlockchainTokenPtr AddUserAsset(PrefService* prefs,
@@ -126,9 +132,13 @@ std::string WalletInsufficientBalanceErrorMessage();
 std::string WalletUserRejectedRequestErrorMessage();
 std::string WalletAmountTooSmallErrorMessage();
 
+bool IsShieldedTokenType(mojom::ZCashTokenType type);
+
 mojom::BlockchainTokenPtr GetBitcoinNativeToken(std::string_view chain_id);
 mojom::BlockchainTokenPtr GetZcashNativeToken(std::string_view chain_id);
 mojom::BlockchainTokenPtr GetZcashNativeShieldedToken(
+    std::string_view chain_id);
+mojom::BlockchainTokenPtr GetZcashNativeIronwoodToken(
     std::string_view chain_id);
 mojom::BlockchainTokenPtr GetCardanoNativeToken(std::string_view chain_id);
 mojom::BlockchainTokenPtr GetPolkadotNativeToken(std::string_view chain_id);

@@ -14,12 +14,39 @@ source_set("ledger") {
     "ledger_ui.h",
   ]
   deps = [
+    "//brave/browser/ui/webui/brave_wallet/wallet_page",
+    "//brave/browser/ui/webui/brave_wallet/wallet_panel",
+    "//brave/components/brave_wallet/common",
     "//brave/components/brave_wallet/common:common_constants",
+    "//brave/components/brave_wallet/common:mojom",
     "//brave/components/brave_wallet_ui:resources",
     "//brave/components/brave_wallet_ui/ledger:ledger_bridge_generated",
     "//brave/components/resources:static_resources_grit",
     "//content/public/browser",
+    "//mojo/public/cpp/bindings",
+    "//services/network/public/mojom",
     "//ui/webui",
     "//ui/webui/resources:resources_grit",
+  ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = [ "ledger_ui_browsertest.cc" ]
+  deps = [
+    ":ledger",
+    "//base/test:test_support",
+    "//brave/browser/brave_wallet",
+    "//brave/components/brave_wallet/browser",
+    "//brave/components/brave_wallet/browser:utils",
+    "//brave/components/brave_wallet/common:common_constants",
+    "//chrome/browser:browser_process",
+    "//chrome/browser/hid",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
+    "//content/test:test_support",
+    "//testing/gtest",
   ]
 }

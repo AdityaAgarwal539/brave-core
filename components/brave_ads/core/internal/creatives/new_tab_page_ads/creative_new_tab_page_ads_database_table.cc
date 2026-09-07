@@ -19,7 +19,6 @@
 #include "brave/components/brave_ads/core/internal/common/algorithm/split_vector_util.h"
 #include "brave/components/brave_ads/core/internal/common/database/database_column_util.h"
 #include "brave/components/brave_ads/core/internal/common/database/database_statement_util.h"
-#include "brave/components/brave_ads/core/internal/common/database/database_table_util.h"
 #include "brave/components/brave_ads/core/internal/common/database/database_transaction_util.h"
 #include "brave/components/brave_ads/core/internal/common/logging_util.h"
 #include "brave/components/brave_ads/core/internal/common/time/time_util.h"
@@ -498,6 +497,56 @@ void CreativeNewTabPageAds::GetForActiveCampaigns(
       base::BindOnce(&GetForActiveCampaignsCallback, std::move(callback)));
 }
 
+void CreativeNewTabPageAds::GetAll(
+    GetCreativeNewTabPageAdsCallback callback) const {
+  mojom::DBTransactionInfoPtr mojom_db_transaction =
+      mojom::DBTransactionInfo::New();
+  mojom::DBActionInfoPtr mojom_db_action = mojom::DBActionInfo::New();
+  mojom_db_action->type = mojom::DBActionInfo::Type::kExecuteQueryWithBindings;
+  mojom_db_action->sql = base::ReplaceStringPlaceholders(
+      R"(
+          SELECT
+            creative_new_tab_page_ad.creative_instance_id,
+            creative_new_tab_page_ad.creative_set_id,
+            creative_new_tab_page_ad.campaign_id,
+            campaigns.metric_type,
+            campaigns.start_at,
+            campaigns.end_at,
+            campaigns.daily_cap,
+            campaigns.advertiser_id,
+            campaigns.priority,
+            creative_ads.per_day,
+            creative_ads.per_week,
+            creative_ads.per_month,
+            creative_ads.total_max,
+            creative_ads.value,
+            creative_ads.condition_matchers,
+            segments.segment,
+            geo_targets.geo_target,
+            creative_ads.target_url,
+            creative_new_tab_page_ad.type,
+            creative_new_tab_page_ad.company_name,
+            creative_new_tab_page_ad.alt,
+            campaigns.ptr,
+            dayparts.days_of_week,
+            dayparts.start_minute,
+            dayparts.end_minute
+          FROM
+            $1 AS creative_new_tab_page_ad
+            INNER JOIN campaigns ON campaigns.id = creative_new_tab_page_ad.campaign_id
+            INNER JOIN creative_ads ON creative_ads.creative_instance_id = creative_new_tab_page_ad.creative_instance_id
+            INNER JOIN dayparts ON dayparts.campaign_id = creative_new_tab_page_ad.campaign_id
+            INNER JOIN geo_targets ON geo_targets.campaign_id = creative_new_tab_page_ad.campaign_id
+            INNER JOIN segments ON segments.creative_set_id = creative_new_tab_page_ad.creative_set_id)",
+      {kTableName}, nullptr);
+  BindColumnTypes(mojom_db_action);
+  mojom_db_transaction->actions.push_back(std::move(mojom_db_action));
+
+  RunTransaction(
+      FROM_HERE, std::move(mojom_db_transaction),
+      base::BindOnce(&GetForActiveCampaignsCallback, std::move(callback)));
+}
+
 void CreativeNewTabPageAds::Create(
     const mojom::DBTransactionInfoPtr& mojom_db_transaction) {
   CHECK(mojom_db_transaction);
@@ -519,78 +568,11 @@ void CreativeNewTabPageAds::Migrate(
   CHECK(mojom_db_transaction);
 
   switch (to_version) {
-    case 48: {
-      MigrateToV48(mojom_db_transaction);
-      break;
-    }
-
-    case 49: {
-      MigrateToV49(mojom_db_transaction);
-      break;
-    }
-
     default: {
       // No migration needed.
       break;
     }
   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-void CreativeNewTabPageAds::MigrateToV48(
-    const mojom::DBTransactionInfoPtr& mojom_db_transaction) {
-  CHECK(mojom_db_transaction);
-
-  // Wallpapers table has been deprecated.
-  DropTable(mojom_db_transaction, "creative_new_tab_page_ad_wallpapers");
-
-  // It is safe to recreate the table because it will be repopulated after
-  // downloading the component resource post-migration. However, after this
-  // migration, we should not drop the table as it is needed to maintain
-  // relationships with other tables.
-  DropTable(mojom_db_transaction, "creative_new_tab_page_ads");
-
-  Execute(mojom_db_transaction, R"(
-      CREATE TABLE creative_new_tab_page_ads (
-        creative_instance_id TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE,
-        creative_set_id TEXT NOT NULL,
-        campaign_id TEXT NOT NULL,
-        company_name TEXT NOT NULL,
-        alt TEXT NOT NULL
-      );)");
-}
-
-void CreativeNewTabPageAds::MigrateToV49(
-    const mojom::DBTransactionInfoPtr& mojom_db_transaction) {
-  CHECK(mojom_db_transaction);
-
-  // Create a temporary table:
-  //   - with a new `type` column constraint. The default value for existing
-  //     rows is 'image', which will be corrected when the new tab page ads are
-  //     updated.
-  Execute(mojom_db_transaction, R"(
-      CREATE TABLE creative_new_tab_page_ads_temp (
-        creative_instance_id TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE,
-        creative_set_id TEXT NOT NULL,
-        campaign_id TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'image',
-        company_name TEXT NOT NULL,
-        alt TEXT NOT NULL
-      ))");
-
-  // Copy legacy columns to the temporary table, drop the legacy table and
-  // rename the temporary table.
-  const std::vector<std::string> columns = {"creative_instance_id",
-                                            "creative_set_id", "campaign_id",
-                                            "company_name", "alt"};
-
-  CopyTableColumns(mojom_db_transaction, "creative_new_tab_page_ads",
-                   "creative_new_tab_page_ads_temp", columns,
-                   /*should_drop=*/true);
-
-  RenameTable(mojom_db_transaction, "creative_new_tab_page_ads_temp",
-              "creative_new_tab_page_ads");
 }
 
 }  // namespace brave_ads::database::table

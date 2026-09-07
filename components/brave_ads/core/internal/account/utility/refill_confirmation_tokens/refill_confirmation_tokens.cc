@@ -14,7 +14,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "brave/components/brave_ads/core/internal/account/issuers/issuers_util.h"
-#include "brave/components/brave_ads/core/internal/account/issuers/token_issuers/token_issuer_types.h"
 #include "brave/components/brave_ads/core/internal/account/issuers/token_issuers/token_issuer_util.h"
 #include "brave/components/brave_ads/core/internal/account/tokens/confirmation_tokens/confirmation_tokens_util.h"
 #include "brave/components/brave_ads/core/internal/account/tokens/token_generator_interface.h"
@@ -42,6 +41,16 @@ namespace brave_ads {
 
 namespace {
 constexpr base::TimeDelta kRetryAfter = base::Seconds(15);
+
+// A failure that will retry isn't an error yet, it's just a transient setback
+// on the way to success or eventual, real failure.
+void BlogFailure(const std::string& message, bool should_retry) {
+  if (should_retry) {
+    BLOG(1, message << ", will retry");
+  } else {
+    BLOG(0, message << ", giving up");
+  }
+}
 }  // namespace
 
 RefillConfirmationTokens::RefillConfirmationTokens() = default;
@@ -84,15 +93,30 @@ void RefillConfirmationTokens::Refill() {
   NotifyWillRefillConfirmationTokens(
       /*count=*/CalculateAmountOfConfirmationTokensToRefill());
 
-  GenerateTokens();
+  if (!GenerateTokens()) {
+    return FailedToRefill();
+  }
 
   RequestSignedTokens();
 }
 
-void RefillConfirmationTokens::GenerateTokens() {
+bool RefillConfirmationTokens::GenerateTokens() {
   const size_t count = CalculateAmountOfConfirmationTokensToRefill();
-  tokens_ = GetTokenGenerator()->Generate(count);
-  blinded_tokens_ = cbr::BlindTokens(*tokens_);
+  cbr::TokenList tokens = GetTokenGenerator()->Generate(count);
+
+  cbr::BlindedTokenList blinded_tokens = cbr::BlindTokens(tokens);
+  if (blinded_tokens.empty()) {
+    // A token whose preimage maps to the identity element cannot be blinded
+    // (see `cbr::Token::Blind`). This is astronomically unlikely; abort the
+    // refill so the next cycle regenerates fresh tokens, keeping `tokens_` and
+    // `blinded_tokens_` index-aligned.
+    BLOG(0, "Failed to blind confirmation tokens");
+    return false;
+  }
+
+  tokens_ = std::move(tokens);
+  blinded_tokens_ = std::move(blinded_tokens);
+  return true;
 }
 
 bool RefillConfirmationTokens::ShouldRequestSignedTokens() const {
@@ -126,7 +150,7 @@ void RefillConfirmationTokens::RequestSignedTokensCallback(
       HandleRequestSignedTokensUrlResponse(mojom_url_response);
   if (!url_response_result.has_value()) {
     const auto& error = url_response_result.error();
-    BLOG(0, error.message);
+    BlogFailure(error.message, error.should_retry);
     if (error.should_retry) {
       return FailedToRefillAndRetry();
     }
@@ -148,8 +172,10 @@ RefillConfirmationTokens::HandleRequestSignedTokensUrlResponse(
   }
 
   if (mojom_url_response.code != net::HTTP_CREATED) {
-    const bool should_retry = HttpStatusCodeClass(mojom_url_response.code) !=
-                              HttpStatusCodeClassType::kClientError;
+    const bool should_retry =
+        mojom_url_response.code == net::HTTP_TOO_MANY_REQUESTS ||
+        HttpStatusCodeClass(mojom_url_response.code) !=
+            HttpStatusCodeClassType::kClientError;
     return UrlResponseError({.message = "Failed to request signed tokens",
                              .should_retry = should_retry});
   }
@@ -201,7 +227,7 @@ void RefillConfirmationTokens::GetSignedTokensCallback(
       HandleGetSignedTokensUrlResponse(mojom_url_response);
   if (!url_response_result.has_value()) {
     const auto& error = url_response_result.error();
-    BLOG(0, error.message);
+    BlogFailure(error.message, error.should_retry);
     if (error.should_retry) {
       return FailedToRefillAndRetry();
     }
@@ -227,10 +253,12 @@ RefillConfirmationTokens::HandleGetSignedTokensUrlResponse(
 
   if (mojom_url_response.code != net::HTTP_OK &&
       mojom_url_response.code != net::HTTP_UNAUTHORIZED) {
-    return UrlResponseError(
-        {.message = "Failed to get signed tokens",
-         .should_retry = HttpStatusCodeClass(mojom_url_response.code) !=
-                         HttpStatusCodeClassType::kClientError});
+    const bool should_retry =
+        mojom_url_response.code == net::HTTP_TOO_MANY_REQUESTS ||
+        HttpStatusCodeClass(mojom_url_response.code) !=
+            HttpStatusCodeClassType::kClientError;
+    return UrlResponseError({.message = "Failed to get signed tokens",
+                             .should_retry = should_retry});
   }
 
   std::optional<base::DictValue> dict =
@@ -254,8 +282,7 @@ RefillConfirmationTokens::HandleGetSignedTokensUrlResponse(
         {.message = "Failed to parse public key", .should_retry = false});
   }
 
-  if (!TokenIssuerPublicKeyExistsForType(TokenIssuerType::kConfirmations,
-                                         *public_key)) {
+  if (!ConfirmationTokenIssuerPublicKeyExists(*public_key)) {
     return UrlResponseError(
         {.message = "Confirmations public key does not exist",
          .should_retry = true});
@@ -289,7 +316,7 @@ void RefillConfirmationTokens::SuccessfullyRefilled() {
 }
 
 void RefillConfirmationTokens::FailedToRefillAndRetry() {
-  NotifyFailedToRefillConfirmationTokens();
+  NotifyFailedToRefillConfirmationTokens(/*will_retry=*/true);
 
   Retry();
 }
@@ -297,7 +324,7 @@ void RefillConfirmationTokens::FailedToRefillAndRetry() {
 void RefillConfirmationTokens::FailedToRefill() {
   Reset();
 
-  NotifyFailedToRefillConfirmationTokens();
+  NotifyFailedToRefillConfirmationTokens(/*will_retry=*/false);
 }
 
 void RefillConfirmationTokens::Retry() {
@@ -359,9 +386,10 @@ void RefillConfirmationTokens::NotifyDidRefillConfirmationTokens() const {
   }
 }
 
-void RefillConfirmationTokens::NotifyFailedToRefillConfirmationTokens() const {
+void RefillConfirmationTokens::NotifyFailedToRefillConfirmationTokens(
+    bool will_retry) const {
   if (delegate_) {
-    delegate_->OnFailedToRefillConfirmationTokens();
+    delegate_->OnFailedToRefillConfirmationTokens(will_retry);
   }
 }
 

@@ -17,9 +17,11 @@ import styles from './style.module.scss'
 import {
   findTaskCheckboxBracketOffsets,
   normalizeCitationSpacing,
+  normalizeMathDelimiters,
   removeCitationsWithMissingLinks,
   removeReasoning,
 } from '../conversation_entries/conversation_entries_utils'
+import { IS_MATH_RENDERING_ENABLED } from '../markdown_renderer/remark_math'
 import RichSearchWidget from './rich_search_widget'
 import AssistantResponseContextProvider from './assistant_response_context'
 
@@ -28,9 +30,8 @@ interface BaseProps {
   isEntryInProgress: boolean
   // Whether it's possible to interact with the entry's tool use requests
   isEntryInteractivityAllowed: boolean
-  // Only these urls should be rendered as links
+  // Citation URLs, in citation order, used to expand `[n]` references.
   allowedLinks: string[]
-  isLeoModel: boolean
 }
 
 function AssistantEvent(
@@ -40,8 +41,7 @@ function AssistantEvent(
     entryUuid?: string
   },
 ) {
-  const { allowedLinks, event, isEntryInProgress, isLeoModel, entryUuid } =
-    props
+  const { allowedLinks, event, isEntryInProgress, entryUuid } = props
   const context = useUntrustedConversationContext()
 
   if (event.completionEvent) {
@@ -60,7 +60,16 @@ function AssistantEvent(
 
     const processedCompletion = normalizeCitationSpacing(filteredCompletion)
 
-    const fullText = `${numberedLinks}${removeReasoning(processedCompletion)}`
+    // Math delimiters are normalized only for display. `processedCompletion`
+    // below is what gets written back to the conversation, so rewriting `\(…\)`
+    // into `$$…$$` must not leak into the stored text. Skipped when the kill
+    // switch is off so that responses take exactly the pre-feature path.
+    const withReasoningRemoved = `${numberedLinks}${removeReasoning(
+      processedCompletion,
+    )}`
+    const fullText = IS_MATH_RENDERING_ENABLED
+      ? normalizeMathDelimiters(withReasoningRemoved)
+      : withReasoningRemoved
 
     // Persist a checkbox toggle back to the conversation. The renderer
     // identifies the checkbox by its position among GFM task items in
@@ -93,7 +102,6 @@ function AssistantEvent(
         shouldShowTextCursor={isEntryInProgress}
         text={fullText}
         allowedLinks={allowedLinks}
-        disableLinkRestrictions={!isLeoModel}
         onToggleCheckbox={onToggleCheckbox}
       />
     )
@@ -162,7 +170,6 @@ export default function AssistantResponse(props: AssistantResponseProps) {
             isEntryInProgress={props.isEntryInProgress}
             isEntryInteractivityAllowed={props.isEntryInteractivityAllowed}
             allowedLinks={props.allowedLinks}
-            isLeoModel={props.isLeoModel}
             entryUuid={props.entryUuid}
           />
         ))}

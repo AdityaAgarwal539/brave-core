@@ -20,13 +20,17 @@
 #include "brave/browser/ui/views/frame/vertical_tabs/vertical_tab_strip_container_view.h"
 #include "brave/browser/ui/views/frame/vertical_tabs/vertical_tab_strip_region_view.h"
 #include "brave/browser/ui/views/sidebar/sidebar_container_view.h"
+#include "brave/browser/ui/views/toolbar/brave_toolbar_view.h"
+#include "brave/browser/ui/views/toolbar/screenshot_button.h"
 #include "brave/common/pref_names.h"
 #include "brave/components/brave_origin/buildflags/buildflags.h"
 #include "brave/components/constants/pref_names.h"
 #include "brave/components/sidebar/browser/sidebar_service.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/infobars/confirm_infobar_creator.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -58,7 +62,9 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/compositor/layer.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/layout/layout_provider.h"
@@ -139,13 +145,18 @@ class BraveBrowserViewTest : public InProcessBrowserTest {
   }
 
   BookmarkBarView* bookmark_bar() { return browser_view()->bookmark_bar(); }
+
+  ScreenshotButton* screenshot_button() {
+    return static_cast<BraveToolbarView*>(browser_view()->toolbar())
+        ->screenshot_button();
+  }
 };
 
 // Tests bookmark/infobar/contents container layout with vertical tab.
 IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest, LayoutWithVerticalTabTest) {
   ToggleVerticalTabStrip();
 
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
 
   // Check bookmark only on the NTP is default.
   EXPECT_EQ(brave::BookmarkBarState::kNtp, brave::GetBookmarkBarState(prefs));
@@ -267,7 +278,7 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest, TopSeparatorWithPanelTest) {
       gfx::AnimationTestApi::SetRichAnimationRenderMode(
           gfx::Animation::RichAnimationRenderMode::FORCE_DISABLED);
 
-  browser()->profile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners, true);
   RunScheduledLayouts();
 
   content::WebContents* web_contents =
@@ -295,6 +306,64 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest, TopSeparatorWithPanelTest) {
                   ->GetVisible());
 }
 
+// Cmd/Ctrl+Shift+S (IDC_SHARING_HUB_SCREENSHOT) should open Brave's own
+// screenshot bubble instead of upstream's Sharing Hub one, and should
+// temporarily reveal the screenshot toolbar button when it's hidden by the
+// "show screenshot button" pref, hiding it again once the bubble closes.
+IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
+                       ScreenshotCommandShowsBubbleAndTogglesButton) {
+  ASSERT_FALSE(
+      browser()->GetProfile()->GetPrefs()->GetBoolean(kShowScreenshotButton));
+
+  auto* button = screenshot_button();
+  ASSERT_TRUE(button);
+  EXPECT_FALSE(button->GetVisible());
+
+  const ui::Accelerator screenshot_accelerator(
+      ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR | ui::EF_SHIFT_DOWN);
+
+  // Pressing the accelerator is handled by Brave (not passed through to
+  // upstream), reveals the button, and shows the bubble.
+  EXPECT_TRUE(browser_view()->AcceleratorPressed(screenshot_accelerator));
+  EXPECT_TRUE(button->GetVisible());
+
+  // The pref itself must remain untouched by the temporary reveal.
+  EXPECT_FALSE(
+      browser()->GetProfile()->GetPrefs()->GetBoolean(kShowScreenshotButton));
+
+  // Pressing it again toggles the bubble closed, and the button should hide
+  // again since it was only shown for the shortcut.
+  EXPECT_TRUE(browser_view()->AcceleratorPressed(screenshot_accelerator));
+  ASSERT_TRUE(base::test::RunUntil([&]() { return !button->GetVisible(); }));
+
+  // Other paths that trigger the same command should also show the bubble and
+  // reveal the button temporarily.
+  chrome::BrowserCommandController::From(browser())->ExecuteCommand(
+      IDC_SHARING_HUB_SCREENSHOT);
+  EXPECT_TRUE(button->GetVisible());
+}
+
+// If the user has the screenshot button permanently shown via the pref, the
+// accelerator must not hide it afterwards.
+IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
+                       ScreenshotAcceleratorLeavesButtonVisibleWhenPrefOn) {
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kShowScreenshotButton, true);
+
+  auto* button = screenshot_button();
+  ASSERT_TRUE(button);
+  ASSERT_TRUE(button->GetVisible());
+
+  const ui::Accelerator screenshot_accelerator(
+      ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR | ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(browser_view()->AcceleratorPressed(screenshot_accelerator));
+  EXPECT_TRUE(button->GetVisible());
+
+  // Close the bubble and confirm the button, still pref-controlled, stays
+  // visible.
+  EXPECT_TRUE(browser_view()->AcceleratorPressed(screenshot_accelerator));
+  EXPECT_TRUE(button->GetVisible());
+}
+
 // Regression test: BraveBrowserView's constructor unconditionally hides the
 // window icon for normal browser windows (SetShowIcon(false)), because brave
 // supports Browser::WindowFeature::kFeatureTitleBar (unlike upstream), which
@@ -307,8 +376,8 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
                    ->ShouldShowBraveVerticalTabs());
   EXPECT_FALSE(browser_view()->ShouldShowWindowIcon());
 
-  browser()->profile()->GetPrefs()->SetBoolean(brave_tabs::kVerticalTabsEnabled,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      brave_tabs::kVerticalTabsEnabled, true);
 }
 
 IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
@@ -330,8 +399,8 @@ class BraveBrowserViewWithRoundedCornersTest
 
   void SetUpOnMainThread() override {
     BraveBrowserViewTest::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners,
-                                                 IsRoundedCornersEnabled());
+    browser()->GetProfile()->GetPrefs()->SetBoolean(kWebViewRoundedCorners,
+                                                    IsRoundedCornersEnabled());
   }
 
   void NewSplitTab() {
@@ -349,7 +418,7 @@ class BraveBrowserViewWithRoundedCornersTest
   }
 
   void SetHideCompletelyWhenCollapsed(bool hide) {
-    browser()->profile()->GetPrefs()->SetBoolean(
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
         brave_tabs::kVerticalTabsHideCompletelyWhenCollapsed, hide);
   }
 
@@ -444,9 +513,6 @@ IN_PROC_BROWSER_TEST_P(BraveBrowserViewWithRoundedCornersTest,
                                          ->GetActiveContentsContainerView()
                                          ->contents_view()
                                          ->GetBackgroundRadii();
-    EXPECT_EQ(BraveContentsViewUtil::GetRoundedCornersForContentsView(browser(),
-                                                                      nullptr),
-              contents_view_radii);
     EXPECT_EQ(rounded_corners_border_radius, contents_view_radii.upper_left());
     EXPECT_EQ(rounded_corners_border_radius, contents_view_radii.upper_right());
 
@@ -488,11 +554,11 @@ IN_PROC_BROWSER_TEST_P(
   const auto border_radius = GetRoundedCornersBorderRadius();
   const auto window_corner_radius =
       GetRoundedCornersBorderRadiusAtWindowCorner();
-  auto* prefs = browser()->profile()->GetPrefs();
+  auto* prefs = browser()->GetProfile()->GetPrefs();
 
   // Hide the sidebar so IsSidebarVisible() returns false, isolating the
-  // side_panel()->GetVisible() branch of GetRoundedCornersForContentsView().
-  sidebar::SidebarServiceFactory::GetForProfile(browser()->profile())
+  // side panel branch of the layout's contents corner radii calculation.
+  sidebar::SidebarServiceFactory::GetForProfile(browser()->GetProfile())
       ->SetSidebarShowOption(
           sidebar::SidebarService::ShowSidebarOption::kShowNever);
   RunScheduledLayouts();
@@ -617,13 +683,6 @@ IN_PROC_BROWSER_TEST_P(BraveBrowserViewWithRoundedCornersTest,
   // Verify behavior returns to normal after exiting split mode
   if (IsRoundedCornersEnabled()) {
     ExpectContentsContainerMargins(contents_container, rounded_corners_margin);
-    const auto contents_view_radii = browser_view()
-                                         ->GetActiveContentsContainerView()
-                                         ->contents_view()
-                                         ->GetBackgroundRadii();
-    EXPECT_EQ(BraveContentsViewUtil::GetRoundedCornersForContentsView(browser(),
-                                                                      nullptr),
-              contents_view_radii);
     ExpectContentsViewRadii(rounded_corners_border_radius,
                             rounded_corners_border_radius,
                             rounded_corners_border_radius_at_window_corner,
@@ -696,14 +755,23 @@ IN_PROC_BROWSER_TEST_P(BraveBrowserViewWithRoundedCornersTest,
 }
 
 IN_PROC_BROWSER_TEST_P(BraveBrowserViewWithRoundedCornersTest,
-                       ContentsBackgroundEventHandleTest) {
-  EXPECT_TRUE(brave_browser_view()->contents_background_view_);
+                       MainBackgroundRegionEventHandleTest) {
+  RunScheduledLayouts();
 
-  EXPECT_TRUE(
-      brave_browser_view()->contents_background_view_->bounds().Contains(
-          brave_browser_view()->contents_container()->bounds()))
-      << "Expected contents_background_view_ bounds ("
-      << brave_browser_view()->contents_background_view_->bounds().ToString()
+  auto* main_background_region =
+      brave_browser_view()->main_background_region_for_testing();
+  // main_background_region is only forced visible when rounded corners are
+  // in effect.
+  EXPECT_EQ(IsRoundedCornersEnabled(), main_background_region->GetVisible());
+
+  if (!main_background_region->GetVisible()) {
+    GTEST_SKIP();
+  }
+
+  EXPECT_TRUE(main_background_region->bounds().Contains(
+      brave_browser_view()->contents_container()->bounds()))
+      << "Expected main_background_region bounds ("
+      << main_background_region->bounds().ToString()
       << ") to contain contents_container bounds ("
       << brave_browser_view()->contents_container()->bounds().ToString() << ")";
 
@@ -711,10 +779,10 @@ IN_PROC_BROWSER_TEST_P(BraveBrowserViewWithRoundedCornersTest,
       browser()->tab_strip_model()->GetActiveWebContents();
   gfx::Point screen_point = web_contents->GetContainerBounds().CenterPoint();
 
-  // Check contents background is not event handler for web contents region
+  // Check main background region is not event handler for web contents region
   // point.
   views::View::ConvertPointFromScreen(browser_view(), &screen_point);
-  EXPECT_NE(brave_browser_view()->contents_background_view_,
+  EXPECT_NE(main_background_region,
             browser_view()->GetEventHandlerForPoint(screen_point));
 }
 
@@ -793,7 +861,8 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
 // for both tab-initiated and browser-initiated fullscreen.
 IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
                        FullscreenBubbleHiddenWhenPrefDisabled_TabFullscreen) {
-  browser()->profile()->GetPrefs()->SetBoolean(kShowFullscreenReminder, false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kShowFullscreenReminder,
+                                                  false);
 
   browser()
       ->GetFeatures()
@@ -816,7 +885,8 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
 IN_PROC_BROWSER_TEST_F(
     BraveBrowserViewTest,
     FullscreenBubbleHiddenWhenPrefDisabled_BrowserFullscreen) {
-  browser()->profile()->GetPrefs()->SetBoolean(kShowFullscreenReminder, false);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kShowFullscreenReminder,
+                                                  false);
 
   browser()
       ->GetFeatures()
@@ -838,7 +908,8 @@ IN_PROC_BROWSER_TEST_F(
 
 IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
                        FullscreenBubbleShownWhenPrefEnabled_TabFullscreen) {
-  browser()->profile()->GetPrefs()->SetBoolean(kShowFullscreenReminder, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kShowFullscreenReminder,
+                                                  true);
 
   browser()
       ->GetFeatures()
@@ -860,7 +931,8 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
 
 IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
                        FullscreenBubbleShownWhenPrefEnabled_BrowserFullscreen) {
-  browser()->profile()->GetPrefs()->SetBoolean(kShowFullscreenReminder, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kShowFullscreenReminder,
+                                                  true);
 
   browser()
       ->GetFeatures()
@@ -885,7 +957,8 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
 IN_PROC_BROWSER_TEST_F(
     BraveBrowserViewTest,
     FullscreenBubbleShownWhenPrefEnabled_ExtensionFullscreen) {
-  browser()->profile()->GetPrefs()->SetBoolean(kShowFullscreenReminder, true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(kShowFullscreenReminder,
+                                                  true);
 
   browser()
       ->GetFeatures()
@@ -906,15 +979,6 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 #if BUILDFLAG(IS_MAC)
-IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest, ImmersiveTabbedMode) {
-  // We disabled tabbed mode by default.
-  // See
-  // https://github.com/brave/brave-browser/issues/56914#issuecomment-4911022632
-  // for more details.
-  EXPECT_FALSE(WindowFeatureController::From(browser())
-                   ->UsesImmersiveFullscreenTabbedMode());
-}
-
 // Immersive fullscreen: (1) when vertical tabs are off at startup, immersive
 // is available and is disabled at runtime when vertical tabs are turned on;
 // (2) when vertical tabs were on at startup, immersive stays disabled for the
@@ -931,10 +995,10 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
       WindowFeatureController::From(browser())->UsesImmersiveFullscreenMode());
 
   // Second window: vertical tabs on at startup.
-  browser()->profile()->GetPrefs()->SetBoolean(brave_tabs::kVerticalTabsEnabled,
-                                               true);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      brave_tabs::kVerticalTabsEnabled, true);
   Browser* browser_with_vertical_at_startup =
-      CreateBrowser(browser()->profile());
+      CreateBrowser(browser()->GetProfile());
   BraveBrowserView* view_with_vertical_at_startup = BraveBrowserView::From(
       BrowserView::GetBrowserViewForBrowser(browser_with_vertical_at_startup));
   EXPECT_FALSE(WindowFeatureController::From(browser_with_vertical_at_startup)
@@ -942,6 +1006,37 @@ IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
   brave::ToggleVerticalTabStrip(browser_with_vertical_at_startup);
   view_with_vertical_at_startup->DeprecatedLayoutImmediately();
   EXPECT_FALSE(WindowFeatureController::From(browser_with_vertical_at_startup)
+                   ->UsesImmersiveFullscreenMode());
+}
+
+// Immersive fullscreen: same as ImmersiveModeAndVerticalTabsAtStartup above,
+// but for compact mode. Compact mode is a local-state pref, so toggling it
+// affects every window, but each window's startup snapshot
+// (disabled_at_startup_) is only captured on that window's first
+// UsesImmersiveFullscreenMode() call.
+IN_PROC_BROWSER_TEST_F(BraveBrowserViewTest,
+                       ImmersiveModeAndCompactModeAtStartup) {
+  auto* local_state = g_browser_process->local_state();
+
+  // Default browser: compact mode off at startup.
+  ASSERT_FALSE(local_state->GetBoolean(brave_tabs::kCompactHorizontalTabs));
+  EXPECT_TRUE(
+      WindowFeatureController::From(browser())->UsesImmersiveFullscreenMode());
+  local_state->SetBoolean(brave_tabs::kCompactHorizontalTabs, true);
+  EXPECT_FALSE(
+      WindowFeatureController::From(browser())->UsesImmersiveFullscreenMode());
+  local_state->SetBoolean(brave_tabs::kCompactHorizontalTabs, false);
+  EXPECT_TRUE(
+      WindowFeatureController::From(browser())->UsesImmersiveFullscreenMode());
+
+  // Second window: compact mode on at startup.
+  local_state->SetBoolean(brave_tabs::kCompactHorizontalTabs, true);
+  Browser* browser_with_compact_at_startup =
+      CreateBrowser(browser()->GetProfile());
+  EXPECT_FALSE(WindowFeatureController::From(browser_with_compact_at_startup)
+                   ->UsesImmersiveFullscreenMode());
+  local_state->SetBoolean(brave_tabs::kCompactHorizontalTabs, false);
+  EXPECT_FALSE(WindowFeatureController::From(browser_with_compact_at_startup)
                    ->UsesImmersiveFullscreenMode());
 }
 

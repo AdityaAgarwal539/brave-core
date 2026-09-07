@@ -1,39 +1,33 @@
 diff --git a/chrome/browser/ui/browser.cc b/chrome/browser/ui/browser.cc
-index 0777bf71430c810f7b6ae41a7708cdd069b6c5a4..f4b61896545455161d7029de69babb4becc88d65 100644
+index b3a4744e88c7799761c26d51a884c79c3c4e6b0b..e23d1f7c83521afb3c2ed9f41ea8d77214cdc5fd 100644
 --- a/chrome/browser/ui/browser.cc
 +++ b/chrome/browser/ui/browser.cc
-@@ -490,7 +490,7 @@ Browser* Browser::Create(const CreateParams& params) {
-   // should handle this; see e.g. crbug.com/40154317 and crbug.com/40798999.
-   CHECK_EQ(CreationStatus::kOk, GetCreationStatusForProfile(params.profile));
+@@ -233,7 +233,7 @@ Browser* Browser::Create(BrowserWindowCreateParams params) {
  
--  std::unique_ptr<Browser> browser = base::WrapUnique(new Browser(params));
-+  std::unique_ptr<Browser> browser = base::WrapUnique(new BraveBrowser(params));
+   Profile* const profile_ptr = &*params.profile;
+   std::unique_ptr<Browser> browser =
+-      base::WrapUnique(new Browser(std::move(params)));
++      base::WrapUnique(new BraveBrowser(std::move(params)));
    Browser* const browser_ptr = browser.get();
-   BrowserManagerServiceFactory::GetForProfile(params.profile)
+   BrowserManagerServiceFactory::GetForProfile(profile_ptr)
        ->AddBrowser(std::move(browser));
-@@ -506,7 +506,7 @@ std::unique_ptr<Browser> Browser::DeprecatedCreateOwnedForTesting(
-   // should handle this; see e.g. crbug.com/40154317 and crbug.com/40798999.
-   CHECK_EQ(CreationStatus::kOk, GetCreationStatusForProfile(params.profile));
+@@ -252,7 +252,7 @@ std::unique_ptr<Browser> Browser::DeprecatedCreateOwnedForTesting(
  
--  std::unique_ptr<Browser> browser = base::WrapUnique(new Browser(params));
-+  std::unique_ptr<Browser> browser = base::WrapUnique(new BraveBrowser(params));
-   BrowserManagerServiceFactory::GetForProfile(params.profile)
+   Profile* const profile_ptr = &*params.profile;
+   std::unique_ptr<Browser> browser =
+-      base::WrapUnique(new Browser(std::move(params)));
++      base::WrapUnique(new BraveBrowser(std::move(params)));
+   BrowserManagerServiceFactory::GetForProfile(profile_ptr)
        ->AddBrowserForTesting(browser.get());
    return browser;
-@@ -519,7 +519,7 @@ Browser::Browser(const CreateParams& params)
+@@ -263,8 +263,8 @@ Browser::Browser(BrowserWindowCreateParams params)
+       profile_(&*params.profile),
        window_(nullptr),
        tab_strip_model_delegate_(
-           std::make_unique<chrome::BrowserTabStripModelDelegate>(this)),
+-          std::make_unique<chrome::BrowserTabStripModelDelegate>(this)),
 -      tab_strip_model_(std::make_unique<TabStripModel>(
++          std::make_unique<chrome::BraveTabStripModelDelegate>(this)),
 +      tab_strip_model_(std::make_unique<BraveTabStripModel>(
            tab_strip_model_delegate_.get(),
-           params.profile,
+           profile_,
            // Tab groups are disabled for app browsers.
-@@ -1015,6 +1015,7 @@ void Browser::OnWindowClosing() {
-   if (tab_restore_service && notify_restore_service) {
-     tab_restore_service->BrowserClosing(GetFeatures().live_tab_context());
-   }
-+  BRAVE_BROWSER_ON_WINDOW_CLOSING
- 
-   if (!tab_strip_model_->empty()) {
-     // Closing all the tabs results in eventually calling back to

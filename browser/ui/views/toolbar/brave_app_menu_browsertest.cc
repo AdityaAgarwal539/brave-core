@@ -13,6 +13,7 @@
 #include "brave/components/skus/common/features.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
@@ -54,7 +55,7 @@ class BraveAppMenuBrowserTest : public InProcessBrowserTest {
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
   void SetPurchasedUserForBraveVPN(Browser* browser, bool purchased) {
     auto* service =
-        brave_vpn::BraveVpnServiceFactory::GetForProfile(browser->profile());
+        brave_vpn::BraveVpnServiceFactory::GetForProfile(browser->GetProfile());
     ASSERT_TRUE(!!service);
     auto target_state = purchased
                             ? brave_vpn::mojom::PurchasedState::PURCHASED
@@ -64,7 +65,7 @@ class BraveAppMenuBrowserTest : public InProcessBrowserTest {
     // Call explicitely to update vpn commands status because mojo works in
     // async way.
     static_cast<chrome::BraveBrowserCommandController*>(
-        browser->command_controller())
+        chrome::BrowserCommandController::From(browser))
         ->OnPurchasedStateChanged(target_state, std::nullopt);
   }
 
@@ -81,7 +82,7 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuBrowserTest, AppMenuButtonUpgradeAlertTest) {
 
   // Check our highlight color.
   auto* theme_service =
-      ThemeServiceFactory::GetForProfile(browser()->profile());
+      ThemeServiceFactory::GetForProfile(browser()->GetProfile());
   theme_service->SetBrowserColorScheme(
       ThemeService::BrowserColorScheme::kLight);
   EXPECT_EQ(brave_menu_button->GetHighlightColor(), std::nullopt);

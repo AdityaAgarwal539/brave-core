@@ -4,11 +4,18 @@
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import { assertNotReached } from 'chrome://resources/js/assert.js'
+import { loadTimeData } from '../../../common/loadTimeData'
 import { BraveWallet } from '../../constants/types'
 
 import * as HWInterfaces from '../hardware/interfaces'
 import EthereumLedgerBridgeKeyring from '../../common/hardware/ledgerjs/eth_ledger_bridge_keyring'
 import SolanaLedgerBridgeKeyring from '../../common/hardware/ledgerjs/sol_ledger_bridge_keyring'
+import {
+  BitcoinLedgerMojoBridgeKeyring,
+  EthereumLedgerMojoBridgeKeyring,
+  FilecoinLedgerMojoBridgeKeyring,
+  SolanaLedgerMojoBridgeKeyring,
+} from '../../common/hardware/ledgerjs/ledger_mojo_bridge_keyring'
 import TrezorBridgeKeyring from '../../common/hardware/trezor/trezor_bridge_keyring'
 import {
   createTrezorBridge,
@@ -28,7 +35,6 @@ let trezorHardwareKeyring: TrezorBridgeKeyring
 export async function getHardwareKeyring(
   vendor: BraveWallet.HardwareVendor,
   coin: BraveWallet.CoinType,
-  onAuthorized?: () => void,
 ): Promise<
   | EthereumLedgerBridgeKeyring
   | HWInterfaces.TrezorKeyring
@@ -38,13 +44,13 @@ export async function getHardwareKeyring(
 > {
   if (vendor === BraveWallet.HardwareVendor.kLedger) {
     if (coin === BraveWallet.CoinType.ETH) {
-      return getLedgerEthereumHardwareKeyring(onAuthorized)
+      return getLedgerEthereumHardwareKeyring()
     } else if (coin === BraveWallet.CoinType.FIL) {
-      return getLedgerFilecoinHardwareKeyring(onAuthorized)
+      return getLedgerFilecoinHardwareKeyring()
     } else if (coin === BraveWallet.CoinType.SOL) {
-      return getLedgerSolanaHardwareKeyring(onAuthorized)
+      return getLedgerSolanaHardwareKeyring()
     } else if (coin === BraveWallet.CoinType.BTC) {
-      return getLedgerBitcoinHardwareKeyring(onAuthorized)
+      return getLedgerBitcoinHardwareKeyring()
     }
   } else if (vendor === BraveWallet.HardwareVendor.kTrezor) {
     if (coin === BraveWallet.CoinType.ETH) {
@@ -55,38 +61,42 @@ export async function getHardwareKeyring(
   assertNotReached(`Unsupported coin ${coin} and vendor ${vendor}`)
 }
 
-export function getLedgerEthereumHardwareKeyring(
-  onAuthorized?: () => void,
-): EthereumLedgerBridgeKeyring {
+function useLedgerMojoBridge(): boolean {
+  return loadTimeData.getBoolean('isLedgerMojoBridgeEnabled')
+}
+
+export function getLedgerEthereumHardwareKeyring(): EthereumLedgerBridgeKeyring {
   if (!ethereumHardwareKeyring) {
-    ethereumHardwareKeyring = new EthereumLedgerBridgeKeyring(onAuthorized)
+    ethereumHardwareKeyring = useLedgerMojoBridge()
+      ? new EthereumLedgerMojoBridgeKeyring()
+      : new EthereumLedgerBridgeKeyring()
   }
   return ethereumHardwareKeyring
 }
 
-export function getLedgerFilecoinHardwareKeyring(
-  onAuthorized?: () => void,
-): FilecoinLedgerBridgeKeyring {
+export function getLedgerFilecoinHardwareKeyring(): FilecoinLedgerBridgeKeyring {
   if (!filecoinHardwareKeyring) {
-    filecoinHardwareKeyring = new FilecoinLedgerBridgeKeyring(onAuthorized)
+    filecoinHardwareKeyring = useLedgerMojoBridge()
+      ? new FilecoinLedgerMojoBridgeKeyring()
+      : new FilecoinLedgerBridgeKeyring()
   }
   return filecoinHardwareKeyring
 }
 
-export function getLedgerSolanaHardwareKeyring(
-  onAuthorized?: () => void,
-): SolanaLedgerBridgeKeyring {
+export function getLedgerSolanaHardwareKeyring(): SolanaLedgerBridgeKeyring {
   if (!solanaHardwareKeyring) {
-    solanaHardwareKeyring = new SolanaLedgerBridgeKeyring(onAuthorized)
+    solanaHardwareKeyring = useLedgerMojoBridge()
+      ? new SolanaLedgerMojoBridgeKeyring()
+      : new SolanaLedgerBridgeKeyring()
   }
   return solanaHardwareKeyring
 }
 
-export function getLedgerBitcoinHardwareKeyring(
-  onAuthorized?: () => void,
-): BitcoinLedgerBridgeKeyring {
+export function getLedgerBitcoinHardwareKeyring(): BitcoinLedgerBridgeKeyring {
   if (!bitcoinHardwareKeyring) {
-    bitcoinHardwareKeyring = new BitcoinLedgerBridgeKeyring(onAuthorized)
+    bitcoinHardwareKeyring = useLedgerMojoBridge()
+      ? new BitcoinLedgerMojoBridgeKeyring()
+      : new BitcoinLedgerBridgeKeyring()
   }
   return bitcoinHardwareKeyring
 }

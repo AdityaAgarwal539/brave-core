@@ -54,7 +54,6 @@ class BraveBrowserCommandController : public chrome::BrowserCommandController
 
  protected:
   void OnTabChangedAt(tabs::TabInterface* tab,
-                      int index,
                       TabChangeType change_type) override;
   void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override;
   void OnTabStripModelChanged(
@@ -73,10 +72,11 @@ class BraveBrowserCommandController : public chrome::BrowserCommandController
   // Overriden from CommandUpdater:
   bool SupportsCommand(int id) const override;
   bool IsCommandEnabled(int id) const override;
-  bool ExecuteCommandWithDisposition(
+  bool ExecuteCommandWithDispositionAndContext(
       int id,
       WindowOpenDisposition disposition,
-      base::TimeTicks time_stamp = base::TimeTicks::Now()) override;
+      std::optional<actions::ActionInvocationContext> context,
+      base::TimeTicks time_stamp) override;
   void AddCommandObserver(int id, CommandObserver* observer) override;
   void RemoveCommandObserver(int id, CommandObserver* observer) override;
   void RemoveCommandObserver(CommandObserver* observer) override;
@@ -101,6 +101,9 @@ class BraveBrowserCommandController : public chrome::BrowserCommandController
   void UpdateCommandForWaybackMachine();
   void UpdateCommandsForTabs();
   void UpdateCommandsForSend();
+  // Enables IDC_BLOCK_ELEMENTS only when the active tab is an http(s) page,
+  // where the element picker can run.
+  void UpdateCommandForBlockElements();
   void UpdateCommandsForPin();
   void UpdateCommandForFocusMode();
   void UpdateCommandForSplitView();

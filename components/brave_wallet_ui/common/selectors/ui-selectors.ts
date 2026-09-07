@@ -15,6 +15,7 @@ const selectUIState = (state: State) => state.ui
 export const selectedPendingTransactionId = ({ ui }: State) =>
   ui.selectedPendingTransactionId
 export const isPanel = ({ ui }: State) => ui.isPanel
+export const isSidePanel = ({ ui }: State) => ui.isSidePanel
 export const isMobile = ({ ui }: State) => ui.isMobile
 export const isIOS = ({ ui }: State) => ui.isIOS
 
@@ -22,4 +23,12 @@ export const isIOS = ({ ui }: State) => ui.isIOS
 export const transactionProviderErrorRegistry = createSelector(
   [selectUIState],
   (ui) => ui.transactionProviderErrorRegistry,
+)
+export const selectedTransactionId = createSelector(
+  [selectUIState],
+  (ui) => ui.selectedTransactionId,
+)
+export const submittingTransaction = createSelector(
+  [selectUIState],
+  (ui) => ui.submittingTransaction,
 )

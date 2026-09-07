@@ -66,6 +66,10 @@ export default function useProvideAIChatContext(props: AIChatContextProps) {
     isConversationShareEnabled: loadTimeData.getBoolean(
       'isConversationShareEnabled',
     ),
+    isAIChatExportJSONEnabled: loadTimeData.getBoolean(
+      'isAIChatExportJSONEnabled',
+    ),
+    isWorkspaceToolsEnabled: loadTimeData.getBoolean('isWorkspaceToolsEnabled'),
     isGlobalPanel:
       !initiallyTabAssociated && api.isStandalone.current() === false,
 

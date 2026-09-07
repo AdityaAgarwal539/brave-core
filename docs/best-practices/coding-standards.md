@@ -361,6 +361,20 @@ time, with no knowledge of the PR or change history.** Do not add comments that
 reference removed code, prior behavior, or the change itself. Comments are part
 of the codebase, not a changelog.
 
+This also covers comments that **justify a design decision the finished code
+already makes self-evident** — including the development process _within the
+same PR_. If password import lived in `BraveImportDataHandler` in one commit and
+moved to `BraveExternalProcessImporterHost` in a later commit, a reader of the
+final diff does not need a comment narrating that migration. A comment
+explaining _why the code is structured this way instead of some other way_ only
+makes sense to someone who knows about the "other way" that was considered or
+abandoned — a reader seeing the code fresh does not. These often creep in when
+an author (or AI assistant) reasons through a refactor across commits and leaves
+that reasoning behind. If the final code stands on its own, the justification is
+noise; delete it. Keep a comment only when it explains a genuinely non-obvious
+constraint the code cannot express itself (e.g. an ordering requirement, a
+workaround for an upstream bug).
+
 ```cpp
 // ❌ WRONG - references removed code / change history
 // Removed the old caching logic that was causing race conditions.
@@ -370,6 +384,16 @@ of the codebase, not a changelog.
 // ❌ WRONG - describes what was removed rather than what exists
 // The timeout parameter was removed since it's no longer needed.
 int ProcessRequest(const GURL& url);
+
+// ❌ WRONG - justifies the structure against an abandoned alternative;
+// the reader doesn't need to know password import used to live elsewhere.
+// Password import is handled by BraveExternalProcessImporterHost in the
+// browser process, alongside the utility-process import, so it participates
+// in the same import lifecycle.
+StartPasswordImport();
+
+// ✅ CORRECT - the call site is self-explanatory; no comment needed
+StartPasswordImport();
 
 // ✅ CORRECT - describes the code as it is now
 // Processes the request synchronously. Returns the HTTP status code.
@@ -490,12 +514,16 @@ unnecessary because the browser wouldn't even be running without it.
 
 <a id="CS-026"></a>
 
-## ✅ `NOTREACHED`/`CHECK(false)` Only for Security-Critical Invariants
+## ✅ `NOTREACHED`/`CHECK(false)` Only to ensure invariants hold
 
-**`NOTREACHED`/`CHECK(false)` should only crash the browser for
-security-critical invariants.** For non-security cases (like invalid enum values
-from data processing), prefer returning `std::optional`/`std::nullopt` or a
-default value.
+See first the Chromimum guide on this
+[CHECK(), DCHECK() and NOTREACHED()](https://chromium.googlesource.com/chromium/src/+/main/styleguide/c++/checks.md)
+which outlines best practices around them. It also list helpful examples around
+the usage.
+
+**`NOTREACHED`/`CHECK(false)` should only crash the browser for invariants.**
+For other cases (like invalid enum values from data processing), prefer
+returning `std::optional`/`std::nullopt` or a default value.
 
 **Important:** `NOTREACHED()` is now fatal in all builds and terminates control
 flow. The compiler treats code after `NOTREACHED()` as dead code. Do not place
@@ -1318,5 +1346,73 @@ void RegisterProfilePrefs(
 This is a mojom-specific application of [CS-014](#CS-014). The
 `*.mojom-forward.h` is auto-generated alongside the full bindings — every mojom
 target produces it.
+
+---
+
+<a id="CS-071"></a>
+
+## ✅ Use Security Origins (Not URLs) for Security Decisions on Sites
+
+**When extending or limiting capabilities for a site, decide from `url::Origin`
+/ `SecurityOrigin` — never from a raw `GURL`.** Tie the decision to the exact
+`RenderFrameHost` under consideration, and read its origin with
+`GetLastCommittedOrigin()`:
+
+```cpp
+// ✅ CORRECT - origin of the frame you are deciding about
+const url::Origin& origin = render_frame_host->GetLastCommittedOrigin();
+```
+
+Converting a `GURL` to an origin is often **not** the origin you expect. See
+Chromium's
+[origin-vs-url guide](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/security/origin-vs-url.md)
+for the gotchas.
+
+```cpp
+// ⚠️ DANGEROUS - GURL → origin is frequently the wrong origin
+url::Origin::Create(url);
+url::SchemeHostPort(url);
+```
+
+If not always, a decision is made on the render frame or the render process (if
+the render frame is null; possible for `WebSockets`, `WebTransport`) which is
+either making a n/w request or a request to access some browser functionality.
+There are generally three scenarios to keep in mind. Starting from
+`GetLastCommittedOrigin()` or the `SecurityOrigin`, then apply the extra rules
+for these scenarios.
+
+### Frames with non-opaque origins
+
+The usual case: the frame has a tuple origin such as
+`https://www.example.com:8080`. Use that origin (or `SecurityOrigin`) directly.
+
+### Frames with opaque origins
+
+Assigned to `file://`, `data:`, and sandboxed frames (`<iframe sandbox>`).
+Querying can yield a **null** origin, so there is often little to key a policy
+on. A frame with an opaque origin could have both a `null` security origin, and
+a "tuple origin" (e.g., https://www.example.com:8080).
+
+These frames already run with limited capabilities — **default to restricted**.
+If a decision is still required:
+
+- **Network request:** use the request's `initiator_origin`. See this
+  [example change](https://github.com/brave/brave-core/pull/38539/changes#diff-6b02a30e91fdb3e3be80924c66018e9e434a29122f9f6846e2d6f043a05a9c69R84).
+- **Otherwise:** If applicable, walk up to the nearest ancestor frame with a
+  non-opaque origin and use that. **Important!** Always verify whether that
+  non-opaque origin is what was reuqired to base the decisions on.
+
+### Frames with inherited origins
+
+`blob:`, `about:blank`, and `about:srcdoc` **inherit** the embedder frame's
+origin. `GetLastCommittedOrigin()` on that `RenderFrameHost` therefore returns
+the embedder's origin — which is the origin you should use.
+
+[brave-browser#56048](https://github.com/brave/brave-browser/issues/56048) is an
+example of getting this wrong: any embedder of a `blob:` URL could bypass
+farbling because the decision was not based on the embedder's origin.
+
+`about:blank` and `about:srcdoc` can themselves be opaque if they were embedded
+in an opaque-origin context.
 
 ---

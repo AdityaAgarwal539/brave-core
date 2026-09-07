@@ -36,7 +36,7 @@ interface BraveNewsContext {
   subscribedPublisherIds: string[]
   // Publishers to suggest to the user.
   suggestedPublisherIds: string[]
-  updateSuggestedPublisherIds: () => void
+  updateSuggestedPublisherIds: () => Promise<void>
   isOptInPrefEnabled: boolean | undefined
   isShowOnNTPPrefEnabled: boolean | undefined
   toggleBraveNewsOnNTP: (enabled: boolean) => void
@@ -66,7 +66,7 @@ export const BraveNewsContext = React.createContext<BraveNewsContext>({
   subscribedPublisherIds: [],
   channels: {},
   suggestedPublisherIds: [],
-  updateSuggestedPublisherIds: () => { },
+  updateSuggestedPublisherIds: async () => { },
   isOptInPrefEnabled: undefined,
   isShowOnNTPPrefEnabled: undefined,
   toggleBraveNewsOnNTP: (enabled: boolean) => { },
@@ -85,6 +85,10 @@ interface BraveNewsContextProviderProps {
   // subtree. Used by surfaces like the sidebar, where articles must always open
   // in the main browser tab regardless of the configured preference.
   openArticlesInNewTab?: boolean
+  // Set by surfaces where the feed is on screen as soon as it mounts (e.g. the
+  // sidebar). The NTP defers images until the first scroll because its feed
+  // starts below the fold, but that scroll never comes on these surfaces.
+  renderImagesImmediately?: boolean
 }
 
 export function BraveNewsContextProvider(props: BraveNewsContextProviderProps) {
@@ -108,7 +112,8 @@ export function BraveNewsContextProvider(props: BraveNewsContextProviderProps) {
   const [channels, setChannels] = useState<Channels>({})
   const [publishers, setPublishers] = useState<Publishers>({})
   const [suggestedPublisherIds, setSuggestedPublisherIds] = useState<string[]>([])
-  const [shouldRenderImages, setShouldRenderImages] = useState(false)
+  const [hasScrolled, setHasScrolled] = useState(false)
+  const shouldRenderImages = props.renderImagesImmediately || hasScrolled
 
   // Get the default locale on load.
   useEffect(() => {
@@ -116,8 +121,7 @@ export function BraveNewsContextProvider(props: BraveNewsContextProviderProps) {
   }, [configuration.isOptedIn, configuration.showOnNTP])
 
   React.useEffect(() => {
-    const handler = (channels: Channels) => setChannels(channels)
-
+    const handler = (next: Channels) => setChannels(next)
     channelsCache.addListener(handler)
     return () => channelsCache.removeListener(handler)
   }, [])
@@ -134,16 +138,17 @@ export function BraveNewsContextProvider(props: BraveNewsContextProviderProps) {
   }, [])
 
   React.useEffect(() => {
-    const handler = (publishers: Publishers) => setPublishers(publishers)
+    const handler = (next: Publishers) => setPublishers(next)
     publishersCache.addListener(handler)
-    return () => { publishersCache.removeListener(handler) }
+    return () => publishersCache.removeListener(handler)
   }, [])
 
   React.useEffect(() => {
-    const handleScroll = () => setShouldRenderImages(true)
+    if (props.renderImagesImmediately) return
+    const handleScroll = () => setHasScrolled(true)
     document.addEventListener('scroll', handleScroll, { once: true })
     return () => document.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [props.renderImagesImmediately])
 
   const sortedPublishers = useMemo(() =>
     Object.values(publishers)

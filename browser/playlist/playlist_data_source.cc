@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/heap_array.h"
@@ -42,14 +42,15 @@ namespace {
   CHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) \
       << "This must be called on a background thread."
 
-constexpr base::ByteCount kMediaChunkSize = base::MiB(1);  // 1MB
+constexpr base::ByteSize kMediaChunkSize = base::MiBU(1);  // 1MB
 
 class RefCountedMemMap : public base::RefCountedMemory {
  public:
   explicit RefCountedMemMap(const base::FilePath& path) {
     base::File file = base::File(
         path, base::File::Flags::FLAG_OPEN | base::File::Flags::FLAG_READ);
-    if (!file.IsValid() || file.GetLength() > base::MiB(100).InBytes()) {
+    if (!file.IsValid() ||
+        file.GetLength() > static_cast<int64_t>(base::MiBU(100).InBytes())) {
       // In order to avoid OOM crash, limits the file size to 100MB.
       return;
     }
@@ -115,8 +116,9 @@ content::URLDataSource::RangeDataResult ReadFileRange(
   int64_t last_byte_position =
       range.HasLastBytePosition()
           ? range.last_byte_position()
-          : first_byte_position + kMediaChunkSize.InBytes() - 1;
-  int64_t read_size = std::min(kMediaChunkSize.InBytes(),
+          : first_byte_position +
+                static_cast<int64_t>(kMediaChunkSize.InBytes()) - 1;
+  int64_t read_size = std::min(static_cast<int64_t>(kMediaChunkSize.InBytes()),
                                last_byte_position - first_byte_position + 1);
   CHECK_GE(read_size, 0);
 
@@ -147,7 +149,12 @@ PlaylistDataSource::DataRequest::DataRequest(const GURL& url) {
   const auto full_path = content::URLDataSource::URLToRequestPath(url);
   const auto paths = base::SplitStringPiece(
       full_path, "/", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-  CHECK_EQ(paths.size(), 2u) << url.spec();
+  if (paths.size() != 2) {
+    LOG(ERROR) << "Invalid playlist data source URL, might be routed from "
+                  "saved .m3u8 file:  "
+               << url.spec();
+    return;
+  }
 
   id = paths.at(0);
   const auto& type_string = paths.at(1);
@@ -158,7 +165,10 @@ PlaylistDataSource::DataRequest::DataRequest(const GURL& url) {
   } else if (type_string == "favicon") {
     type = DataRequest::Type::kFavicon;
   } else {
-    NOTREACHED() << "type is not in {thumbnail,media,favicon}: " << type_string;
+    type = DataRequest::Type::kNone;
+    LOG(ERROR) << "Invalid playlist data source URL, might be routed from "
+                  "saved .m3u8 file:  "
+               << url.spec();
   }
 }
 
@@ -185,6 +195,9 @@ void PlaylistDataSource::StartDataRequest(
   }
 
   switch (DataRequest data_request(url); data_request.type) {
+    case DataRequest::Type::kNone:
+      std::move(got_data_callback).Run(nullptr);
+      break;
     case DataRequest::Type::kThumbnail:
       GetThumbnail(data_request, wc_getter, std::move(got_data_callback));
       break;
@@ -202,8 +215,10 @@ void PlaylistDataSource::StartRangeDataRequest(
     const net::HttpByteRange& range,
     GotRangeDataCallback callback) {
   DataRequest data_request(url);
-  CHECK_EQ(data_request.type, DataRequest::Type::kMedia);
-  CHECK(range.IsValid());
+  if (data_request.type != DataRequest::Type::kMedia || !range.IsValid()) {
+    std::move(callback).Run({});
+    return;
+  }
   GetMediaFile(data_request, wc_getter, range, std::move(callback));
 }
 
@@ -279,6 +294,8 @@ std::string PlaylistDataSource::GetMimeType(const GURL& url) {
                            //  actual file extension in WebUIUrlLoader.
     case DataRequest::Type::kFavicon:
       return FaviconSource::GetMimeType(url);
+    case DataRequest::Type::kNone:
+      return {};
   }
 }
 

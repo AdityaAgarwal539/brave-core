@@ -141,6 +141,18 @@ export const PsstProgressModal = () => {
     })
   })
 
+  const [reportingAction, setReportingAction] = React.useState<boolean>(false)
+
+  const handlePsstErrorsReportSend = React.useCallback(() => {
+    api.reportFailedContent()
+    setReportingAction(true)
+  }, [api])
+
+  api.useOnPsstErrorsReportSent(() => {
+    setReportingAction(false)
+    api.closeDialog()
+  })
+
   const handleSettingItemCheck = React.useCallback(
     (uid: string, checked: boolean) => {
       updateAllMatchingOptionsStatuses((prevOptionsStatuses) => {
@@ -220,7 +232,8 @@ export const PsstProgressModal = () => {
         }}
         onItemChecked={handleSettingItemCheck}
       />
-      {commonState !== SettingState.Failed ? (
+      {commonState !== SettingState.Completed
+      && commonState !== SettingState.Failed ? (
         <RightAlignedItem>
           <PsstDlgButton
             kind='outline'
@@ -243,15 +256,17 @@ export const PsstProgressModal = () => {
         </RightAlignedItem>
       ) : (
         <RightAlignedItem>
-          <PsstDlgButton
-            kind='outline'
-            size='medium'
-            isDisabled={isInProgress}
-            isLoading={isInProgress}
-            onClick={api.reportFailedContent}
-          >
-            {getLocale(S.PSST_COMPLETE_CONSENT_DIALOG_REPORT_FAILED)}
-          </PsstDlgButton>
+          {commonState !== SettingState.Completed && (
+            <PsstDlgButton
+              kind='outline'
+              size='medium'
+              isDisabled={reportingAction}
+              isLoading={reportingAction}
+              onClick={handlePsstErrorsReportSend}
+            >
+              {getLocale(S.PSST_COMPLETE_CONSENT_DIALOG_REPORT_FAILED)}
+            </PsstDlgButton>
+          )}
           <PsstDlgButton
             kind='filled'
             size='medium'

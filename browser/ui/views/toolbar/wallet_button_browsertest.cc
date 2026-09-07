@@ -5,13 +5,18 @@
 
 #include "brave/browser/ui/views/toolbar/wallet_button.h"
 
+#include "base/test/run_until.h"
+#include "brave/browser/brave_wallet/brave_wallet_tab_helper.h"
 #include "brave/browser/ui/views/frame/brave_browser_view.h"
+#include "chrome/browser/picture_in_picture/picture_in_picture_occlusion_tracker.h"
+#include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
-#include "chrome/browser/ui/views/bubble/webui_bubble_manager.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "ui/views/test/button_test_api.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 ui::MouseEvent GetDummyEvent() {
@@ -29,7 +34,7 @@ class WalletButtonButtonBrowserTest : public InProcessBrowserTest {
   }
 
   WalletButton* wallet_button() {
-    return static_cast<BraveBrowserView*>(browser_view())->GetWalletButton();
+    return BraveBrowserView::From(browser_view())->GetWalletButton();
   }
 };
 
@@ -69,12 +74,41 @@ IN_PROC_BROWSER_TEST_F(WalletButtonButtonBrowserTest,
   ASSERT_TRUE(wallet_button()->IsBubbleClosedForTesting());
 }
 
+IN_PROC_BROWSER_TEST_F(WalletButtonButtonBrowserTest,
+                       BubbleIgnoresInputWhenOccludedByPip) {
+  views::test::ButtonTestApi(wallet_button()).NotifyClick(GetDummyEvent());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return wallet_button()->IsShowingBubble(); }));
+
+  auto* widget = wallet_button()->GetBubbleWidgetForTesting();
+  ASSERT_TRUE(widget);
+  auto* web_contents = brave_wallet::BraveWalletTabHelper::FromWebContents(
+                           browser()->tab_strip_model()->GetActiveWebContents())
+                           ->GetBubbleWebContentsForTesting();
+  ASSERT_TRUE(web_contents);
+
+  EXPECT_FALSE(web_contents->ShouldIgnoreInputEventsForTesting());
+
+  auto* tracker =
+      PictureInPictureWindowManager::GetInstance()->GetOcclusionTracker();
+  ASSERT_TRUE(tracker);
+
+  // Simulate occlusion — WebContents input should be suppressed.
+  tracker->SetWidgetOcclusionStateForTesting(widget, true);
+  EXPECT_TRUE(web_contents->ShouldIgnoreInputEventsForTesting());
+
+  // Simulate PIP moving away — input should be restored.
+  tracker->SetWidgetOcclusionStateForTesting(widget, false);
+  EXPECT_FALSE(web_contents->ShouldIgnoreInputEventsForTesting());
+
+  wallet_button()->CloseWalletBubble();
+}
+
 class WalletButtonBrowserUITest : public DialogBrowserTest {
  public:
   // DialogBrowserTest:
   void ShowUi(const std::string& name) override {
-    auto* wallet_button = static_cast<BraveBrowserView*>(
-                              BrowserView::GetBrowserViewForBrowser(browser()))
+    auto* wallet_button = BraveBrowserView::GetBrowserViewForBrowser(browser())
                               ->GetWalletButton();
     views::test::ButtonTestApi(wallet_button).NotifyClick(GetDummyEvent());
   }

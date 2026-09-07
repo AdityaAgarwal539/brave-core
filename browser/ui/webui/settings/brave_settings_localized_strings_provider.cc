@@ -5,6 +5,7 @@
 
 #include "brave/browser/ui/webui/settings/brave_settings_localized_strings_provider.h"
 
+#include "base/feature_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -29,12 +30,15 @@
 #include "brave/components/containers/buildflags/buildflags.h"
 #include "brave/components/email_aliases/buildflags/buildflags.h"
 #include "brave/components/playlist/core/common/buildflags/buildflags.h"
+#include "brave/components/psst/buildflags/buildflags.h"
 #include "brave/components/request_otr/common/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
+#include "brave/components/traffic_control/buildflags/buildflags.h"
 #include "brave/components/version_info/version_info.h"
 #include "brave/components/web_discovery/buildflags/buildflags.h"
 #include "brave/grit/brave_generated_resources.h"
 #include "brave/grit/brave_generated_resources_webui_strings.h"
+#include "brave/ui/webui/custom_profile_image/buildflags/buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/media/router/media_router_feature.h"
@@ -53,6 +57,10 @@
 #include "extensions/common/extension_urls.h"
 #include "net/base/features.h"
 #include "ui/base/l10n/l10n_util.h"
+
+#if BUILDFLAG(ENABLE_CUSTOM_PROFILE_IMAGE)
+#include "brave/browser/ui/webui/custom_profile_image/features.h"
+#endif  // BUILDFLAG(ENABLE_CUSTOM_PROFILE_IMAGE)
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
 #include "brave/components/ai_chat/core/browser/model_validator.h"
@@ -94,6 +102,10 @@ constexpr char16_t kBraveReleaseTagPrefix[] =
 #if BUILDFLAG(ENABLE_CONTAINERS)
 constexpr char16_t kContainersLearnMoreURL[] =
     u"https://support.brave.app/hc/en-us/articles/39077103885325";
+#endif
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+constexpr char16_t kTrafficControlLearnMoreURL[] =
+    u"https://support.brave.app/hc/en-us/articles/48295270280333";
 #endif
 constexpr char16_t kGoogleLoginLearnMoreURL[] =
     u"https://github.com/brave/brave-browser/wiki/"
@@ -140,6 +152,14 @@ constexpr char16_t kSurveyPanelistLearnMoreURL[] =
 
 constexpr char16_t kExtensionsV2LearnMoreURL[] =
     u"https://brave.com/blog/brave-shields-manifest-v3/";
+
+#if BUILDFLAG(ENABLE_PSST)
+constexpr char16_t kPsstLearnMoreUrl[] =
+    u"https://support.brave.app/hc/en-us/articles/47405731650957";
+#endif
+
+constexpr char16_t kBraveAccountLearnMoreURL[] =
+    u"https://support.brave.app/hc/en-us/articles/45530506862349";
 
 void BraveAddCommonStrings(content::WebUIDataSource* html_source,
                            Profile* profile) {
@@ -208,6 +228,10 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_BRAVE_ORIGIN_PLAYLIST_TOGGLE_TITLE},
       {"braveEmailAliasesToggleTitle",
        IDS_SETTINGS_BRAVE_ORIGIN_EMAIL_ALIASES_TOGGLE_TITLE},
+#if BUILDFLAG(ENABLE_PSST)
+      {"bravePsstToggleTitle", IDS_SETTINGS_BRAVE_ORIGIN_PSST_TOGGLE_TITLE},
+      {"bravePsstToggleSubLabel", IDS_SETTINGS_PSST_SUB_LABEL},
+#endif
       {"braveOriginWebDiscoveryProjectToggleTitle",
        IDS_SETTINGS_BRAVE_ORIGIN_WEB_DISCOVERY_PROJECT_TOGGLE_TITLE},
       {"braveOriginP3AToggleTitle", IDS_SETTINGS_BRAVE_ORIGIN_P3A_TOGGLE_TITLE},
@@ -632,7 +656,6 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_LEO_ASSISTANT_PERSONALIZATION_LABEL},
       {"braveLeoAssistantCustomizationLinkLabel",
        IDS_SETTINGS_LEO_ASSISTANT_CUSTOMIZATION_LINK_LABEL},
-      {"braveLeoModelSubtitle-chat-basic", IDS_CHAT_UI_CHAT_BASIC_SUBTITLE},
       {"braveLeoModelSubtitle-chat-claude-instant",
        IDS_CHAT_UI_CHAT_CLAUDE_INSTANT_SUBTITLE},
       {"braveLeoModelSubtitle-chat-claude-haiku",
@@ -640,18 +663,16 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
       {"braveLeoModelSubtitle-chat-claude-sonnet",
        IDS_CHAT_UI_CHAT_CLAUDE_SONNET_SUBTITLE},
       {"braveLeoModelSubtitle-chat-qwen", IDS_CHAT_UI_CHAT_QWEN_SUBTITLE},
-      {"braveLeoModelSubtitle-chat-near-glm-5",
-       IDS_CHAT_UI_CHAT_NEAR_GLM_5_SUBTITLE},
       {"braveLeoModelSubtitle-chat-near-glm-5-1",
        IDS_CHAT_UI_CHAT_NEAR_GLM_5_1_SUBTITLE},
       {"braveLeoModelSubtitle-chat-glm-4-7-flash",
        IDS_CHAT_UI_CHAT_GLM_4_7_FLASH_SUBTITLE},
-      {"braveLeoModelSubtitle-chat-llama-4-maverick",
-       IDS_CHAT_UI_CHAT_LLAMA_4_MAVERICK_SUBTITLE},
-      {"braveLeoModelSubtitle-chat-gpt-oss-20b",
-       IDS_CHAT_UI_CHAT_GPT_OSS_20B_SUBTITLE},
-      {"braveLeoModelSubtitle-chat-gpt-oss-120b",
-       IDS_CHAT_UI_CHAT_GPT_OSS_120B_SUBTITLE},
+      {"braveLeoModelSubtitle-chat-gpt-5-4-bedrock",
+       IDS_CHAT_UI_CHAT_GPT_5_4_BEDROCK_SUBTITLE},
+      {"braveLeoModelSubtitle-chat-grok-4-3-bedrock",
+       IDS_CHAT_UI_CHAT_GROK_4_3_BEDROCK_SUBTITLE},
+      {"braveLeoModelSubtitle-chat-nemotron-nano-3-30b",
+       IDS_CHAT_UI_CHAT_NEMOTRON_NANO_3_30B_SUBTITLE},
       {"braveLeoModelSubtitle-chat-mistral-large",
        IDS_CHAT_UI_CHAT_MISTRAL_LARGE_SUBTITLE},
       {"braveLeoModelSubtitle-chat-kimi-k2-5",
@@ -660,8 +681,6 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_CHAT_UI_CHAT_QWEN_3_235B_SUBTITLE},
       {"braveLeoModelSubtitle-chat-deepseek-v3-2",
        IDS_CHAT_UI_CHAT_DEEPSEEK_V3_2_SUBTITLE},
-      {"braveLeoModelSubtitle-chat-qwen-3-coder-480b",
-       IDS_CHAT_UI_CHAT_QWEN_3_CODER_480B_SUBTITLE},
       {"braveLeoModelSubtitle-chat-claude-opus",
        IDS_CHAT_UI_CHAT_CLAUDE_OPUS_SUBTITLE},
       {"braveLeoModelSubtitle-chat-brave-summary",
@@ -675,6 +694,8 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_LEO_ASSISTANT_ADD_MODEL_LABEL},
       {"braveLeoAssistantEditModelLabel",
        IDS_SETTINGS_LEO_ASSISTANT_EDIT_MODEL_LABEL},
+      {"braveLeoAssistantRequiredLabel",
+       IDS_SETTINGS_LEO_ASSISTANT_REQUIRED_LABEL},
       {"braveLeoAssistantInputModelLabel",
        IDS_SETTINGS_LEO_ASSISTANT_INPUT_MODEL_LABEL},
       {"braveLeoAssistantInputModelRequestName",
@@ -703,8 +724,6 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_LEO_ASSISTANT_INPUT_MODEL_SERVER_ENDPOINT_TOOLTIP_INFO},
       {"braveLeoAssistantInputModelApiKeyTooltipInfo",
        IDS_SETTINGS_LEO_ASSISTANT_INPUT_MODEL_API_KEY_TOOLTIP_INFO},
-      {"braveLeoAssistantCloseButtonLabel",
-       IDS_SETTINGS_LEO_ASSISTANT_CLOSE_BUTTON_LABEL},
       {"braveLeoAssistantProxyNote", IDS_SETTINGS_LEO_ASSISTANT_PROXY_NOTE},
       {"braveLeoAssistantEndpointError",
        IDS_SETTINGS_LEO_ASSISTANT_ENDPOINT_ERROR},
@@ -805,8 +824,6 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_LEO_ASSISTANT_SEARCH_MEMORIES_PLACEHOLDER},
       {"braveLeoAssistantOllamaSyncLabel",
        IDS_SETTINGS_LEO_ASSISTANT_OLLAMA_SYNC_LABEL},
-      {"braveLeoAssistantOllamaManagedLabel",
-       IDS_SETTINGS_LEO_ASSISTANT_OLLAMA_MANAGED_LABEL},
 #endif  // BUILDFLAG(ENABLE_AI_CHAT)
 
       // Survey Panelist Page
@@ -840,6 +857,10 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
 
       // Delete browsing data settings
       {"clearBraveAdsData", IDS_SETTINGS_CLEAR_BRAVE_ADS_DATA},
+      {"clearBraveAdsDataToastLabel",
+       IDS_SETTINGS_CLEAR_BRAVE_ADS_DATA_TOAST_LABEL},
+      {"clearBraveAdsDataErrorToastLabel",
+       IDS_SETTINGS_CLEAR_BRAVE_ADS_DATA_ERROR_TOAST_LABEL},
       {"resetRewardsData", IDS_SETTINGS_RESET_REWARDS_DATA},
 
       // Misc (TODO: Organize this)
@@ -893,6 +914,7 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_TOR_REQUESTED_BRIDGES_PLACEHOLDER},
       {"torProvidedBridgesPlaceholder",
        IDS_SETTINGS_TOR_PROVIDED_BRIDGES_PLACEHOLDER},
+      {"torInvalidBridgeError", IDS_SETTINGS_TOR_INVALID_BRIDGE_ERROR},
       {"torRequestBridgeDialogTitle",
        IDS_SETTINGS_TOR_REQUEST_BRIDGE_DIALOG_TITLE},
       {"torRequestBridgeDialogWaiting",
@@ -926,6 +948,10 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
       {"statsUsagePingEnabledDesc", IDS_BRAVE_STATS_USAGE_PING_SETTING_SUBITEM},
       {"p3aEnableTitle", IDS_BRAVE_P3A_ENABLE_SETTING},
       {"p3aEnabledDesc", IDS_BRAVE_P3A_ENABLE_SETTING_SUBITEM},
+      {"sponsoredAdsEnabledTitle",
+       IDS_BRAVE_SETTINGS_SPONSORED_ADS_ENABLED_TITLE},
+      {"sponsoredAdsEnabledDesc",
+       IDS_BRAVE_SETTINGS_SPONSORED_ADS_ENABLED_DESC},
       {"siteSettings", IDS_SETTINGS_SITE_AND_SHIELDS_SETTINGS},
       {"showFullUrls", IDS_SETTINGS_ALWAYS_SHOW_FULL_URLS},
       {"resetZCashSyncStateInfo",
@@ -1107,6 +1133,10 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_COOKIE_CONTROLLED_BY_SHIELDS_TOOLTIP_TEXT},
       {"cookieControlledByGoogleSigninTooltip",
        IDS_SETTINGS_COOKIE_CONTROLLED_BY_GOOGLE_SIGN_IN_TOOLTIP_TEXT},
+#if BUILDFLAG(ENABLE_PSST)
+      {"psstSettingsToggleLabel", IDS_SETTINGS_PSST_LABEL},
+      {"psstSettingsToggleSubLabel", IDS_SETTINGS_PSST_SUB_LABEL},
+#endif  // BUILDFLAG(ENABLE_PSST)
   };
 
   html_source->AddLocalizedStrings(localized_strings);
@@ -1198,6 +1228,11 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
   html_source->AddLocalizedStrings(webui::kContainersStrings);
   html_source->AddString("containersLearnMoreURL", kContainersLearnMoreURL);
 #endif  // BUILDFLAG(ENABLE_CONTAINERS)
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+  html_source->AddLocalizedStrings(webui::kTrafficControlStrings);
+  html_source->AddString("trafficControlLearnMoreURL",
+                         kTrafficControlLearnMoreURL);
+#endif  // BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
   html_source->AddString(
       "ensOffchainLookupDesc",
       l10n_util::GetStringFUTF16(IDS_SETTINGS_ENABLE_ENS_OFFCHAIN_LOOKUP_DESC,
@@ -1249,6 +1284,9 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
       l10n_util::GetStringFUTF16(IDS_SETTINGS_MANAGE_EXTENSIONS_V2_WARN,
                                  kExtensionsV2LearnMoreURL));
 
+#if BUILDFLAG(ENABLE_PSST)
+  html_source->AddString("psstLearnMoreURL", kPsstLearnMoreUrl);
+#endif
   // Disabled due to crash with tab group dragging.
   // TODO(https://github.com/brave/brave-browser/issues/49752): Re-enable.
   html_source->AddBoolean("showSplitViewDragAndDropSetting", false);
@@ -1289,6 +1327,8 @@ void BraveAddEmailAliasesStrings(content::WebUIDataSource* html_source) {
 void BraveAddBraveAccountStrings(content::WebUIDataSource* html_source) {
   if (brave_account::features::IsBraveAccountEnabled()) {
     html_source->AddLocalizedStrings(webui::kBraveAccountSettingsStrings);
+    html_source->AddString("braveAccountLearnMoreURL",
+                           kBraveAccountLearnMoreURL);
   }
 }
 
@@ -1464,6 +1504,17 @@ void BraveAddLocalizedStrings(content::WebUIDataSource* html_source,
       l10n_util::GetStringUTF16(
           IDS_SETTINGS_COOKIES_LOCAL_STORAGE_SIZE_ON_DISK_LABEL));
   html_source->AddLocalizedStrings(webui::kBraveSettingsStrings);
+  html_source->AddLocalizedStrings(webui::kCustomProfileImageStrings);
+
+  html_source->AddBoolean(
+      "customProfileImageEnabled",
+#if BUILDFLAG(ENABLE_CUSTOM_PROFILE_IMAGE)
+      base::FeatureList::IsEnabled(
+          custom_profile_image::features::kBraveCustomProfileImage)
+#else
+      false
+#endif  // BUILDFLAG(ENABLE_CUSTOM_PROFILE_IMAGE)
+  );
 
   // We add strings regardless of the FeatureFlag state to prevent crash
 

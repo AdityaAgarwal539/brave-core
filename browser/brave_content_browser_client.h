@@ -129,8 +129,8 @@ class BraveContentBrowserClient : public ChromeContentBrowserClient {
       bool* bypass_redirect_checks,
       bool* disable_secure_dns,
       network::mojom::URLLoaderFactoryOverridePtr* factory_override,
-      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner)
-      override;
+      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner,
+      bool is_for_network_service) override;
 
   bool WillInterceptWebSocket(content::RenderFrameHost* frame) override;
   void CreateWebSocket(
@@ -198,6 +198,13 @@ class BraveContentBrowserClient : public ChromeContentBrowserClient {
       const content::StoragePartitionConfig& partition_config) const override;
 
   bool AllowSignedExchange(content::BrowserContext* context) override;
+
+#if BUILDFLAG(IS_ANDROID)
+  void GetAdditionalMappedFilesForChildProcess(
+      const base::CommandLine& command_line,
+      int child_process_id,
+      content::PosixFileDescriptorInfo* mappings) override;
+#endif
 
 #if !BUILDFLAG(IS_ANDROID)
   content::HidDelegate* GetHidDelegate() override;

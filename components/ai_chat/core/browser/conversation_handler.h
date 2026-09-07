@@ -182,6 +182,8 @@ class ConversationHandler : public mojom::ConversationHandler,
   void StopTask() override;
   void SetToolsAttached(mojom::AssociatedContentPtr content,
                         bool tools_attached) override;
+  void GetContentTools(const std::string& content_uuid,
+                       GetContentToolsCallback callback) override;
   void RateMessage(bool is_liked,
                    const std::string& turn_uuid,
                    RateMessageCallback callback) override;
@@ -273,6 +275,11 @@ class ConversationHandler : public mojom::ConversationHandler,
     engine_ = std::move(engine_for_testing);
   }
   EngineConsumer* GetEngineForTesting() { return engine_.get(); }
+
+  // Sets |model_key_| directly, without validation.
+  void SetModelKeyForTesting(std::string model_key) {
+    model_key_ = std::move(model_key);
+  }
 
   ToolProvider* GetFirstToolProviderForTesting() {
     if (tool_providers_.empty()) {

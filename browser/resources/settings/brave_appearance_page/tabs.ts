@@ -6,7 +6,7 @@
 import '../settings_shared.css.js'
 import '../settings_vars.css.js'
 
-import {PrefsMixin, PrefsMixinInterface} from '/shared/settings/prefs/prefs_mixin.js';
+import {PrefServiceObserverMixin, PrefServiceObserverMixinInterface} from '/shared/settings/prefs2/pref_service_observer_mixin.js';
 import {I18nMixin, I18nMixinInterface} from 'chrome://resources/cr_elements/i18n_mixin.js'
 import {WebUiListenerMixin, WebUiListenerMixinInterface} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js'
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js'
@@ -18,10 +18,12 @@ import {loadTimeData} from '../i18n_setup.js'
 import {getTemplate} from './tabs.html.js'
 
 const SettingsBraveAppearanceTabsElementBase =
-    WebUiListenerMixin(PrefsMixin(I18nMixin(PolymerElement))) as {
-  new (): PolymerElement & I18nMixinInterface & PrefsMixinInterface &
-      WebUiListenerMixinInterface
+    WebUiListenerMixin(PrefServiceObserverMixin(I18nMixin(PolymerElement))) as {
+  new (): PolymerElement & I18nMixinInterface &
+      WebUiListenerMixinInterface & PrefServiceObserverMixinInterface
 }
+
+type PrefObject<T> = chrome.settingsPrivate.PrefObject<T>
 
 export class SettingsBraveAppearanceTabsElement extends SettingsBraveAppearanceTabsElementBase {
   static get is() {
@@ -34,13 +36,6 @@ export class SettingsBraveAppearanceTabsElement extends SettingsBraveAppearanceT
 
   static get properties() {
     return {
-      tabMinWidthSelectionAliases_: {
-        readOnly: true,
-        type: Object,
-        value() {
-          return {'0': '1'}
-        },
-      },
       tabMinWidthModes_: {
         readOnly: true,
         type: Array,
@@ -93,11 +88,18 @@ export class SettingsBraveAppearanceTabsElement extends SettingsBraveAppearanceT
       verticalTabsToggleEnabled_: {
         type: Boolean,
         value: true,
-      }
+      },
+
+      // Mirrored from the global PrefService, purely to evaluate dom-if
+      // conditions and computed bindings in this element's own template. The
+      // controls themselves read/write via `pref-key` directly.
+      verticalTabsEnabledPref_: Object,
+      verticalTabsHideCompletelyWhenCollapsedPref_: Object,
+      verticalTabsShowToggleButtonPref_: Object,
+      scrollableHorizontalTabStripPref_: Object,
     }
   }
 
-  declare private tabMinWidthSelectionAliases_: Record<string, string>
   declare private tabMinWidthModes_: Array<{
     value: number,
     name: string,
@@ -106,6 +108,11 @@ export class SettingsBraveAppearanceTabsElement extends SettingsBraveAppearanceT
   declare private tabTooltipModes_:
       Array<{value: number, name: string}>
   declare private verticalTabsToggleEnabled_: boolean
+  declare private verticalTabsEnabledPref_: PrefObject<boolean>|undefined
+  declare private verticalTabsHideCompletelyWhenCollapsedPref_:
+      PrefObject<boolean>|undefined
+  declare private verticalTabsShowToggleButtonPref_: PrefObject<boolean>|undefined
+  declare private scrollableHorizontalTabStripPref_: PrefObject<boolean>|undefined
 
   override connectedCallback() {
     super.connectedCallback()
@@ -114,6 +121,16 @@ export class SettingsBraveAppearanceTabsElement extends SettingsBraveAppearanceT
     this.addWebUiListener(
         'vertical-tabs-toggle-enabled-changed',
         (enabled: boolean) => { this.verticalTabsToggleEnabled_ = enabled })
+
+    this.mirrorPrefs({
+      'brave.tabs.vertical_tabs_enabled': 'verticalTabsEnabledPref_',
+      'brave.tabs.vertical_tabs_hide_completely_when_collapsed':
+          'verticalTabsHideCompletelyWhenCollapsedPref_',
+      'brave.tabs.vertical_tabs_show_toggle_button':
+          'verticalTabsShowToggleButtonPref_',
+      'brave.tabs.scrollable_horizontal_tab_strip':
+          'scrollableHorizontalTabStripPref_',
+    })
   }
 
   private isSharedPinnedTabsEnabled_() {
@@ -131,6 +148,18 @@ export class SettingsBraveAppearanceTabsElement extends SettingsBraveAppearanceT
 
   private isHideVerticalTabCompletelyFlagEnabled() {
     return loadTimeData.getBoolean('isHideVerticalTabCompletelyFlagEnabled');
+  }
+
+  // "Float on mouse over" (auto-expand on hover) is forced on, and its
+  // checkbox shown as checked and disabled, when there is no other way for
+  // the user to expand collapsed vertical tabs: either because the vertical
+  // tab strip is fully hidden when collapsed, or because the toggle button
+  // used to expand/collapse it is hidden.
+  private shouldForceFloatOnMouseOver_(
+      hideCompletelyWhenCollapsed: boolean, showToggleButton: boolean) {
+    return (this.isHideVerticalTabCompletelyFlagEnabled() &&
+            hideCompletelyWhenCollapsed) ||
+        !showToggleButton
   }
 
   private isScrollableHorizontalTabStripFlagEnabled() {

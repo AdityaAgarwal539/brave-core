@@ -38,6 +38,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
+#include "base/values.h"
 #include "brave/components/brave_ads/browser/bat_ads_service_factory.h"
 #include "brave/components/brave_ads/browser/component_updater/resource_component.h"
 #include "brave/components/brave_ads/browser/device_id/device_id.h"
@@ -150,6 +151,7 @@ AdsServiceImpl::AdsServiceImpl(
     std::unique_ptr<DeviceId> device_id,
     std::unique_ptr<BatAdsServiceFactory> bat_ads_service_factory,
     std::unique_ptr<ApplicationStateMonitor> application_state_monitor,
+    std::unique_ptr<ShutdownMonitor> shutdown_monitor,
     ResourceComponent& resource_component,
     history::HistoryService* history_service,
 #if BUILDFLAG(ENABLE_BRAVE_REWARDS)
@@ -179,12 +181,22 @@ AdsServiceImpl::AdsServiceImpl(
       rewards_service_(rewards_service),
 #endif
       application_state_monitor_(std::move(application_state_monitor)),
+      shutdown_monitor_(std::move(shutdown_monitor)),
       policy_initialization_waiter_(std::move(policy_initialization_waiter)),
       bat_ads_client_associated_receiver_(this) {
   CHECK(device_id_);
   CHECK(bat_ads_service_factory_);
   CHECK(application_state_monitor_);
+  CHECK(shutdown_monitor_);
   CHECK(policy_initialization_waiter_);
+
+  // Chrome only ever notifies app termination once per process, so subscribe
+  // immediately rather than waiting for `InitializeBatAdsCallback`, otherwise
+  // a profile that finishes initializing after that single notification has
+  // already fired would never hear about it.
+  app_terminating_subscription_ = shutdown_monitor_->AddAppTerminatingCallback(
+      base::BindOnce(&AdsServiceImpl::OnBrowserWillShutdown,
+                     weak_ptr_factory_.GetWeakPtr()));
 
   if (!http_client_ || !history_service_ || !host_content_settings_map_) {
     CHECK_IS_TEST();
@@ -229,9 +241,9 @@ void AdsServiceImpl::Migrate() {
 void AdsServiceImpl::RegisterResourceComponents() {
   RegisterCountryResourceComponent();
 
-  if (UserHasOptedInToNotificationAds()) {
+  if (IsNotificationAdsEnabled()) {
     // Only utilized for text classification, which requires the user to have
-    // joined Brave Rewards and opted into notification ads.
+    // joined Brave Rewards and notification ads to be enabled.
     RegisterLanguageResourceComponent();
   }
 }
@@ -261,20 +273,13 @@ bool AdsServiceImpl::UserHasJoinedBraveRewards() const {
   return prefs_->GetBoolean(brave_rewards::prefs::kEnabled);
 }
 
-bool AdsServiceImpl::UserHasOptedInToNewTabPageAds() const {
-  return prefs_->GetBoolean(
-             ntp_background_images::prefs::kNewTabPageShowBackgroundImage) &&
-         prefs_->GetBoolean(ntp_background_images::prefs::
-                                kNewTabPageShowSponsoredImagesBackgroundImage);
+bool AdsServiceImpl::IsSponsoredAdsEnabled() const {
+  return prefs_->GetBoolean(prefs::kSponsoredEnabled);
 }
 
-bool AdsServiceImpl::UserHasOptedInToNotificationAds() const {
+bool AdsServiceImpl::IsNotificationAdsEnabled() const {
   return prefs_->GetBoolean(brave_rewards::prefs::kEnabled) &&
-         prefs_->GetBoolean(prefs::kOptedInToNotificationAds);
-}
-
-bool AdsServiceImpl::UserHasOptedInToSearchResultAds() const {
-  return prefs_->GetBoolean(prefs::kOptedInToSearchResultAds);
+         prefs_->GetBoolean(prefs::kNotificationsEnabled);
 }
 
 bool AdsServiceImpl::CanStartBatAdsService() const {
@@ -291,9 +296,9 @@ bool AdsServiceImpl::CanStartBatAdsService() const {
     return true;
   }
 
-  // The user has not joined Brave Rewards, so we only start the service if the
-  // user has opted in to new tab takeover, or search result ads.
-  return UserHasOptedInToNewTabPageAds() || UserHasOptedInToSearchResultAds();
+  // The user has not joined Brave Rewards, so we only start the service if
+  // sponsored ads are enabled.
+  return IsSponsoredAdsEnabled();
 }
 
 void AdsServiceImpl::MaybeStartBatAdsService() {
@@ -559,10 +564,28 @@ void AdsServiceImpl::ClearAllPrefsAndAdsServiceDataAndMaybeRestart(
   }
   VLOG(6) << "Clearing ads data";
 
-  // Clear all ads preferences.
-  prefs_->ClearPrefsWithPrefixSilently("brave.brave_ads");
+  ClearAdsPrefs();
 
   ClearAdsServiceDataAndMaybeRestart(std::move(callback));
+}
+
+void AdsServiceImpl::ClearAdsPrefs() {
+  // Stop observing prefs before they are set below, otherwise the pref change
+  // may trigger an Ads service start or stop before its data is cleared.
+  pref_change_registrar_.RemoveAll();
+
+  std::optional<bool> sponsored_enabled;
+  if (prefs_->HasPrefPath(prefs::kSponsoredEnabled)) {
+    sponsored_enabled = prefs_->GetBoolean(prefs::kSponsoredEnabled);
+  }
+
+  prefs_->ClearPrefsWithPrefixSilently("brave.brave_ads");
+
+  if (sponsored_enabled) {
+    prefs_->SetBoolean(prefs::kSponsoredEnabled, *sponsored_enabled);
+  }
+
+  InitializePrefChangeRegistrar();
 }
 
 void AdsServiceImpl::ClearAdsServiceDataAndMaybeRestart(
@@ -646,8 +669,8 @@ void AdsServiceImpl::SetContentSettings() {
 bool AdsServiceImpl::ShouldShowOnboardingNotification() {
   const bool should_show_onboarding_notification =
       prefs_->GetBoolean(prefs::kShouldShowOnboardingNotification);
-  return should_show_onboarding_notification &&
-         UserHasOptedInToNotificationAds() && CheckIfCanShowNotificationAds();
+  return should_show_onboarding_notification && IsNotificationAdsEnabled() &&
+         CheckIfCanShowNotificationAds();
 }
 
 void AdsServiceImpl::MaybeShowOnboardingNotification() {
@@ -665,7 +688,7 @@ void AdsServiceImpl::ShowReminder(mojom::ReminderType mojom_reminder_type) {
   CHECK(mojom::IsKnownEnumValue(mojom_reminder_type));
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (UserHasOptedInToNotificationAds() && CheckIfCanShowNotificationAds()) {
+  if (IsNotificationAdsEnabled() && CheckIfCanShowNotificationAds()) {
     // TODO(https://github.com/brave/brave-browser/issues/29587): Decouple Brave
     // Ads reminders from notification ads.
     ShowNotificationAd(BuildReminder(mojom_reminder_type));
@@ -694,9 +717,9 @@ void AdsServiceImpl::InitializePrefChangeRegistrar() {
 
   InitializeBraveRewardsPrefChangeRegistrar();
   InitializeSubdivisionTargetingPrefChangeRegistrar();
-  InitializeNewTabPageAdsPrefChangeRegistrar();
+  InitializeNewTabPageBackgroundImagePrefChangeRegistrar();
   InitializeNotificationAdsPrefChangeRegistrar();
-  InitializeSearchResultAdsPrefChangeRegistrar();
+  InitializeSponsoredAdsPrefChangeRegistrar();
 }
 
 void AdsServiceImpl::InitializeBraveRewardsPrefChangeRegistrar() {
@@ -726,25 +749,17 @@ void AdsServiceImpl::InitializeSubdivisionTargetingPrefChangeRegistrar() {
                           prefs::kSubdivisionTargetingAutoDetectedSubdivision));
 }
 
-void AdsServiceImpl::InitializeNewTabPageAdsPrefChangeRegistrar() {
+void AdsServiceImpl::InitializeNewTabPageBackgroundImagePrefChangeRegistrar() {
   pref_change_registrar_.Add(
       ntp_background_images::prefs::kNewTabPageShowBackgroundImage,
       base::BindRepeating(
-          &AdsServiceImpl::OnAdsPrefChanged, base::Unretained(this),
+          &AdsServiceImpl::NotifyPrefChanged, base::Unretained(this),
           ntp_background_images::prefs::kNewTabPageShowBackgroundImage));
-
-  pref_change_registrar_.Add(
-      ntp_background_images::prefs::
-          kNewTabPageShowSponsoredImagesBackgroundImage,
-      base::BindRepeating(&AdsServiceImpl::OnAdsPrefChanged,
-                          base::Unretained(this),
-                          ntp_background_images::prefs::
-                              kNewTabPageShowSponsoredImagesBackgroundImage));
 }
 
 void AdsServiceImpl::InitializeNotificationAdsPrefChangeRegistrar() {
   pref_change_registrar_.Add(
-      prefs::kOptedInToNotificationAds,
+      prefs::kNotificationsEnabled,
       base::BindRepeating(&AdsServiceImpl::OnAdsPrefChanged,
                           base::Unretained(this)));
 
@@ -755,9 +770,9 @@ void AdsServiceImpl::InitializeNotificationAdsPrefChangeRegistrar() {
                           prefs::kMaximumNotificationAdsPerHour));
 }
 
-void AdsServiceImpl::InitializeSearchResultAdsPrefChangeRegistrar() {
+void AdsServiceImpl::InitializeSponsoredAdsPrefChangeRegistrar() {
   pref_change_registrar_.Add(
-      prefs::kOptedInToSearchResultAds,
+      prefs::kSponsoredEnabled,
       base::BindRepeating(&AdsServiceImpl::OnAdsPrefChanged,
                           base::Unretained(this)));
 }
@@ -771,16 +786,12 @@ void AdsServiceImpl::OnAdsPrefChanged(const std::string& path) {
     return ShutdownAdsService();
   }
 
-  if (bat_ads_service_remote_.is_bound() &&
-      path == prefs::kOptedInToNotificationAds) {
-    if (UserHasOptedInToNotificationAds()) {
-      // Register now that the user has opted in.
-      RegisterLanguageResourceComponent();
+  if (path == prefs::kNotificationsEnabled &&
+      bat_ads_service_remote_.is_bound()) {
+    RegisterOrUnregisterLanguageResourceComponent();
 
+    if (IsNotificationAdsEnabled()) {
       delegate_->MaybeInitNotificationHelper();
-    } else {
-      // Unregister now that the user has opted out.
-      UnregisterLanguageResourceComponent();
     }
   }
 
@@ -930,12 +941,11 @@ void AdsServiceImpl::NotificationAdTimedOut(const std::string& placement_id) {
 }
 
 void AdsServiceImpl::CloseAllNotificationAds() {
-  if (!UserHasOptedInToNotificationAds()) {
+  if (!IsNotificationAdsEnabled()) {
     return;
   }
 
   const auto& list = prefs_->GetList(prefs::kNotificationAds);
-
   const base::circular_deque<NotificationAdInfo> ads =
       NotificationAdsFromList(list);
 
@@ -944,6 +954,16 @@ void AdsServiceImpl::CloseAllNotificationAds() {
   }
 
   prefs_->SetList(prefs::kNotificationAds, {});
+}
+
+void AdsServiceImpl::RegisterOrUnregisterLanguageResourceComponent() {
+  if (IsNotificationAdsEnabled()) {
+    // Only utilized for text classification, which requires the user to have
+    // joined Brave Rewards and notification ads to be enabled.
+    RegisterLanguageResourceComponent();
+  } else {
+    UnregisterLanguageResourceComponent();
+  }
 }
 
 void AdsServiceImpl::MaybeOpenNewTabWithAd() {
@@ -957,7 +977,10 @@ void AdsServiceImpl::MaybeOpenNewTabWithAd() {
 }
 
 void AdsServiceImpl::OpenNewTabWithAd(const std::string& placement_id) {
-  if (StopNotificationAdTimeOutTimer(placement_id)) {
+  // `CloseNotificationAd` already cancels the timeout for reminders, so only
+  // cancel it here for the branches that do not call it.
+  if (!IsReminder(placement_id) &&
+      StopNotificationAdTimeOutTimer(placement_id)) {
     VLOG(2) << "Canceled timeout for notification ad with placement id "
             << placement_id;
   }
@@ -978,14 +1001,12 @@ void AdsServiceImpl::OpenNewTabWithAd(const std::string& placement_id) {
 }
 
 void AdsServiceImpl::OpenNewTabWithAdCallback(
-    std::optional<base::DictValue> dict) {
-  if (!dict) {
+    brave_ads::mojom::NotificationAdInfoPtr notification_ad) {
+  if (!notification_ad) {
     return VLOG(0) << "Failed to get notification ad";
   }
 
-  const NotificationAdInfo notification_ad = NotificationAdFromDict(*dict);
-
-  OpenNewTabWithUrl(notification_ad.target_url);
+  OpenNewTabWithUrl(notification_ad->target_url);
 }
 
 void AdsServiceImpl::OpenNewTabWithUrl(const GURL& url) {
@@ -1024,8 +1045,10 @@ void AdsServiceImpl::ShutdownAds(ResultCallback callback) {
   // Use `weak_ptr_factory_` because `bat_ads_service_weak_ptr_factory_` is
   // invalidated to cancel pending startups; this callback must always fire.
   bat_ads_associated_remote_->Shutdown(
-      base::BindOnce(&AdsServiceImpl::ShutdownAdsCallback,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(&AdsServiceImpl::ShutdownAdsCallback,
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)),
+          /*success=*/false));
 }
 
 void AdsServiceImpl::ShutdownAdsCallback(ResultCallback callback,
@@ -1068,6 +1091,8 @@ void AdsServiceImpl::ShutdownAdsService() {
 #endif
 
   application_state_monitor_observation_.Reset();
+
+  app_terminating_subscription_ = {};
 
   CloseAllNotificationAds();
 
@@ -1400,6 +1425,12 @@ void AdsServiceImpl::NotifyTabDidLoad(int32_t tab_id, int http_status_code) {
   }
 }
 
+void AdsServiceImpl::NotifyTabDidFailToLoad(int32_t tab_id) {
+  if (bat_ads_client_notifier_remote_.is_bound()) {
+    bat_ads_client_notifier_remote_->NotifyTabDidFailToLoad(tab_id);
+  }
+}
+
 void AdsServiceImpl::NotifyDidCloseTab(int32_t tab_id) {
   if (bat_ads_client_notifier_remote_.is_bound()) {
     bat_ads_client_notifier_remote_->NotifyDidCloseTab(tab_id);
@@ -1456,25 +1487,28 @@ void AdsServiceImpl::CanShowNotificationAdsWhileBrowserIsBackgrounded(
       delegate_->CanShowSystemNotificationsWhileBrowserIsBackgrounded());
 }
 
-void AdsServiceImpl::ShowNotificationAd(base::DictValue dict) {
-  const NotificationAdInfo ad = NotificationAdFromDict(dict);
+void AdsServiceImpl::ShowNotificationAd(
+    brave_ads::mojom::NotificationAdInfoPtr notification_ad) {
+  CHECK(notification_ad);
 
   std::u16string title;
-  if (base::IsStringUTF8(ad.title)) {
-    title = base::UTF8ToUTF16(ad.title);
+  if (base::IsStringUTF8(notification_ad->title)) {
+    title = base::UTF8ToUTF16(notification_ad->title);
   }
 
   std::u16string body;
-  if (base::IsStringUTF8(ad.body)) {
-    body = base::UTF8ToUTF16(ad.body);
+  if (base::IsStringUTF8(notification_ad->body)) {
+    body = base::UTF8ToUTF16(notification_ad->body);
   }
 
-  delegate_->ShowNotificationAd(ad.placement_id, title, body);
+  delegate_->ShowNotificationAd(notification_ad->placement_id, title, body);
 
-  StartNotificationAdTimeOutTimer(ad.placement_id);
+  StartNotificationAdTimeOutTimer(notification_ad->placement_id);
 }
 
 void AdsServiceImpl::CloseNotificationAd(const std::string& placement_id) {
+  StopNotificationAdTimeOutTimer(placement_id);
+
   delegate_->CloseNotificationAd(placement_id);
 }
 
@@ -1689,6 +1723,12 @@ void AdsServiceImpl::OnBrowserDidResignActive() {
 #endif  // BUILDFLAG(IS_ANDROID)
     bat_ads_client_notifier_remote_->NotifyBrowserDidEnterBackground();
   }
+}
+
+void AdsServiceImpl::OnBrowserWillShutdown() {
+  // Runs before `ShutdownAdsService()`'s call, closing the ad as soon as
+  // quitting starts instead of leaving it clickable until profile teardown.
+  CloseAllNotificationAds();
 }
 
 void AdsServiceImpl::OnResourceComponentDidChange(

@@ -22,6 +22,7 @@
 #include "net/base/load_flags.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
+#include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/rust/cxx/v1/cxx.h"
 #include "ui/base/l10n/time_format.h"
@@ -102,8 +103,7 @@ void ParseFeedDataOffMainThread(const GURL& feed_url,
             DirectFeedResult result;
             result.id = publisher_id;
             result.title = (std::string)data.title;
-            ConvertFeedDataToArticles(result.articles, std::move(data),
-                                      result.id);
+            ConvertFeedDataToArticles(result.articles, data, result.id);
             return result;
           },
           feed_url, std::move(publisher_id), std::move(body_content)),
@@ -113,9 +113,9 @@ void ParseFeedDataOffMainThread(const GURL& feed_url,
 }  // namespace
 
 void ConvertFeedDataToArticles(std::vector<mojom::ArticlePtr>& articles,
-                               FeedData data,
+                               const FeedData& data,
                                const std::string& publisher_id) {
-  for (auto entry : data.items) {
+  for (const auto& entry : data.items) {
     auto item = RustFeedItemToArticle(entry, publisher_id);
     if (!item->data->url.SchemeIsHTTPOrHTTPS()) {
       continue;
@@ -229,6 +229,18 @@ void DirectFeedFetcher::DownloadFeedHelper(
   request->redirect_mode = network::mojom::RedirectMode::kError;
   auto url_loader = network::SimpleURLLoader::Create(
       std::move(request), GetNetworkTrafficAnnotationTag());
+  // Having an |initiator_origin| means this feed URL came from a web page (it
+  // was discovered in the page's markup, or the user clicked it in the Brave
+  // News toolbar bubble for that page). Such a page must not be able to use
+  // Brave News to reach services running on the user's machine or local
+  // network, so ask the network service to fail the request if it resolves to a
+  // loopback or local address. This check happens *after* DNS resolution, so it
+  // also covers public hostnames which resolve to a local address.
+  // See https://github.com/brave/brave-browser/issues/56884.
+  if (initiator_origin) {
+    url_loader->SetURLLoaderFactoryOptions(
+        network::mojom::kURLLoadOptionBlockLocalRequest);
+  }
   url_loader->SetRetryOptions(
       1, network::SimpleURLLoader::RetryMode::RETRY_ON_5XX |
              network::SimpleURLLoader::RetryMode::RETRY_ON_NETWORK_CHANGE);

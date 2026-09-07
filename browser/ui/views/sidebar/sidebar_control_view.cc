@@ -58,7 +58,7 @@ class ControlViewMenuModel : public ui::SimpleMenuModel {
 };
 
 bool IsSidebarOnLeft(Browser* browser) {
-  return !browser->profile()->GetPrefs()->GetBoolean(
+  return !browser->GetProfile()->GetPrefs()->GetBoolean(
       prefs::kSidePanelHorizontalAlignment);
 }
 
@@ -142,17 +142,18 @@ void SidebarControlView::ShowContextMenuForViewImpl(
 
 void SidebarControlView::ExecuteCommand(int command_id, int event_flags) {
   if (command_id == IDC_SIDEBAR_TOGGLE_POSITION) {
-    browser_->command_controller()->ExecuteCommand(command_id);
+    chrome::BrowserCommandController::From(browser_)->ExecuteCommand(
+        command_id);
     return;
   }
   auto* service =
-      sidebar::SidebarServiceFactory::GetForProfile(browser_->profile());
+      sidebar::SidebarServiceFactory::GetForProfile(browser_->GetProfile());
   service->SetSidebarShowOption(static_cast<ShowSidebarOption>(command_id));
 }
 
 bool SidebarControlView::IsCommandIdChecked(int command_id) const {
   const auto* service =
-      sidebar::SidebarServiceFactory::GetForProfile(browser_->profile());
+      sidebar::SidebarServiceFactory::GetForProfile(browser_->GetProfile());
   return static_cast<ShowSidebarOption>(command_id) ==
          service->GetSidebarShowOption();
 }

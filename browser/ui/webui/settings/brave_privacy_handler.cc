@@ -9,7 +9,9 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/values.h"
+#include "brave/browser/brave_origin/brave_origin_service_factory.h"
 #include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
+#include "brave/components/brave_origin/brave_origin_service.h"
 #include "brave/components/brave_origin/buildflags/buildflags.h"
 #include "brave/components/brave_shields/core/common/features.h"
 #include "brave/components/constants/pref_names.h"
@@ -17,10 +19,12 @@
 #include "brave/components/debounce/core/common/features.h"
 #include "brave/components/google_sign_in_permission/google_sign_in_permission_util.h"
 #include "brave/components/p3a/pref_names.h"
+#include "brave/components/psst/buildflags/buildflags.h"
 #include "brave/components/request_otr/common/buildflags/buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/gcm_driver/gcm_buildflags.h"
+#include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -41,6 +45,10 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "brave/components/windows_recall/windows_recall.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PSST)
+#include "brave/components/psst/core/common/features.h"
 #endif
 
 BravePrivacyHandler::BravePrivacyHandler() {
@@ -124,6 +132,26 @@ void BravePrivacyHandler::AddLoadTimeData(content::WebUIDataSource* data_source,
   data_source->AddBoolean(
       "isRequestOTRFeatureEnabled",
       base::FeatureList::IsEnabled(request_otr::features::kBraveRequestOTRTab));
+#endif
+
+#if BUILDFLAG(ENABLE_PSST)
+  auto* brave_origin_service =
+      brave_origin::BraveOriginServiceFactory::GetForProfile(profile);
+  bool is_managed_by_brave_origin = false;
+  if (brave_origin_service) {
+    is_managed_by_brave_origin =
+        brave_origin_service->IsPolicyControlledByBraveOrigin(
+            policy::key::kPsstEnabled);
+  }
+#endif
+
+  data_source->AddBoolean(
+      "isPsstFeatureEnabled",
+#if BUILDFLAG(ENABLE_PSST)
+      base::FeatureList::IsEnabled(psst::features::kEnablePsst) &&
+          !is_managed_by_brave_origin);
+#else
+      false);
 #endif
   data_source->AddBoolean(
       "isGoogleSignInFeatureEnabled",

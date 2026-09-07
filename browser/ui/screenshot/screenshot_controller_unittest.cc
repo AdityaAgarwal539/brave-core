@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
 #include "chrome/browser/image_editor/screenshot_flow.h"
@@ -20,6 +21,9 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/test/clipboard_test_util.h"
+#include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/native_ui_types.h"
@@ -44,10 +48,25 @@ using Result = base::expected<base::FilePath, Error>;
 
 class ScreenshotControllerTest : public ChromeRenderViewHostTestHarness {
  protected:
+  // Stands in for the real (views-based) preview dialog: immediately accepts,
+  // as if the user clicked Download, so the existing save-dialog pipeline
+  // tests don't need to know about the preview step.
+  static void AutoConfirmPreview(
+      gfx::NativeWindow parent,
+      std::vector<uint8_t> png,
+      base::OnceCallback<void(std::vector<uint8_t>)> on_download,
+      base::OnceCallback<void(std::vector<uint8_t>)> on_copy,
+      base::OnceClosure on_cancel) {
+    std::move(on_download).Run(std::move(png));
+  }
+
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
 
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+
+    // Create a TestClipboard for test clipboard operations.
+    ui::TestClipboard::CreateForCurrentThread();
 
     // Install the fake select-file-dialog factory.  It intercepts every
     // SelectFileDialog::Create() call for the lifetime of this test.
@@ -57,11 +76,14 @@ class ScreenshotControllerTest : public ChromeRenderViewHostTestHarness {
     // DownloadPrefs (which requires a full download-service stack).
     const base::FilePath download_dir = temp_dir_.GetPath();
     controller_ = std::make_unique<ScreenshotController>(
-        profile(), base::BindRepeating([]() { return gfx::NativeWindow(); }));
+        profile(), base::BindRepeating([]() { return gfx::NativeWindow(); }),
+        base::BindRepeating(&ScreenshotControllerTest::AutoConfirmPreview));
     controller_->set_download_dir_for_testing(download_dir);
   }
 
   void TearDown() override {
+    // Destroy the test clipboard created in SetUp
+    ui::TestClipboard::DestroyClipboardForCurrentThread();
     controller_.reset();
     ChromeRenderViewHostTestHarness::TearDown();
   }
@@ -94,6 +116,15 @@ class ScreenshotControllerTest : public ChromeRenderViewHostTestHarness {
 
   void SetPendingCallback(ScreenshotController::ResultCallback cb) {
     controller_->pending_callback_ = std::move(cb);
+  }
+
+  // Like InjectBitmap(), but for a caller-owned controller instance (used to
+  // exercise a controller built with a custom PreviewDialogShower).
+  static void InjectBitmapInto(ScreenshotController* controller,
+                               SkBitmap bitmap,
+                               ScreenshotController::ResultCallback cb) {
+    controller->pending_callback_ = std::move(cb);
+    controller->OnVisibleAreaCopied(std::move(bitmap));
   }
 
   // Drives the pipeline from OnRegionCaptured() onward, bypassing
@@ -205,6 +236,86 @@ TEST_F(ScreenshotControllerTest, Pipeline_EmptyBitmap_ReturnsCaptureFailed) {
 }
 
 TEST_F(ScreenshotControllerTest,
+       PreviewDialog_UserCancels_ReturnsUserCancelledWithoutSaveDialog) {
+  base::test::TestFuture<void> preview_shown;
+  base::OnceClosure captured_cancel;
+  auto shower = base::BindLambdaForTesting(
+      [&](gfx::NativeWindow, std::vector<uint8_t>,
+          base::OnceCallback<void(std::vector<uint8_t>)>,
+          base::OnceCallback<void(std::vector<uint8_t>)>,
+          base::OnceClosure on_cancel) {
+        captured_cancel = std::move(on_cancel);
+        preview_shown.SetValue();
+      });
+
+  auto controller = std::make_unique<ScreenshotController>(
+      profile(), base::BindRepeating([]() { return gfx::NativeWindow(); }),
+      shower);
+  controller->set_download_dir_for_testing(temp_dir_.GetPath());
+
+  base::test::TestFuture<Result> future;
+  InjectBitmapInto(controller.get(), MakeSolidBitmap(64, 64, SK_ColorBLUE),
+                   future.GetCallback());
+
+  ASSERT_TRUE(preview_shown.Wait());
+  std::move(captured_cancel).Run();
+
+  EXPECT_EQ(future.Get(), base::unexpected(Error::kUserCancelled));
+  EXPECT_FALSE(dialog_factory_->GetLastDialog());
+}
+
+TEST_F(ScreenshotControllerTest,
+       PreviewDialog_UserCopies_ReturnsSuccessWithoutSaveDialog) {
+  // The test clipboard is already set up by the test harness.
+
+  base::test::TestFuture<void> preview_shown;
+  std::vector<uint8_t> captured_png;
+  base::OnceCallback<void(std::vector<uint8_t>)> captured_copy;
+  auto shower = base::BindLambdaForTesting(
+      [&](gfx::NativeWindow, std::vector<uint8_t> png,
+          base::OnceCallback<void(std::vector<uint8_t>)>,
+          base::OnceCallback<void(std::vector<uint8_t>)> on_copy,
+          base::OnceClosure) {
+        captured_png = std::move(png);
+        captured_copy = std::move(on_copy);
+        preview_shown.SetValue();
+      });
+
+  auto controller = std::make_unique<ScreenshotController>(
+      profile(), base::BindRepeating([]() { return gfx::NativeWindow(); }),
+      shower);
+  controller->set_download_dir_for_testing(temp_dir_.GetPath());
+
+  SkBitmap bitmap = MakeSolidBitmap(64, 64, SK_ColorBLUE);
+  const int bitmap_width = bitmap.width();
+  const int bitmap_height = bitmap.height();
+
+  base::test::TestFuture<Result> future;
+  InjectBitmapInto(controller.get(), std::move(bitmap), future.GetCallback());
+
+  ASSERT_TRUE(preview_shown.Wait());
+  ASSERT_FALSE(captured_png.empty());
+  ASSERT_FALSE(captured_copy.is_null());
+  std::move(captured_copy).Run(std::move(captured_png));
+
+  Result result = future.Get();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(result.value().empty());
+  EXPECT_FALSE(dialog_factory_->GetLastDialog());
+
+  // Verify the image was actually written to clipboard
+  // Read the PNG that was written to clipboard and decode it
+  std::vector<uint8_t> clipboard_png = ui::clipboard_test_util::ReadPng(
+      ui::Clipboard::GetForCurrentThread(), ui::ClipboardBuffer::kCopyPaste,
+      /*data_dst=*/nullptr);
+  ASSERT_FALSE(clipboard_png.empty());
+  SkBitmap clipboard_bitmap = gfx::PNGCodec::Decode(clipboard_png);
+  EXPECT_EQ(clipboard_bitmap.width(), bitmap_width);
+  EXPECT_EQ(clipboard_bitmap.height(), bitmap_height);
+  EXPECT_EQ(clipboard_bitmap.getColor(0, 0), SK_ColorBLUE);
+}
+
+TEST_F(ScreenshotControllerTest,
        Pipeline_UserCancelsDialog_ReturnsUserCancelled) {
   // Signal when the fake dialog is opened so we can cancel it from outside
   // the callback (avoiding re-entrant dialog destruction).
@@ -231,7 +342,7 @@ TEST_F(ScreenshotControllerTest,
   dialog_factory_->SetOpenCallback(dialog_opened.GetRepeatingCallback());
 
   base::test::TestFuture<Result> future;
-  InjectBitmap(MakeSolidBitmap(64, 64, SK_ColorGREEN), future.GetCallback());
+  InjectBitmap(MakeSolidBitmap(1200, 675, SK_ColorGREEN), future.GetCallback());
 
   ASSERT_TRUE(dialog_opened.Wait());
 
@@ -245,7 +356,17 @@ TEST_F(ScreenshotControllerTest,
   Result result = future.Get();
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), save_path);
-  EXPECT_TRUE(base::PathExists(save_path));
+  ASSERT_TRUE(base::PathExists(save_path));
+
+  // The preview dialog only ever sees a copy of the encoded PNG for display;
+  // the bytes written to disk must still be the original, full-resolution
+  // capture.
+  std::optional<std::vector<uint8_t>> saved_bytes =
+      base::ReadFileToBytes(save_path);
+  ASSERT_TRUE(saved_bytes);
+  SkBitmap saved_bitmap = gfx::PNGCodec::Decode(*saved_bytes);
+  EXPECT_EQ(saved_bitmap.width(), 1200);
+  EXPECT_EQ(saved_bitmap.height(), 675);
 }
 
 TEST_F(ScreenshotControllerTest,

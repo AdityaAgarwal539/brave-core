@@ -30,10 +30,10 @@ void RegisterProfilePrefs(PrefRegistrySimple* const registry) {
 
   registry->RegisterStringPref(prefs::kDiagnosticId, "");
 
-  registry->RegisterBooleanPref(prefs::kOptedInToNotificationAds, false);
+  registry->RegisterBooleanPref(prefs::kNotificationsEnabled, false);
   registry->RegisterInt64Pref(prefs::kMaximumNotificationAdsPerHour, -1);
 
-  registry->RegisterBooleanPref(prefs::kOptedInToSearchResultAds, true);
+  registry->RegisterBooleanPref(prefs::kSponsoredEnabled, true);
 
   registry->RegisterBooleanPref(prefs::kShouldAllowSubdivisionTargeting, false);
   registry->RegisterStringPref(
@@ -60,8 +60,6 @@ void RegisterProfilePrefs(PrefRegistrySimple* const registry) {
   registry->RegisterDictionaryPref(prefs::kSegmentReactions);
   registry->RegisterListPref(prefs::kSaveAds);
   registry->RegisterListPref(prefs::kMarkedAsInappropriate);
-
-  registry->RegisterBooleanPref(prefs::kHasMigratedClientState, false);
 
   registry->RegisterStringPref(prefs::kBrowserVersionNumber, "");
 

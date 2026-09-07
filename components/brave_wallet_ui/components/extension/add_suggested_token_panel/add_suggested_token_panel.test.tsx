@@ -8,8 +8,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 
 // Utils
-import BraveCoreThemeProvider from '../../../../common/BraveCoreThemeProvider'
-import { createMockStore } from '../../../utils/test-utils'
+import {
+  createMockStore,
+  WalletTestThemeProvider,
+} from '../../../utils/test-utils'
 
 // Components
 import { AddSuggestedTokenPanel } from './add_suggested_token_panel'
@@ -19,9 +21,9 @@ describe('AddSuggestedTokenPanel', () => {
     const store = createMockStore({})
     const { container } = render(
       <Provider store={store}>
-        <BraveCoreThemeProvider>
+        <WalletTestThemeProvider>
           <AddSuggestedTokenPanel />
-        </BraveCoreThemeProvider>
+        </WalletTestThemeProvider>
       </Provider>,
     )
 
@@ -32,22 +34,22 @@ describe('AddSuggestedTokenPanel', () => {
 
       // Panel Title
       expect(
-        screen.getByText('braveWalletAddSuggestedTokenTitle'),
+        screen.getByText(S.BRAVE_WALLET_ADD_SUGGESTED_TOKEN_TITLE),
       ).toBeInTheDocument()
 
       // Panel Description
       expect(
-        screen.getByText('braveWalletAddSuggestedTokenDescription'),
+        screen.getByText(S.BRAVE_WALLET_ADD_SUGGESTED_TOKEN_DESCRIPTION),
       ).toBeInTheDocument()
 
       // Token Description
       expect(
-        screen.getByText('braveWalletPortfolioAssetNetworkDescription'),
+        screen.getByText(S.BRAVE_WALLET_PORTFOLIO_ASSET_NETWORK_DESCRIPTION),
       ).toBeInTheDocument()
 
       // Buttons
-      expect(screen.getByText('braveWalletButtonCancel')).toBeInTheDocument()
-      expect(screen.getByText('braveWalletAddToken')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_BUTTON_CANCEL)).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_ADD_TOKEN)).toBeInTheDocument()
     })
   })
 })

@@ -130,6 +130,11 @@ class ContentAgentToolProviderBrowserTest : public InProcessBrowserTest {
     InProcessBrowserTest::SetUpOnMainThread();
 
     host_resolver()->AddRule("*", "127.0.0.1");
+    // Actor test data upstream lives under components.
+    embedded_test_server()->ServeFilesFromSourceDirectory(
+        "components/test/data");
+    embedded_https_test_server().ServeFilesFromSourceDirectory(
+        "components/test/data");
     // Also serve Brave's test data (in addition to the default chrome/test/data
     // handlers) so tests can load fixtures from //brave/test/data/leo. The
     // navigation tool only navigates to https:// URLs, so serve over https too.
@@ -141,14 +146,14 @@ class ContentAgentToolProviderBrowserTest : public InProcessBrowserTest {
     ASSERT_TRUE(embedded_https_test_server().Start());
 
     // Create the agent profile
-    auto* profile = browser()->profile();
+    auto* profile = browser()->GetProfile();
     SetUserOptedIn(profile->GetPrefs(), true);
     base::test::TestFuture<Browser*> browser_future;
     OpenBrowserWindowForAIChatAgentProfileForTesting(
         *profile, browser_future.GetCallback());
     Browser* browser = browser_future.Take();
     ASSERT_NE(browser, nullptr);
-    agent_profile_ = browser->profile();
+    agent_profile_ = browser->GetProfile();
     agent_browser_window_ = browser;
 
     // Get the actor service

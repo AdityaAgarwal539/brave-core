@@ -8,8 +8,10 @@ import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 
 // Utils
-import BraveCoreThemeProvider from '../../../../common/BraveCoreThemeProvider'
-import { createMockStore } from '../../../utils/test-utils'
+import {
+  createMockStore,
+  WalletTestThemeProvider,
+} from '../../../utils/test-utils'
 
 // Components
 import { EditSpendLimit } from './edit_spend_limit'
@@ -19,7 +21,7 @@ describe('EditSpendLimit', () => {
     const store = createMockStore({})
     return render(
       <Provider store={store}>
-        <BraveCoreThemeProvider>
+        <WalletTestThemeProvider>
           <EditSpendLimit
             onCancel={jest.fn()}
             onSave={jest.fn()}
@@ -28,7 +30,7 @@ describe('EditSpendLimit', () => {
             approvalTarget='Uniswap V3'
             isApprovalUnlimited={false}
           />
-        </BraveCoreThemeProvider>
+        </WalletTestThemeProvider>
       </Provider>,
     )
   }
@@ -37,16 +39,18 @@ describe('EditSpendLimit', () => {
     renderComponent()
 
     expect(
-      screen.getByText('braveWalletEditPermissionsDescription'),
+      screen.getByText(S.BRAVE_WALLET_EDIT_PERMISSIONS_DESCRIPTION),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('braveWalletProposedSpendLimit'),
+      screen.getByText(S.BRAVE_WALLET_PROPOSED_SPEND_LIMIT),
     ).toBeInTheDocument()
     expect(screen.getByText('100 ETH')).toBeInTheDocument()
-    expect(screen.getByText('braveWalletCustomSpendLimit')).toBeInTheDocument()
-    expect(screen.getByText('braveWalletButtonCancel')).toBeInTheDocument()
     expect(
-      screen.getByText('braveWalletAccountSettingsSave'),
+      screen.getByText(S.BRAVE_WALLET_CUSTOM_SPEND_LIMIT),
+    ).toBeInTheDocument()
+    expect(screen.getByText(S.BRAVE_WALLET_BUTTON_CANCEL)).toBeInTheDocument()
+    expect(
+      screen.getByText(S.BRAVE_WALLET_ACCOUNT_SETTINGS_SAVE),
     ).toBeInTheDocument()
   })
 })

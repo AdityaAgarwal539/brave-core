@@ -66,8 +66,6 @@ const GetBalanceSection = (props: GetBalanceSectionProps) => {
   const [makeAccountShieldableResult, setMakeAccountShieldableResult] =
     React.useState<string>()
   const [syncStatusResult, setSyncStatusResult] = React.useState<string>()
-  const [shieldedBalanceValue, setShieldedBalanceValue] =
-    React.useState<string>()
   const [accountBirthdayValue, setAccountBirthdayValue] =
     React.useState<string>()
   const [syncBlockLimit, setSyncBlockLimit] = React.useState<string>()
@@ -116,6 +114,19 @@ const GetBalanceSection = (props: GetBalanceSectionProps) => {
     }
   }
 
+  const resetSyncStateToIronwoodActivation = async () => {
+    const result =
+      await getAPIProxy().zcashWalletService.resetSyncStateToIronwoodActivation(
+        props.accountId,
+      )
+    if (result.errorMessage) {
+      setSyncStatusResult('Reset error ' + result.errorMessage)
+    } else {
+      setSyncStatusResult('Rewound to Ironwood activation')
+      props.onAccountInfoChanged()
+    }
+  }
+
   const shieldAllFunds = async () => {
     let { txId, errorMessage } =
       await getAPIProxy().zcashWalletService.shieldAllFunds(props.accountId)
@@ -160,7 +171,6 @@ const GetBalanceSection = (props: GetBalanceSectionProps) => {
                 + '/'
                 + status.totalRanges,
             )
-            setShieldedBalanceValue('Found balance: ' + status.spendableBalance)
           }
         },
         onSyncError: (accountId: BraveWallet.AccountId, error: string) => {
@@ -214,6 +224,9 @@ const GetBalanceSection = (props: GetBalanceSectionProps) => {
           <button onClick={resetAccountSyncState}>
             Reset account sync state
           </button>
+          <button onClick={resetSyncStateToIronwoodActivation}>
+            Reset sync to Ironwood activation
+          </button>
 
           <button onClick={fetchBalance}>Reload</button>
           <button onClick={shieldAllFunds}>Shield</button>
@@ -221,7 +234,8 @@ const GetBalanceSection = (props: GetBalanceSectionProps) => {
           <h3>sync status: {syncStatusResult}</h3>
           <h3>shield result: {shieldResult}</h3>
           <h3>balance: {balance?.totalBalance.toString()}</h3>
-          <h3>shielded balance: {shieldedBalanceValue}</h3>
+          <h3>orchard balance: {balance?.orchardBalance.toString()}</h3>
+          <h3>ironwood balance: {balance?.ironwoodBalance.toString()}</h3>
 
           <ul>
             {balance?.balances

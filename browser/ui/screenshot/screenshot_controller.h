@@ -56,11 +56,24 @@ class ScreenshotController : public ui::SelectFileDialog::Listener {
   // creation, after the browser window is fully initialized.
   using NativeWindowGetter = base::RepeatingCallback<gfx::NativeWindow()>;
 
+  // Shows a preview of the captured `png` and asks the user to confirm
+  // before saving. Exactly one of `on_download` (with `png` handed back),
+  // `on_copy`, or `on_cancel` is run once, depending on whether the user
+  // confirms (download), copies to clipboard, or dismisses the dialog.
+  using PreviewDialogShower = base::RepeatingCallback<void(
+      gfx::NativeWindow parent,
+      std::vector<uint8_t> png,
+      base::OnceCallback<void(std::vector<uint8_t>)> on_download,
+      base::OnceCallback<void(std::vector<uint8_t>)> on_copy,
+      base::OnceClosure on_cancel)>;
+
   ScreenshotController(content::BrowserContext* profile,
-                       NativeWindowGetter parent_window_getter);
+                       NativeWindowGetter parent_window_getter,
+                       PreviewDialogShower preview_dialog_shower);
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
   ScreenshotController(content::BrowserContext* profile,
                        NativeWindowGetter parent_window_getter,
+                       PreviewDialogShower preview_dialog_shower,
                        std::unique_ptr<screenshot::PrintPreviewExtractor>
                            print_preview_extractor);
 #endif
@@ -108,14 +121,21 @@ class ScreenshotController : public ui::SelectFileDialog::Listener {
 #endif
 
   void OnEncoded(std::optional<std::vector<uint8_t>> png);
+  // Shows the preview dialog for `png`; proceeds to ShowSaveDialog() if the
+  // user clicks Download, copies to clipboard via CopyToClipboard() if they
+  // click Copy, or finishes with kUserCancelled otherwise.
+  void ShowPreviewDialog(std::vector<uint8_t> png);
   void ShowSaveDialog(std::vector<uint8_t> png);
   void ShowSaveDialogWithPath(const base::FilePath& default_path);
+  void CopyToClipboard(std::vector<uint8_t> png);
+
   // Reply callback for WritePngFile posted from FileSelected().
   void OnFileWritten(const base::FilePath& path, bool ok);
   void FinishWithError(Error error);
   void Reset();
 
   NativeWindowGetter parent_window_getter_;
+  PreviewDialogShower preview_dialog_shower_;
 
   // Pending operation state. Set on entry, cleared on Reset().
   ResultCallback pending_callback_;

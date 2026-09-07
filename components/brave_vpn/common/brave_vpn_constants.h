@@ -6,6 +6,7 @@
 #ifndef BRAVE_COMPONENTS_BRAVE_VPN_COMMON_BRAVE_VPN_CONSTANTS_H_
 #define BRAVE_COMPONENTS_BRAVE_VPN_COMMON_BRAVE_VPN_CONSTANTS_H_
 
+#include "build/build_config.h"
 #include "build/buildflag.h"
 
 namespace brave_vpn {
@@ -20,6 +21,10 @@ inline constexpr char kManageUrlDev[] =
 inline constexpr char kFeedbackUrl[] = "https://support.brave.app/";
 inline constexpr char kAboutUrl[] = "https://brave.com/firewall-vpn/";
 
+// TODO(https://github.com/brave/brave-browser/issues/54596)
+// Remove everything under v1::endpoints namespace, as this is now deprecated
+// and only used in BraveVPN V1 code.
+namespace v1::endpoints {
 inline constexpr char kRegionNameKey[] = "name";
 inline constexpr char kRegionNamePrettyKey[] = "name-pretty";
 inline constexpr char kRegionCountryKey[] = "country";
@@ -39,7 +44,10 @@ inline constexpr char kSupportTicketEmailKey[] = "email";
 inline constexpr char kSupportTicketSubjectKey[] = "subject";
 inline constexpr char kSupportTicketSupportTicketKey[] = "support-ticket";
 inline constexpr char kSupportTicketPartnerClientIdKey[] = "partner-client-id";
-inline constexpr char kSupportTicketTimezoneKey[] = "timezone";
+inline constexpr char kSupportTicketSubscriberCredential[] =
+    "subscriber-credential";
+inline constexpr char kSupportTicketPaymentValidationMethodKey[] =
+    "payment-validation-method";
 
 inline constexpr char kVpnHost[] = "connect-api.guardianapp.com";
 inline constexpr char kServerRegionsWithCities[] =
@@ -54,6 +62,8 @@ inline constexpr char kVerifyPurchaseToken[] = "api/v1.1/verify-purchase-token";
 inline constexpr char kCreateSubscriberCredentialV12[] =
     "api/v1.2/subscriber-credential/create";
 inline constexpr char kServerStatus[] = "api/v1.3/server-status";
+}  // namespace v1::endpoints
+
 inline constexpr int kP3AIntervalHours = 24;
 
 inline constexpr char kSubscriberCredentialKey[] = "credential";
@@ -63,9 +73,12 @@ inline constexpr char kSubscriberCredentialExpirationKey[] = "expiration";
 inline constexpr char kProxyUrl[] =
     "https://connect-api.guardianapp.com/api/v1/smart-proxy-routing/static-pac";
 
-#if !BUILDFLAG(IS_ANDROID)
+// Keys of the SKUS credential-summary JSON response.
+inline constexpr char kCredentialSummaryActiveKey[] = "active";
+inline constexpr char kCredentialSummaryRemainingCredentialCountKey[] =
+    "remaining_credential_count";
+
 inline constexpr char kTokenNoLongerValid[] = "Token No Longer Valid";
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace brave_vpn
 

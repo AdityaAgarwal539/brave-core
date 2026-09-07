@@ -42,7 +42,6 @@ export type HardwareWalletResponseCodeType =
   | 'deviceBusy'
   | 'openLedgerApp'
   | 'transactionRejected'
-  | 'unauthorized'
 
 export type TokenPriceHistory = {
   date: SerializableTimeDelta
@@ -150,8 +149,15 @@ export interface UIState {
   selectedPendingTransactionId?: string | undefined
   transactionProviderErrorRegistry: TransactionProviderErrorRegistry
   isPanel: boolean
+  isSidePanel: boolean
   isMobile: boolean
   isIOS: boolean
+  selectedTransactionId?: TransactionInfoLookup
+  /**
+   * Set while a transaction is being submitted (e.g. ZCash); keeps confirm UI
+   * visible until status is shown.
+   */
+  submittingTransaction?: SerializableTransactionInfo
 }
 
 export interface WalletState {
@@ -169,6 +175,7 @@ export interface WalletState {
   isAnkrBalancesFeatureEnabled: boolean
   isRefreshingNetworksAndTokens: boolean
   isZCashShieldedTransactionsEnabled: boolean
+  isZCashIronwoodEnabled: boolean
   isCardanoEnabled: boolean
   isCardanoDappSupportEnabled: boolean
   isPolkadotEnabled: boolean
@@ -180,12 +187,6 @@ export interface PanelState {
   selectedPanel: PanelTypes
   connectingAccounts: string[]
   hardwareWalletCode?: HardwareWalletResponseCodeType
-  selectedTransactionId?: TransactionInfoLookup
-  /**
-   * Set while a transaction is being submitted (e.g. ZCash); keeps panel on
-   * pending view until status is shown.
-   */
-  submittingTransaction?: SerializableTransactionInfo
 }
 
 export interface PageState {
@@ -281,7 +282,7 @@ export interface SendBtcTransactionParams extends BaseTransactionParams {
 }
 
 export interface SendZecTransactionParams extends BaseTransactionParams {
-  useShieldedPool: boolean
+  zcashTokenType: BraveWallet.ZCashTokenType
   sendingMaxAmount: boolean
   memo: number[] | undefined
 }
@@ -362,19 +363,6 @@ export interface SlippagePresetObjectType {
   slippage: number
 }
 
-export interface ExpirationPresetObjectType {
-  id: number
-  name: string
-  expiration: number
-}
-
-export type AmountPresetTypes = 0 | 0.25 | 0.5 | 0.75 | 1
-
-export interface AmountPresetObjectType {
-  name: string
-  value: AmountPresetTypes
-}
-
 export type TransactionDataType = {
   functionName: string
   parameters: string
@@ -393,7 +381,6 @@ export type AllowSpendReturnPayload = {
 
 export const BuySupportedChains = [
   BraveWallet.MAINNET_CHAIN_ID,
-  BraveWallet.LOCALHOST_CHAIN_ID,
   BraveWallet.POLYGON_MAINNET_CHAIN_ID,
   BraveWallet.BNB_SMART_CHAIN_MAINNET_CHAIN_ID,
   BraveWallet.AVALANCHE_MAINNET_CHAIN_ID,
@@ -467,13 +454,15 @@ export enum WalletRoutes {
   // onboarding complete
   OnboardingComplete = '/crypto/onboarding/complete',
 
-  // fund wallet page
-  FundWalletPageStart = '/crypto/fund-wallet',
+  // buy
+  BuyPageStart = '/crypto/buy',
+  BuyPageDeprecated = '/crypto/fund-wallet',
 
-  // deposit funds
-  DepositFundsPageStart = '/crypto/deposit-funds',
-  DepositFundsPage = '/crypto/deposit-funds/:assetId?',
-  DepositFundsAccountPage = '/crypto/deposit-funds/:assetId/account',
+  // deposit
+  DepositPageStart = '/crypto/deposit',
+  DepositPage = '/crypto/deposit/:assetId?',
+  DepositAccountPage = '/crypto/deposit/:assetId/account',
+  DepositPageDeprecated = '/crypto/deposit-funds',
 
   // explore
   Explore = '/crypto/explore',
@@ -481,9 +470,6 @@ export enum WalletRoutes {
   // market
   Market = '/crypto/explore/market',
   MarketSub = '/crypto/explore/market/:coingeckoId?',
-
-  // Web3
-  Web3 = '/crypto/explore/web3',
 
   // accounts
   Accounts = '/crypto/accounts',
@@ -527,12 +513,16 @@ export enum WalletRoutes {
   AddAssetModal = '/crypto/portfolio/add-asset',
 
   // swap
-  Swap = '/swap',
+  Swap = '/crypto/swap',
+  SwapDeprecated = '/swap',
 
   // send
-  Send = '/send',
+  Send = '/crypto/send',
+  SendDeprecated = '/send',
 
-  Bridge = '/bridge',
+  // bridge
+  Bridge = '/crypto/bridge',
+  BridgeDeprecated = '/bridge',
 
   // dev bitcoin screen
   DevBitcoin = '/dev-bitcoin',
@@ -632,22 +622,8 @@ export interface TransactionProviderErrorRegistry {
   [transactionId: string]: TransactionProviderError
 }
 
-export const SupportedOffRampNetworks = [
-  BraveWallet.SOLANA_MAINNET,
-  BraveWallet.MAINNET_CHAIN_ID, // ETH
-  BraveWallet.POLYGON_MAINNET_CHAIN_ID,
-  BraveWallet.BNB_SMART_CHAIN_MAINNET_CHAIN_ID,
-  BraveWallet.AVALANCHE_MAINNET_CHAIN_ID,
-  BraveWallet.FANTOM_MAINNET_CHAIN_ID,
-  BraveWallet.CELO_MAINNET_CHAIN_ID,
-  BraveWallet.OPTIMISM_MAINNET_CHAIN_ID,
-  BraveWallet.ARBITRUM_MAINNET_CHAIN_ID,
-  BraveWallet.BITCOIN_MAINNET,
-]
-
 export const SupportedTestNetworks = [
   BraveWallet.SEPOLIA_CHAIN_ID,
-  BraveWallet.LOCALHOST_CHAIN_ID,
   BraveWallet.SOLANA_DEVNET,
   BraveWallet.SOLANA_TESTNET,
   BraveWallet.FILECOIN_TESTNET,
@@ -661,11 +637,6 @@ export const SupportedTestNetworks = [
 ]
 
 export const SupportedTestNetworkEntityIds: EntityId[] = [
-  `${BraveWallet.LOCALHOST_CHAIN_ID}-${BraveWallet.CoinType.BTC}`,
-  `${BraveWallet.LOCALHOST_CHAIN_ID}-${BraveWallet.CoinType.ETH}`,
-  `${BraveWallet.LOCALHOST_CHAIN_ID}-${BraveWallet.CoinType.FIL}`,
-  `${BraveWallet.LOCALHOST_CHAIN_ID}-${BraveWallet.CoinType.SOL}`,
-  `${BraveWallet.LOCALHOST_CHAIN_ID}-${BraveWallet.CoinType.ZEC}`,
   BraveWallet.SEPOLIA_CHAIN_ID,
   BraveWallet.SOLANA_DEVNET,
   BraveWallet.SOLANA_TESTNET,
@@ -859,7 +830,6 @@ export type NavIDTypes =
   | 'available_assets'
   | 'bridge'
   | 'explore'
-  | 'web3'
   | 'connections'
 
 export type AccountPageTabs =
@@ -967,11 +937,6 @@ export const BitcoinNetworkLocaleMapping = {
 export const ZCashNetworkLocaleMapping = {
   [BraveWallet.Z_CASH_MAINNET]: 'ZCash Mainnet',
   [BraveWallet.Z_CASH_TESTNET]: 'ZCash Testnet',
-}
-
-export type GasFeeOption = {
-  id: string
-  name: string
 }
 
 export type GasEstimate = {

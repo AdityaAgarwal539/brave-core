@@ -1,12 +1,34 @@
 diff --git a/chrome/browser/ui/omnibox/omnibox_edit_model.cc b/chrome/browser/ui/omnibox/omnibox_edit_model.cc
-index 5b6bc55db3e309442630486714387f118171b053..03c61b9ff34c6352de0cce1c2f84f39da3794a34 100644
+index 358f0d752010909849cdd5847fbb33907c0ba2ac..e861fb9a262c604e3a50dc2cfe9d3517f3b77430 100644
 --- a/chrome/browser/ui/omnibox/omnibox_edit_model.cc
 +++ b/chrome/browser/ui/omnibox/omnibox_edit_model.cc
-@@ -717,6 +717,7 @@ void OmniboxEditModel::StartAutocomplete(bool prevent_inline_autocomplete) {
-     input_.set_lens_overlay_suggest_inputs(*suggest_inputs);
-   }
+@@ -538,6 +538,10 @@ bool OmniboxEditModel::ShouldShowCurrentPageIcon() const {
  
-+  BRAVE_OMNIBOX_EDIT_MODEL_START_AUTOCOMPLETE
-   controller_->StartAutocomplete(input_);
+ ui::ImageModel OmniboxEditModel::GetSuperGIcon(int image_size,
+                                                bool dark_mode) const {
++  if ((true)) {
++    return ui::ImageModel::FromVectorIcon(vector_icons::kGoogleColorIcon,
++                                          gfx::kPlaceholderColor, image_size);
++  }
+ #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+   if (dark_mode) {
+     return ui::ImageModel::FromVectorIcon(
+@@ -684,6 +688,8 @@ void OmniboxEditModel::Revert() {
+ }
+ 
+ void OmniboxEditModel::StartAutocomplete(bool prevent_inline_autocomplete) {
++  auto pasted = SetInputIsPastedFromClipboard(
++      controller_, paste_state_ != PasteState::kNone);
+   const std::u16string input_text = MaybePrependKeyword(user_text_);
+ 
+   // This method currently only works when there's a view, but ideally the
+@@ -732,6 +738,9 @@ void OmniboxEditModel::StartAutocomplete(bool prevent_inline_autocomplete) {
+ }
+ 
+ bool OmniboxEditModel::CanPasteAndGo(const std::u16string& text) const {
++  if (IsBraveCommanderCommand(text)) {
++    return false;
++  }
+   return searchbox::CanPasteAndGo(controller_->client(), text);
  }
  

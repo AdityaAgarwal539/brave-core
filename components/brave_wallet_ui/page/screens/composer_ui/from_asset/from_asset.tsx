@@ -13,6 +13,7 @@ import {
   getBalance,
   getPercentAmount,
 } from '../../../../utils/balance-utils'
+import { isShieldedToken } from '../../../../utils/asset-utils'
 import { getLocale } from '../../../../../common/locale'
 import {
   computeFiatAmount,
@@ -193,7 +194,7 @@ export const FromAsset = (props: Props) => {
           textSize='14px'
           isBold={false}
         >
-          {getLocale('braveWalletFrom')}
+          {getLocale(S.BRAVE_WALLET_FROM)}
         </FromText>
       )
     }
@@ -241,7 +242,7 @@ export const FromAsset = (props: Props) => {
                   6,
                 )}
               </BalanceText>
-              {token.isShielded && <ShieldedLabel />}
+              {isShieldedToken(token) && <ShieldedLabel />}
               {token.coin === BraveWallet.CoinType.BTC && hasPendingBalance && (
                 <>
                   <BalanceText
@@ -249,7 +250,7 @@ export const FromAsset = (props: Props) => {
                     isBold={true}
                     textColor='primary'
                   >
-                    {`(${getLocale('braveWalletAvailable')})`}
+                    {`(${getLocale(S.BRAVE_WALLET_AVAILABLE)})`}
                   </BalanceText>
                   <div>
                     <Button
@@ -259,7 +260,7 @@ export const FromAsset = (props: Props) => {
                     >
                       <Row>
                         <InfoIcon />
-                        {getLocale('braveWalletDetails')}
+                        {getLocale(S.BRAVE_WALLET_DETAILS)}
                       </Row>
                     </Button>
                   </div>
@@ -312,11 +313,11 @@ export const FromAsset = (props: Props) => {
           {token && !token.isNft && account !== undefined && (
             <Row width='unset'>
               <PresetButton onClick={() => setPresetAmountValue(0.5)}>
-                {getLocale('braveWalletSendHalf')}
+                {getLocale(S.BRAVE_WALLET_SEND_HALF)}
               </PresetButton>
               <HorizontalSpace space='8px' />
               <PresetButton onClick={() => setPresetAmountValue(1)}>
-                {getLocale('braveWalletSendMax')}
+                {getLocale(S.BRAVE_WALLET_SEND_MAX)}
               </PresetButton>
             </Row>
           )}
@@ -332,7 +333,7 @@ export const FromAsset = (props: Props) => {
               onClick={onClickSelectToken}
               token={token}
               selectedSendOption={token?.isNft ? '#nft' : '#token'}
-              placeholderText={getLocale('braveWalletChooseAsset')}
+              placeholderText={getLocale(S.BRAVE_WALLET_CHOOSE_ASSET)}
             />
           </Row>
           {!token?.isNft && (
@@ -358,7 +359,7 @@ export const FromAsset = (props: Props) => {
               isBold={false}
               textColor='secondary'
             >
-              {getLocale('braveWalletPortfolioAssetNetworkDescription')
+              {getLocale(S.BRAVE_WALLET_PORTFOLIO_ASSET_NETWORK_DESCRIPTION)
                 .replace('$1', '')
                 .replace('$2', network.chainName)}
             </NetworkText>

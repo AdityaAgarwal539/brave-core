@@ -79,6 +79,9 @@
 /* Label for account when indicating that a domain has multiple accounts */
 "autofill.managePassword.multipleAccounts" = "الحسابات";
 
+/* The reason string shown in the biometric/passcode authentication prompt when the user tries to access autofill management. */
+"autofill.managePasswords.authenticationReason" = "يرجى المصادقة لإدارة كلمات المرور الخاصة بك.";
+
 /* Alert message warning the user that deleting non-synced passwords will permanently remove them */
 "autofill.managePasswords.deleteCredentialConfirmMessage" = "سيؤدي هذا إلى إزالة كلمة (كلمات) المرور المحفوظة لـ %@ من سلسلة المزامنة ومن جهازك.";
 
@@ -87,6 +90,9 @@
 
 /* Label for the button used to delete the current login. */
 "autofill.managePasswords.deleteManagePasswordButtonTitle" = "حذف";
+
+/* Label for the button used to confirm delete action for the current password. */
+"autofill.managePasswords.deleteManagePasswordConfrimButtonTitle" = "حذف كلمة المرور";
 
 /* Title for the section header in the Manage Passwords list screen, that lists the saved sites */
 "autofill.managePasswords.headerTitle" = "تم الحفظ";
@@ -99,6 +105,18 @@
 
 /* Display text for the option to offer to save passwords */
 "autofill.managePasswords.offerToSavePasswords" = "عرض حفظ كلمات المرور";
+
+/* Navigation title when creating a new saved login from password management */
+"autofill.managePasswords.passwordDetail.addCredentialTitle" = "إضافة كلمة مرور";
+
+/* Alert message warning the user that deleting the password will remove it from their sync chain and device */
+"autofill.managePasswords.passwordDetail.deleteConfirmMessage" = "ستتم إزالة كلمة المرور هذه من سلسلة المزامنة الخاصة بك ومن جهازك.";
+
+/* Placeholder for the password field when adding or editing a login */
+"autofill.managePasswords.passwordDetail.inputPasswordPlaceholder" = "أدخل كلمة المرور";
+
+/* Reveal password label */
+"autofill.managePasswords.passwordDetail.revealPassword" = "إظهار";
 
 /* Prompt that is diplayed in the search bar of the Manage Passwords list screen */
 "autofill.managePasswords.searchWebsitesPrompt" = "البحث في المواقع الإلكترونية";
@@ -1000,12 +1018,6 @@
 /* Abbreviation for 'Month', use full word' Month' if this word can't be shortened in your language */
 "monthAbbreviation" = "شهر";
 
-/* No comment provided by engineer. */
-"MyFirstAdBody" = "انقر هنا لمعرفة المزيد.";
-
-/* No comment provided by engineer. */
-"MyFirstAdTitle" = "هذا هو أول إعلانات Brave";
-
 /* Bookmark title / Device name */
 "Name" = "الاسم";
 
@@ -1534,7 +1546,7 @@
 /* Title for the Playlist Settings Option for Enable/Disable Auto-Play */
 "playlist.playlistAutoPlaySettingsOptionTitle" = "التشغيل التلقائي";
 
-/* Auto Download turn Off Option */
+/* Auto Cache turn Off Option */
 "playlist.playlistAutoSaveOptionOff" = "إيقاف";
 
 /* Auto Save turn On Option */
@@ -1543,10 +1555,10 @@
 /* Option Text for Auto Save Only Wi-Fi Option */
 "playlist.playlistAutoSaveOptionOnlyWifi" = "Wi-Fi فقط";
 
-/* Description for the Playlist Settings Option for Auto Save Videos for Offline (Off/On/Only Wi-fi) */
-"playlist.playlistAutoSaveSettingsDescription" = "يمكن أن تؤدي إضافة ملفات الفيديو والصوت للاستخدام في وضع عدم الاتصال إلى استخدام مساحة تخزين كبيرة على جهازك بالإضافة إلى استخدام بياناتك الخلوية";
+/* Description for the Playlist Settings Option for Auto Caching media (Off/On/Only Wi-fi) */
+"playlist.playlistAutoSaveSettingsDescription" = "قد يستهلك تخزين ملفات الفيديو والصوت مؤقتًا بيانات الشبكة الخلوية ومساحة التخزين على جهازك";
 
-/* Footer Text for the Playlist Settings Option for Auto Save Videos for Offline (Off/On/Only Wi-fi)) */
+/* Footer Text for the Playlist Settings Option for media Auto Cache (Off/On/Only Wi-fi)) */
 "playlist.playlistAutoSaveSettingsFooterText" = "بمجرد فتح محتوى في قائمة التشغيل، سيحتفظ هذا الخيار بعناصر قائمة التشغيل المفتوحة على جهازك حتى تتمكن من تشغيلها دون اتصال بالإنترنت.";
 
 /* Title for the Playlist Settings Option for Auto Save Videos for Offline (Off/On/Only Wi-fi) */
@@ -1556,7 +1568,7 @@
 "playlist.playlistDiskSpaceAddAnywayButtonTitle" = "إضافة على أي حال";
 
 /* When the user's disk space is almost full */
-"playlist.playlistDiskSpaceWarningMessage" = "جهازك منخفض على المساحة. قد تفشل إضافة هذا الفيديو إلى قائمة التشغيل أو تؤثر على التنزيلات الأخرى.";
+"playlist.playlistDiskSpaceWarningMessage" = "جهازك منخفض على المساحة. قد تفشل إضافة هذا الفيديو إلى قائمة التشغيل أو تؤثر على مقاطع الفيديو الأخرى المخزنة مؤقتًا.";
 
 /* When the user's disk space is almost full */
 "playlist.playlistDiskSpaceWarningTitle" = "التخزين ممتلئ تقريبًا";
@@ -1567,20 +1579,17 @@
 /* Title for the Playlist Settings Option for long press gesture */
 "playlist.playlistLongPressSettingsOptionTitle" = "تمكين الضغط لفترة طويلة";
 
-/* Text for Playlist Media & Offline Data Toggle while clearing the offline data storage in settings */
-"playlist.playlistMediaAndOfflineDataToggleOption" = "وسائط قائمة التشغيل والبيانات غير المتصلة بالإنترنت";
-
-/* Text for Playlist Offline Data Toggle while clearing the offline data storage in settings */
-"playlist.playlistOfflineDataToggleOption" = "بيانات قائمة التشغيل دون اتصال بالإنترنت";
+/* Text for Playlist Data Toggle for clearing the cache in settings */
+"playlist.playlistOfflineDataToggleOption" = "بيانات قائمة التشغيل";
 
 /* Title of a button displayed when first adding some media to Playlist. Its shown next to the name of a folder that the item is recently added to to imply that you are changing the folder it was saved to */
 "playlist.playlistPopoverChangeFoldersButtonTitle" = "تغيير";
 
-/* The title for the alert that shows up when removing all videos and their offline mode storage. */
+/* The title for the alert that shows up when removing all playlist data. */
 "playList.playlistResetAlertTitle" = "إعادة الضبط";
 
 /* Footer Text for the Playlist Settings Option for resetting Playlist. */
-"playlist.playlistResetPlaylistOptionFooterText" = "سيؤدي هذا الخيار إلى إزالة جميع مقاطع الفيديو من قائمة التشغيل بالإضافة إلى التخزين في وضع عدم الاتصال.";
+"playlist.playlistResetPlaylistOptionFooterText" = "سيؤدي هذا الخيار إلى إزالة جميع بيانات قائمة التشغيل.";
 
 /* Title Playlist (used for back button, and playlist settings) */
 "playList.playListSettingTitle" = "قائمة التشغيل";
@@ -1591,7 +1600,7 @@
 /* Title for the Playlist Settings Option for Enable/Disable ability to start playing from the point where user last left-off */
 "playlist.playlistStartPlaybackSettingsOptionTitle" = "تذكر موضع إعادة التشغيل للملف";
 
-/* Title for removing offline mode storage */
+/* Title for removing cached media from the playlist */
 "playList.removeActionButtonTitle" = "احذف";
 
 /* A message shown when the user removes media from the playlist. '%@' will be replaced by the folder it was added to. Example: 'Removed from Play Later' */
@@ -1611,9 +1620,6 @@
 
 /* The title for the toast that shows up on a page containing a playlist item */
 "playList.toastAddToPlaylistTitle" = "إضافة إلى قائمة التشغيل";
-
-/* The title for the toast that shows up on a page when an item that has already been added, was updated. */
-"playList.toastExitingItemPlaylistTitle" = "عرض في قائمة التشغيل لدى Brave";
 
 /* A button title that when tapped will re-add the media item (undo the removal) that the user recently removed. */
 "playList.undoRemoveButtonTitle" = "تراجع";
@@ -2071,21 +2077,6 @@
 /* Restore Tabs Prompt Title */
 "RestoreTabOnCrashAlertTitle" = "تم إغلاق Brave بشكل غير متوقع.";
 
-/* Body for Brave Talk rewards opt-in screen */
-"rewards.braveTalkRewardsOptInBody" = "باستخدام Brave Rewards، يمكنك عرض الإعلانات التي تحافظ على الخصوصية من شبكة إعلانات Brave. لا توجد أدوات تتبع. ولا تباطؤ. وتبقى بياناتك آمنة تمامًا.";
-
-/* Title for Brave Talk rewards opt-in screen button */
-"rewards.braveTalkRewardsOptInButtonTitle" = "تشغيل المكافآت";
-
-/* Body for successful Brave Talk rewards opt-in */
-"rewards.braveTalkRewardsOptInSuccessBody" = "انقر على أي مكان في الشاشة لمواصلة التواجد في Brave Talk.";
-
-/* Title for successful Brave Talk rewards opt-in */
-"rewards.braveTalkRewardsOptInSuccessTitle" = "يمكنك إجراء مكالمة مجانية الآن";
-
-/* Title for Brave Talk rewards opt-in screen */
-"rewards.braveTalkRewardsOptInTitle" = "للبدء في إجراء مكالمة حرة، قم بتشغيل Brave Rewards.";
-
 /* Displayed when Brave Rewards is disabled */
 "rewards.disabledBody" = "فعِّل هذا الخيار لدعم Brave ومجتمع BAT.";
 
@@ -2097,9 +2088,6 @@
 
 /* Displayed in the status container when rewards is enabled but you're not currently supporting any publishers (0 AC count) */
 "rewards.enabledStatusBody" = "شكرًا لدعمك وتقديمك المساعدة لـ Brave ومجتمع BAT!";
-
-/* The placeholders say 'Terms of Service' and 'Privacy Policy'. So full sentence goes like: 'By clicking, you agree to the Terms of Service and Privacy Policy...' */
-"rewards.optInDisclaimer" = "بالنقر، توافق على %1$@ و%2$@. تعطيل أي وقت في الإعدادات.";
 
 /* No comment provided by engineer. */
 "rewards.settingsToggleMessage" = "ساهم في دعم Brave ومجتمع BAT من خلال تفعيل نظام Brave Rewards ومشاهدة إعلانات Brave.";
@@ -3183,6 +3171,12 @@
 
 /* The title of the toggle for user to turn on auto-open keyboard when creating a new tab. */
 "tabs.settings.autoOpenKeyboardTitle" = "فتح تلقائي للوحة المفاتيح";
+
+/* The description of the toggle for user to turn on open link in quick view mode. */
+"tabs.settings.openLinkInQuickViewModeDescription" = "افتح الروابط من Ask Brave وBrave Search في علامات تبويب المعاينة";
+
+/* The title of the toggle for user to turn on open link in quick view mode. */
+"tabs.settings.openLinkInQuickViewModeTitle" = "تمكين علامات تبويب المعاينة السريعة";
 
 /* No comment provided by engineer. */
 "tabs.settings.persistentPrivateBrowsingDescription" = "حافظ على علامات تبويب التصفح الخاص مفتوحة عند إغلاق التطبيق، مما يضمن استمرار جلسات التصفح الخاصة بسلاسة.";

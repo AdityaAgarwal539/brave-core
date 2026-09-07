@@ -24,8 +24,12 @@ BASE_DECLARE_FEATURE(kBraveWalletBitcoinLedgerFeature);
 BASE_DECLARE_FEATURE(kBraveWalletZCashFeature);
 // Adds shielded operations support for Z Cash
 extern const base::FeatureParam<bool> kZCashShieldedTransactionsEnabled;
+// Adds Ironwood transaction support for Z Cash
+extern const base::FeatureParam<bool> kZCashIronwoodEnabled;
 
 BASE_DECLARE_FEATURE(kBraveWalletPolkadotFeature);
+// Discovers pallet_assets tokens held by Polkadot accounts.
+extern const base::FeatureParam<bool> kPolkadotAssetDiscovery;
 
 #if !defined(OFFICIAL_BUILD)
 BASE_DECLARE_FEATURE(kBraveWalletDebugFeature);
@@ -39,9 +43,11 @@ BASE_DECLARE_FEATURE(kBraveWalletAnkrBalancesFeature);
 BASE_DECLARE_FEATURE(kBraveWalletTransactionSimulationsFeature);
 BASE_DECLARE_FEATURE(kBraveWalletAccountHidingFeature);
 
-#if BUILDFLAG(IS_IOS)
-BASE_DECLARE_FEATURE(kBraveWalletWebUIFeature);
-#endif
+BASE_DECLARE_FEATURE(kBraveWalletSnapsFeature);
+
+BASE_DECLARE_FEATURE(kBraveWalletSidePanel);
+
+BASE_DECLARE_FEATURE(kBraveWalletMojoForHardwareWalletFeature);
 
 }  // namespace brave_wallet::features
 

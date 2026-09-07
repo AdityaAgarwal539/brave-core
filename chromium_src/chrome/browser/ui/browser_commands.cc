@@ -6,10 +6,12 @@
 #include "brave/browser/ui/browser_commands.h"
 
 #include "base/check.h"
+#include "brave/browser/ui/tabs/brave_tab_strip_model.h"
 #include "brave/components/commander/common/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/webui_url_constants.h"
 
 class ReadingListModel;

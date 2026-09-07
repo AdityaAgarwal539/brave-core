@@ -21,8 +21,10 @@
 #include "brave/browser/ui/tabs/tree_tab_session_manager.h"
 #include "brave/browser/ui/views/frame/brave_non_client_hit_test_helper.h"
 #include "brave/browser/ui/views/page_info/brave_shields_ui_contents_cache.h"
+#include "brave/browser/ui/views/toolbar/screenshot_preview_dialog.h"
 #include "brave/browser/ui/views/workspaces/workspaces_bubble_controller.h"
 #include "brave/browser/workspaces/features.h"
+#include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
 #include "brave/components/brave_rewards/core/buildflags/buildflags.h"
 #include "brave/components/brave_vpn/common/buildflags/buildflags.h"
 #include "brave/components/email_aliases/buildflags/buildflags.h"
@@ -72,6 +74,12 @@ class BraveVPNController {};
 #include "brave/components/playlist/core/browser/utils.h"
 #endif
 
+#if BUILDFLAG(ENABLE_AI_CHAT)
+#include "brave/browser/ai_chat/ai_chat_service_factory.h"
+#include "brave/browser/ui/views/side_panel/ai_chat/ai_chat_side_panel_tab_transfer_bridge.h"
+#include "brave/components/ai_chat/core/common/features.h"
+#endif
+
 BrowserWindowFeatures::BrowserWindowFeatures() = default;
 BrowserWindowFeatures::~BrowserWindowFeatures() = default;
 
@@ -93,9 +101,24 @@ BraveVPNController* BrowserWindowFeatures::brave_vpn_controller() {
 }
 
 void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
-  BrowserWindowFeatures_ChromiumImpl::Init(browser);
-
   auto* profile = browser->GetProfile();
+
+  // Initialize vertical tab controller first because WindowFeatureController
+  // needs it to determine whether immersive fullscreen is supported.
+  // The WindowFeatureController takes vertical tab controller via constructor
+  // and it's initialized in BrowserWindowFeatures_ChromiumImpl::Init().
+
+  if (BrowserSupportsFocusMode(browser)) {
+    focus_mode_controller_ = std::make_unique<FocusModeController>();
+  }
+
+  // VerticalTabController should be constructed in Init() instead of
+  // InitPostBrowserViewConstruction() because it would be referenced by many
+  // views.
+  vertical_tab_controller_ = std::make_unique<VerticalTabController>(
+      browser->GetType(), profile->GetPrefs(), focus_mode_controller_.get());
+
+  BrowserWindowFeatures_ChromiumImpl::Init(browser);
 
 #if BUILDFLAG(ENABLE_BRAVE_REWARDS)
   if (brave_rewards::RewardsServiceFactory::GetForProfile(profile)) {
@@ -115,16 +138,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
     tree_tab_session_manager_ = std::make_unique<TreeTabSessionManager>(
         profile, browser->GetTabStripModel(), browser->GetSessionID());
   }
-
-  if (BrowserSupportsFocusMode(browser)) {
-    focus_mode_controller_ = std::make_unique<FocusModeController>();
-  }
-
-  // VerticalTabController should be constructed in Init() instead of
-  // InitPostBrowserViewConstruction() because it would be referenced by many
-  // views.
-  vertical_tab_controller_ = std::make_unique<VerticalTabController>(
-      browser->GetType(), profile->GetPrefs(), focus_mode_controller_.get());
 }
 
 void BrowserWindowFeatures::InitPostBrowserViewConstruction(
@@ -172,15 +185,18 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
               return bv->GetNativeWindow();
             },
             browser_view),
+        base::BindRepeating(&screenshot::ShowScreenshotPreviewDialog),
         std::move(extractor));
   }
 #else
   screenshot_controller_ = std::make_unique<screenshot::ScreenshotController>(
-      browser_view->GetProfile(), base::BindRepeating(
-                                      [](BrowserView* bv) -> gfx::NativeWindow {
-                                        return bv->GetNativeWindow();
-                                      },
-                                      browser_view));
+      browser_view->GetProfile(),
+      base::BindRepeating(
+          [](BrowserView* bv) -> gfx::NativeWindow {
+            return bv->GetNativeWindow();
+          },
+          browser_view),
+      base::BindRepeating(&screenshot::ShowScreenshotPreviewDialog));
 #endif
 
   if (base::FeatureList::IsEnabled(features::kWorkspaces) &&
@@ -189,6 +205,17 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
         std::make_unique<WorkspacesBubbleController>();
   }
 
+#if BUILDFLAG(ENABLE_AI_CHAT)
+  if (base::FeatureList::IsEnabled(
+          ai_chat::features::kAIChatMoveFullPageToSidePanel) &&
+      browser_->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
+      ai_chat::AIChatServiceFactory::GetForBrowserContext(
+          browser_->GetProfile())) {
+    ai_chat_side_panel_tab_transfer_bridge_ =
+        std::make_unique<AIChatSidePanelTabTransferBridge>(browser_);
+  }
+#endif
+
   BrowserWindowFeatures_ChromiumImpl::InitPostBrowserViewConstruction(
       browser_view);
 }
@@ -196,6 +223,9 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
 void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   BrowserWindowFeatures_ChromiumImpl::TearDownPreBrowserWindowDestruction();
   screenshot_controller_.reset();
+#if BUILDFLAG(ENABLE_AI_CHAT)
+  ai_chat_side_panel_tab_transfer_bridge_.reset();
+#endif
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
   brave_vpn_controller_.reset();
 #endif

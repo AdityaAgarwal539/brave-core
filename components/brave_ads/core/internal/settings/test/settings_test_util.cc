@@ -24,13 +24,11 @@ void DisconnectExternalBraveRewardsWallet() {
 void OptOutOfNewTabPageAds() {
   SetProfileBooleanPrefValue(
       ntp_background_images::prefs::kNewTabPageShowBackgroundImage, false);
-  SetProfileBooleanPrefValue(ntp_background_images::prefs::
-                                 kNewTabPageShowSponsoredImagesBackgroundImage,
-                             false);
+  SetProfileBooleanPrefValue(prefs::kSponsoredEnabled, false);
 }
 
-void OptOutOfNotificationAds() {
-  SetProfileBooleanPrefValue(prefs::kOptedInToNotificationAds, false);
+void DisableNotificationAds() {
+  SetProfileBooleanPrefValue(prefs::kNotificationsEnabled, false);
 }
 
 void SetMaximumNotificationAdsPerHour(int max_ads_per_hour) {
@@ -39,12 +37,12 @@ void SetMaximumNotificationAdsPerHour(int max_ads_per_hour) {
 }
 
 void OptOutOfSearchResultAds() {
-  SetProfileBooleanPrefValue(prefs::kOptedInToSearchResultAds, false);
+  SetProfileBooleanPrefValue(prefs::kSponsoredEnabled, false);
 }
 
 void OptOutOfAllAds() {
   OptOutOfNewTabPageAds();
-  OptOutOfNotificationAds();
+  DisableNotificationAds();
   OptOutOfSearchResultAds();
 }
 

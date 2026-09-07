@@ -8,22 +8,18 @@ import Button from '@brave/leo/react/button'
 
 // Hooks
 import {
-  useUnsafePanelSelector, //
+  useUnsafeUISelector, //
 } from '../../../../common/hooks/use-safe-selector'
-import { PanelSelectors } from '../../../../panel/selectors'
+import { UISelectors } from '../../../../common/selectors'
 
 // Types
-import { BraveWallet } from '../../../../constants/types'
 import { ParsedTransaction } from '../../../../utils/tx-utils'
 
 // Utils
 import { getLocale } from '../../../../../common/locale'
-import {
-  translateSimulationWarning, //
-} from '../../../../utils/tx-simulation-utils'
 
 // components
-import { TransactionWarnings } from './tx_warnings'
+import { TransactionWarnings, TransactionWarning } from './tx_warnings'
 
 // Styled components
 import { Row } from '../../../shared/style'
@@ -35,7 +31,6 @@ import {
 } from './pending_tx_actions_footer.style'
 
 interface Props {
-  blowfishWarnings?: BraveWallet.BlowfishWarning[]
   setIsWarningCollapsed?: React.Dispatch<React.SetStateAction<boolean>>
   isWarningCollapsed?: boolean
   isConfirmButtonDisabled: boolean
@@ -51,14 +46,14 @@ interface Props {
   isAccountSyncing?: boolean
   isShieldingFunds?: boolean
   isUnshieldingFunds?: boolean
+  isMigratingFunds?: boolean
 }
 
-type Warning = Pick<BraveWallet.BlowfishWarning, 'message' | 'severity'>
+type Warning = TransactionWarning
 
 export function PendingTransactionActionsFooter({
   isWarningCollapsed,
   setIsWarningCollapsed,
-  blowfishWarnings,
   isConfirmButtonDisabled,
   rejectAllTransactions,
   transactionDetails,
@@ -70,10 +65,11 @@ export function PendingTransactionActionsFooter({
   isAccountSyncing,
   isShieldingFunds,
   isUnshieldingFunds,
+  isMigratingFunds,
 }: Props) {
   // selectors
-  const submittingTransaction = useUnsafePanelSelector(
-    PanelSelectors.submittingTransaction,
+  const submittingTransaction = useUnsafeUISelector(
+    UISelectors.submittingTransaction,
   )
 
   // state
@@ -98,37 +94,25 @@ export function PendingTransactionActionsFooter({
 
   // memos
   const warnings: Warning[] = React.useMemo(() => {
-    if (blowfishWarnings?.length) {
-      return blowfishWarnings.map((w) => ({
-        message: translateSimulationWarning(w),
-        severity: w.severity,
-      }))
-    }
-
     return [
       transactionDetails?.contractAddressError,
       transactionDetails?.sameAddressError,
       transactionDetails?.missingGasLimitError,
       insufficientFundsForGasError
-        ? getLocale('braveWalletSwapInsufficientFundsForGas')
+        ? getLocale(S.BRAVE_WALLET_SWAP_INSUFFICIENT_FUNDS_FOR_GAS)
         : undefined,
       !insufficientFundsForGasError && insufficientFundsError
-        ? getLocale('braveWalletSwapInsufficientBalance')
+        ? getLocale(S.BRAVE_WALLET_SWAP_INSUFFICIENT_BALANCE)
         : undefined,
     ]
       .filter((warning): warning is string => Boolean(warning))
       .map(
         (warning): Warning => ({
           message: warning,
-          severity: BraveWallet.BlowfishWarningSeverity.kWarning,
+          severity: 'warning',
         }),
       )
-  }, [
-    transactionDetails,
-    blowfishWarnings,
-    insufficientFundsForGasError,
-    insufficientFundsError,
-  ])
+  }, [transactionDetails, insufficientFundsForGasError, insufficientFundsError])
 
   const hasWarnings = Boolean(warnings.length)
 
@@ -136,6 +120,22 @@ export function PendingTransactionActionsFooter({
     transactionConfirmed || !!submittingTransaction
   const isConfirmButtonDisabledOrSubmitting =
     isConfirmButtonDisabled || !!submittingTransaction
+
+  const confirmButtonText = React.useMemo((): string => {
+    if (isAccountSyncing) {
+      return getLocale(S.BRAVE_WALLET_SYNCING)
+    }
+    if (isShieldingFunds) {
+      return getLocale(S.BRAVE_WALLET_SHIELD_ZEC)
+    }
+    if (isUnshieldingFunds) {
+      return getLocale(S.BRAVE_WALLET_UNSHIELD_ZEC)
+    }
+    if (isMigratingFunds) {
+      return getLocale(S.BRAVE_WALLET_MIGRATE_ZEC)
+    }
+    return getLocale(S.BRAVE_WALLET_ALLOW_SPEND_CONFIRM_BUTTON)
+  }, [isAccountSyncing, isShieldingFunds, isUnshieldingFunds, isMigratingFunds])
 
   const { confirmButton, rejectButton } = React.useMemo(() => {
     return {
@@ -147,13 +147,7 @@ export function PendingTransactionActionsFooter({
           isDisabled={isConfirmButtonDisabledOrSubmitting}
           isLoading={isTransactionConfirmedOrSubmitting}
         >
-          {isAccountSyncing
-            ? getLocale('braveWalletSyncing')
-            : isShieldingFunds
-              ? getLocale('braveWalletShieldZEC')
-              : isUnshieldingFunds
-                ? getLocale('braveWalletUnshieldZEC')
-                : getLocale('braveWalletAllowSpendConfirmButton')}
+          {confirmButtonText}
         </Button>
       ),
       rejectButton: (
@@ -163,7 +157,7 @@ export function PendingTransactionActionsFooter({
           disabled={isTransactionConfirmedOrSubmitting}
           isDisabled={isTransactionConfirmedOrSubmitting}
         >
-          {getLocale('braveWalletAllowSpendRejectButton')}
+          {getLocale(S.BRAVE_WALLET_ALLOW_SPEND_REJECT_BUTTON)}
         </Button>
       ),
     }
@@ -173,13 +167,8 @@ export function PendingTransactionActionsFooter({
     isTransactionConfirmedOrSubmitting,
     isConfirmButtonDisabledOrSubmitting,
     onReject,
-    isAccountSyncing,
-    isShieldingFunds,
-    isUnshieldingFunds,
+    confirmButtonText,
   ])
-
-  // computed
-  const displayIssuesAsRisks = Boolean(blowfishWarnings?.length)
 
   // effects
   React.useEffect(() => {
@@ -195,7 +184,7 @@ export function PendingTransactionActionsFooter({
     <FooterContainer>
       {!isWarningDismissed && (
         <TransactionWarnings
-          classifyAs={displayIssuesAsRisks ? 'risks' : 'issues'}
+          classifyAs='issues'
           warnings={warnings}
           isWarningCollapsed={isWarningCollapsed ?? true}
           setIsWarningCollapsed={setIsWarningCollapsed}
@@ -213,7 +202,7 @@ export function PendingTransactionActionsFooter({
       {rejectAllTransactions && transactionsQueueLength > 1 && (
         <Row padding={rejectAllButtonRowPadding}>
           <QueueStepButton onClick={rejectAllTransactions}>
-            {getLocale('braveWalletQueueRejectAll').replace(
+            {getLocale(S.BRAVE_WALLET_QUEUE_REJECT_ALL).replace(
               '$1',
               transactionsQueueLength.toString(),
             )}

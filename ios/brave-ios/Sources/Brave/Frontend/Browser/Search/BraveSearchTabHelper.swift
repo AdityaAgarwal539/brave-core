@@ -191,22 +191,6 @@ class BraveSearchTabHelper: TabObserver, TabPolicyDecider, BraveSearchMakeDefaul
           }
         )
       } else {
-        // The Brave-Search-Ads header should be added with a negative value when all
-        // of the following conditions are met:
-        //   - The current tab is not a Private tab
-        //   - Brave Rewards is enabled.
-        //   - The "Search Ads" is opted-out.
-        //   - The requested URL host is one of the Brave Search domains.
-        if !tab.isPrivate && rewards.isEnabled
-          && !rewards.ads.isOptedInToSearchResultAds()
-          && request.allHTTPHeaderFields?["Brave-Search-Ads"] == nil
-        {
-          var modifiedRequest = URLRequest(url: requestURL)
-          modifiedRequest.setValue("?0", forHTTPHeaderField: "Brave-Search-Ads")
-          tab.loadRequest(modifiedRequest)
-          return .cancel
-        }
-
         braveSearchResultAdManager = BraveSearchResultAdManager(
           url: requestURL,
           rewards: rewards,
@@ -241,7 +225,11 @@ class BraveSearchTabHelper: TabObserver, TabPolicyDecider, BraveSearchMakeDefaul
 
     if FeatureList.kQuickViewEnabled.enabled,
       Preferences.General.openLinkInQuickViewMode.value,
-      shouldOpenInQuickView(requestURL: requestURL, requestInfo: requestInfo, tab: tab)
+      await shouldOpenInQuickView(
+        requestURL: requestURL,
+        requestInfo: requestInfo,
+        tab: tab
+      )
     {
       presentInQuickView?(requestURL, tab)
       return .cancel
@@ -352,17 +340,18 @@ class BraveSearchTabHelper: TabObserver, TabPolicyDecider, BraveSearchMakeDefaul
     requestURL: URL,
     requestInfo: WebRequestInfo,
     tab: some TabState
-  ) -> Bool {
+  ) async -> Bool {
     guard requestInfo.isMainFrame,
       requestInfo.navigationType == .linkActivated,
       requestInfo.isUserInitiated,
       let sourceURL = tab.lastCommittedURL,
       BraveSearchManager.isValidURL(sourceURL),  // sourceURL needs to be valid brave search url
-      sourceURL.path == "/search" || sourceURL.path == "/ask",
+      sourceURL.path == "/ask",
       !BraveSearchManager.isValidURL(requestURL),  // don't intercept same-domain nav
       requestURL.isWebPage(includeDataURIs: false)
     else { return false }
-    return true
+
+    return await !BlockedDomainTabHelper.isDomainBlocked(requestURL, tab: tab)
   }
 }
 

@@ -22,10 +22,12 @@
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "url/gurl.h"
 
+class PrefRegistrySimple;
 class PrefService;
 class Profile;
 
 namespace gfx {
+class Rect;
 class Size;
 }  // namespace gfx
 
@@ -40,11 +42,16 @@ class SimpleURLLoader;
 
 namespace brave_search {
 
+class BackupResultsViewManager;
+
 class BackupResultsServiceImpl : public BackupResultsService,
                                  public ProfileObserver {
  public:
-  static void RecordLastViewSize(PrefService* local_state,
-                                 const gfx::Size& size);
+  static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
+
+  static void RecordLastViewGeometry(PrefService* local_state,
+                                     const gfx::Size& view_size,
+                                     const gfx::Rect& window_bounds_in_screen);
 
   explicit BackupResultsServiceImpl(Profile* profile);
 
@@ -85,6 +92,8 @@ class BackupResultsServiceImpl : public BackupResultsService,
     BackupResultsCallback callback;
 
     bool low_latency_required;
+
+    std::unique_ptr<BackupResultsViewManager> view_manager;
     std::unique_ptr<content::WebContents> web_contents;
     GURL target_url;
 
@@ -123,6 +132,12 @@ class BackupResultsServiceImpl : public BackupResultsService,
 
   void SeedNavigationHistory(content::WebContents& web_contents,
                              const GURL& target_url);
+
+  void MaybeConfigureFarblingAndAcceptLanguage(Profile* otr_profile,
+                                               const GURL& url);
+  void MaybeConfigureRendererLanguages(content::WebContents& web_contents);
+  std::string GetLanguageListOverride(
+      const std::string& feature_param_value) const;
 
   net::HttpRequestHeaders GetExtraHeaders(
       const std::optional<net::HttpRequestHeaders>& request_headers);

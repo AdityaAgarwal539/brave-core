@@ -104,6 +104,9 @@
     <message name="IDS_SETTINGS_CONTAINERS_ENABLED_LABEL" desc="The label for the toggle that enables the Containers feature" formatter_data="webui=Containers">
       Enable Containers
     </message>
+    <message name="IDS_SETTINGS_CONTAINERS_ALWAYS_USE_MINI_ICON_LABEL" desc="Label for a settings toggle that makes container tabs always show only the mini container icon overlay instead of a larger container icon even when tab space allows." formatter_data="webui=Containers">
+      Always use mini icon for containers
+    </message>
     <message name="IDS_SETTINGS_CONTAINERS_ADD_CONTAINER_LABEL" desc="The label for dialog title for adding a container" formatter_data="webui=Containers">
       Add new container
     </message>
@@ -133,6 +136,62 @@
     </message>
     <message name="IDS_SETTINGS_CONTAINERS_ERROR_NOT_FOUND" desc="The error if container is not found" formatter_data="webui=Containers">
       Container is not found
+    </message>
+  </if>
+  <if expr="enable_traffic_control">
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_SECTION_LABEL" desc="The label for section containing Traffic Control settings" formatter_data="webui=TrafficControl">
+      Traffic Control
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_SECTION_DESCRIPTION" desc="Description for Traffic Control settings" formatter_data="webui=TrafficControl">
+      Configure specific sites to automatically open in a particular context, creating separation between your browsing sessions. <ph name="BEGIN_LINK">&lt;a target="_blank" href="#"&gt;</ph>Learn more<ph name="END_LINK">&lt;/a&gt;</ph>
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_ENABLED_LABEL" desc="Toggle label enabling Traffic Control" formatter_data="webui=TrafficControl">
+      Enable Traffic Control
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_ADD_RULE_LABEL" desc="Button to add a traffic rule" formatter_data="webui=TrafficControl">
+      Add new rule
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_NEW_RULE_DIALOG_TITLE" desc="Dialog title for creating a traffic rule" formatter_data="webui=TrafficControl">
+      New traffic control rule
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_EDIT_RULE_LABEL" desc="Dialog title for editing a traffic rule" formatter_data="webui=TrafficControl">
+      Edit traffic control rule
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_CREATE_RULE_LABEL" desc="Primary button to create a traffic rule" formatter_data="webui=TrafficControl">
+      Create rule
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_SAVE_CHANGES_LABEL" desc="Primary button to save a traffic rule" formatter_data="webui=TrafficControl">
+      Save changes
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_DELETE_RULE_LABEL" desc="Dialog title for deleting a traffic rule" formatter_data="webui=TrafficControl">
+      Delete rule
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_DELETE_RULE_DESCRIPTION" desc="Confirmation text when deleting a traffic rule. RULE_LABEL is the same compact label shown in the rules list (leading comment or first URL)." formatter_data="webui=TrafficControl">
+      Are you sure you want to delete the rule <ph name="RULE_LABEL">"$1"<ex>"Work sites"</ex></ph>?
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_RULE_DIALOG_DESCRIPTION" desc="Description shown at the top of the add or edit traffic rule dialog" formatter_data="webui=TrafficControl">
+      Enter URLs to manage and always open in a specific browsing context.
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_URL_FILTER_LABEL" desc="Label for URL filter field" formatter_data="webui=TrafficControl">
+      URLs to manage
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_URL_FILTER_PLACEHOLDER" desc="Placeholder for URL filter field" formatter_data="webui=TrafficControl">
+      Enter URLs to manage with traffic control
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_URL_FILTER_HINT" desc="Help text for URL filter syntax. FILTER_EXAMPLE spans wrap literal filter patterns and should not be translated." formatter_data="webui=TrafficControl">
+      <ph name="BEGIN_FILTER_EXAMPLE">&lt;span class="filter-example"&gt;</ph>example.com<ph name="END_FILTER_EXAMPLE">&lt;/span&gt;</ph> matches the site and its subdomains; <ph name="BEGIN_FILTER_EXAMPLE2">&lt;span class="filter-example"&gt;</ph>.example.com<ph name="END_FILTER_EXAMPLE2">&lt;/span&gt;</ph> matches the exact site; <ph name="BEGIN_FILTER_EXAMPLE3">&lt;span class="filter-example"&gt;</ph>*<ph name="END_FILTER_EXAMPLE3">&lt;/span&gt;</ph> matches all sites; <ph name="BEGIN_FILTER_EXAMPLE4">&lt;span class="filter-example"&gt;</ph>#<ph name="END_FILTER_EXAMPLE4">&lt;/span&gt;</ph> is a comment.
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_URL_FILTER_AND_MORE" desc="Compact rules-list label when a traffic rule has multiple URL patterns. FIRST_URL is the first pattern; COUNT is how many additional patterns remain." formatter_data="webui=TrafficControl">
+      <ph name="FIRST_URL">$1<ex>example.com</ex></ph> (and <ph name="COUNT">$2<ex>3</ex></ph> more URLs)
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_CONTAINER_LABEL" desc="Label for container destination selector" formatter_data="webui=TrafficControl">
+      Open in Container
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_RULE_ENABLED_LABEL" desc="Toggle label enabling a single traffic rule" formatter_data="webui=TrafficControl">
+      Enable rule
+    </message>
+    <message name="IDS_SETTINGS_TRAFFIC_CONTROL_ERROR_INVALID_URL_FILTER" desc="Error when URL filter is invalid" formatter_data="webui=TrafficControl">
+      Invalid URL filter
     </message>
   </if>
   <message name="IDS_SETTINGS_APPEARANCE_SETTINGS_TABS_SHOW_VERTICAL_TABS" desc="The label for showing tabs vertically">
@@ -844,6 +903,17 @@
       Never
     </message>
   </if>
+  <if expr="enable_psst">
+    <message name="IDS_SETTINGS_PSST_LABEL" desc="Privacy settings tuning label">
+      Show Privacy settings tuning notification on compatible sites
+    </message>
+    <message name="IDS_SETTINGS_PSST_SUB_LABEL" desc="Privacy settings tuning sub-label">
+      Allows Brave to automatically suggest (and adjust) site-specific privacy settings.
+    </message>
+    <message name="IDS_SETTINGS_BRAVE_ORIGIN_PSST_TOGGLE_TITLE" desc="The title for toggling the 'psst' feature on/off for Brave Origin">
+      Privacy Settings Tuning Tool
+    </message>
+  </if>
   <if expr="is_win">
     <message name="IDS_SETTINGS_WINDOWS_RECALL_DISABLED_LABEL" desc="Windows Recall setting label">
       Block Microsoft Recall
@@ -856,6 +926,12 @@
   <message name="IDS_BRAVE_DATA_COLLECTION_SETTINGS_SECTION" desc="Open Data collection settings section">
     Data collection
   </message>
+  <message name="IDS_BRAVE_SETTINGS_SPONSORED_ADS_ENABLED_TITLE" desc="Title of the settings toggle that enables Sponsored Ads">
+    Enable Sponsored Ads
+  </message>
+  <message name="IDS_BRAVE_SETTINGS_SPONSORED_ADS_ENABLED_DESC" desc="Description under the settings toggle that enables Sponsored Ads">
+    Help support Brave's mission to build an independent, user-first Web with Sponsored Ads. We measure ad performance privately, without identifying you.
+  </message>
 
   <!-- Settings / Privacy and security / Clear Browsing Data dialog -->
   <message name="IDS_SETTINGS_BRAVE_ON_EXIT" desc="Clear Browsing Data dialog On exit tab label">
@@ -863,6 +939,12 @@
   </message>
   <message name="IDS_SETTINGS_CLEAR_BRAVE_ADS_DATA" desc="The label for the link to clear 'Brave Ads' data">
     Clear Brave Ads data...
+  </message>
+  <message name="IDS_SETTINGS_CLEAR_BRAVE_ADS_DATA_TOAST_LABEL" desc="The label for the toast shown after Brave Ads data is cleared">
+    Brave Ads data cleared
+  </message>
+  <message name="IDS_SETTINGS_CLEAR_BRAVE_ADS_DATA_ERROR_TOAST_LABEL" desc="The label for the toast shown when clearing Brave Ads data fails">
+    Couldn't clear Brave Ads data. Try again.
   </message>
   <message name="IDS_SETTINGS_RESET_REWARDS_DATA" desc="The label for opening rewards manage wallet dialog">
     Reset Brave Rewards data...
@@ -1348,6 +1430,9 @@
   <message name="IDS_SETTINGS_TOR_PROVIDED_BRIDGES_PLACEHOLDER" desc="">
     Type address:port (one per line)
   </message>
+  <message name="IDS_SETTINGS_TOR_INVALID_BRIDGE_ERROR" desc="Error shown when a Tor bridge line the person typed fails validation. The bridge line itself is displayed below this message.">
+    Tor can't use this bridge. Check it against the bridge you were given, then try again:
+  </message>
   <message name="IDS_SETTINGS_TOR_REQUEST_BRIDGE_DIALOG_TITLE" desc="">
     Request Bridge
   </message>
@@ -1735,6 +1820,9 @@
   <message name="IDS_SETTINGS_LEO_ASSISTANT_EDIT_MODEL_LABEL" desc="A title for adding a custom model">
     Edit model
   </message>
+  <message name="IDS_SETTINGS_LEO_ASSISTANT_REQUIRED_LABEL" desc="A label indicating that a form field is required">
+    Required
+  </message>
   <message name="IDS_SETTINGS_LEO_ASSISTANT_INPUT_MODEL_LABEL" desc="An input title for adding a custom model">
     Label
   </message>
@@ -1776,9 +1864,6 @@
   </message>
   <message name="IDS_SETTINGS_LEO_ASSISTANT_INPUT_CONTEXT_SIZE_TOOLTIP_INFO" desc="A brief description for context size, as well as a concise explanation for how it relates to the the user's experience.">
     The maximum number of tokens the model can process in a single interaction. A larger context size allows the model to handle longer conversations. Different models support different maximum context sizes.
-  </message>
-  <message name="IDS_SETTINGS_LEO_ASSISTANT_CLOSE_BUTTON_LABEL" desc="A label for a button that closes configuration UI">
-    Close
   </message>
   <message name="IDS_SETTINGS_LEO_ASSISTANT_PROXY_NOTE" desc="A note for users when adding model server info">
     Brave doesn't proxy these requests, please read privacy terms of the chosen provider.
@@ -1929,9 +2014,6 @@
   </message>
   <message name="IDS_SETTINGS_LEO_ASSISTANT_OLLAMA_SYNC_LABEL" desc="The label for the Ollama sync toggle button">
     Sync your Ollama local models
-  </message>
-  <message name="IDS_SETTINGS_LEO_ASSISTANT_OLLAMA_MANAGED_LABEL" desc="The label shown for models managed by Ollama">
-    Managed by Ollama
   </message>
 
   <!-- Settings / Survey Panelist -->

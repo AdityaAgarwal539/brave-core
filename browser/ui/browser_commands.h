@@ -6,13 +6,15 @@
 #ifndef BRAVE_BROWSER_UI_BROWSER_COMMANDS_H_
 #define BRAVE_BROWSER_UI_BROWSER_COMMANDS_H_
 
+#include <optional>
+
 #include "brave/components/brave_wallet/common/buildflags/buildflags.h"
-#include "brave/components/brave_wayback_machine/buildflags/buildflags.h"
 #include "brave/components/commander/common/buildflags/buildflags.h"
 #include "brave/components/containers/buildflags/buildflags.h"
 #include "brave/components/playlist/core/common/buildflags/buildflags.h"
 #include "brave/components/psst/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "content/public/browser/page_navigator.h"
@@ -44,6 +46,11 @@ void NewOffTheRecordWindowTor(Browser* browser);
 void NewOffTheRecordWindowTor(Profile* profile);
 void NewTorConnectionForSite(BrowserWindowInterface*);
 #endif
+
+// Toggles the given side panel entry: closes the sidebar if the entry is
+// already showing, switches to the entry if the sidebar is open on a different
+// entry, or opens the sidebar on the entry if it's closed.
+void ToggleSidePanel(Browser* browser, SidePanelEntryId id);
 
 void ToggleAIChat(Browser* browser);
 
@@ -80,16 +87,18 @@ void ToggleFocusMode(BrowserWindowInterface* browser);
 void ToggleShieldsEnabled(Browser* browser);
 void ToggleJavascriptEnabled(Browser* browser);
 
+// Launches the element picker ("Block elements") for the browser's active tab,
+// if the page and Shields settings support it. Backs IDC_BLOCK_ELEMENTS so
+// users can assign a custom keyboard shortcut. Implemented in the cosmetic
+// filters layer (which can't be depended on from here) to reach the picker.
+void LaunchContentPicker(BrowserWindowInterface* browser);
+
 #if BUILDFLAG(ENABLE_COMMANDER)
 void ToggleCommander(Browser* browser);
 #endif
 
 #if BUILDFLAG(ENABLE_PLAYLIST_WEBUI)
 void ShowPlaylistBubble(Browser* browser);
-#endif
-
-#if BUILDFLAG(ENABLE_BRAVE_WAYBACK_MACHINE)
-void ShowWaybackMachineBubble(Browser* browser);
 #endif
 
 void GroupTabsOnCurrentOrigin(Browser* browser);
@@ -115,9 +124,10 @@ void CloseGroup(Browser* browser);
 bool CanBringAllTabs(Browser* browser);
 void BringAllTabs(Browser* browser);
 
-bool HasDuplicateTabs(Browser* browser);
-void CloseDuplicateTabs(Browser* browser);
-
+bool HasDuplicatesOfActiveTab(Browser* browser);
+void CloseDuplicatesOfActiveTab(Browser* browser);
+bool HasAnyDuplicateTabs(Browser* browser);
+void CloseAllDuplicateTabs(Browser* browser);
 bool CanCloseTabsToLeft(Browser* browser);
 void CloseTabsToLeft(Browser* browser);
 
@@ -136,7 +146,7 @@ void ScrollTabToTop(Browser* browser);
 void ScrollTabToBottom(Browser* browser);
 
 void ExportAllBookmarks(Browser* browser);
-void ToggleAllBookmarksButtonVisibility(Browser* browser);
+void ToggleAllBookmarksButtonVisibility(BrowserWindowInterface* browser);
 
 // Split view API with SideBySide.
 // false if active tab is already split tab.
@@ -166,39 +176,48 @@ void ForcePasteInWebContents(content::WebContents* contents);
 
 #if BUILDFLAG(ENABLE_CONTAINERS)
 // Creates new tabs with the given tabs' URLs in the specified container.
-void OpenTabUrlsInContainer(BrowserWindowInterface* browser_window,
+void OpenTabUrlsInContainer(BrowserWindowInterface* bwi,
                             const std::vector<tabs::TabHandle>& tabs,
                             const containers::mojom::ContainerPtr& container);
 // Creates a new tab with the specified URL in the given container.
-void OpenUrlInContainer(BrowserWindowInterface* browser_window,
-                        const GURL& url,
-                        const containers::mojom::ContainerPtr& container,
-                        bool is_link = true);
+void OpenUrlInContainer(
+    BrowserWindowInterface* bwi,
+    const GURL& url,
+    const containers::mojom::ContainerPtr& container,
+    bool is_link = true,
+    std::optional<url::Origin> initiator_origin = std::nullopt,
+    bool started_from_context_menu = false);
 
 // Creates new tabs with the given tabs' URLs without a container.
-void OpenTabUrlsWithoutContainer(BrowserWindowInterface* browser_window,
+void OpenTabUrlsWithoutContainer(BrowserWindowInterface* bwi,
                                  const std::vector<tabs::TabHandle>& tabs);
-void OpenUrlWithoutContainer(BrowserWindowInterface* browser_window,
-                             const GURL& url,
-                             bool is_link = true);
+void OpenUrlWithoutContainer(
+    BrowserWindowInterface* bwi,
+    const GURL& url,
+    bool is_link = true,
+    std::optional<url::Origin> initiator_origin = std::nullopt,
+    bool started_from_context_menu = false);
 
 // Creates a new temporary container and opens the given tabs' URLs in it.
 void CreateTemporaryContainerAndOpenTabUrls(
-    BrowserWindowInterface* browser_window,
+    BrowserWindowInterface* bwi,
     const std::vector<tabs::TabHandle>& tabs);
 // Opens |url| in a new tab in a freshly created temporary container.
-void CreateTemporaryContainerAndOpenUrl(BrowserWindowInterface* browser_window,
-                                        const GURL& url,
-                                        bool is_link = true);
+void CreateTemporaryContainerAndOpenUrl(
+    BrowserWindowInterface* bwi,
+    const GURL& url,
+    bool is_link = true,
+    std::optional<url::Origin> initiator_origin = std::nullopt,
+    bool started_from_context_menu = false);
 
 // Opens the container menu on the page action view if the active tab is in a
 // container.
-void OpenContainerMenuOnPageActionView(BrowserWindowInterface* browser,
+void OpenContainerMenuOnPageActionView(BrowserWindowInterface* bwi,
                                        ::actions::ActionItem* item);
 #endif
 
 #if BUILDFLAG(ENABLE_PSST)
-void OpenPsstMenuOnPageActionView(BrowserWindowInterface* browser_window,
+void OpenPsstMenuOnPageActionView(BrowserWindowInterface* bwi,
                                   actions::ActionItem* item,
                                   int event_flags = ui::EF_NONE);
 #endif

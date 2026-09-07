@@ -8,11 +8,11 @@
 #if BUILDFLAG(ENABLE_BRAVE_WALLET)
 
 #include <array>
+#include <ranges>
 
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/test_future.h"
-#include "base/types/zip.h"
 #include "brave/components/brave_wallet/browser/permission_utils.h"
 #include "brave/components/brave_wallet/common/brave_wallet.mojom.h"
 #include "brave/components/permissions/contexts/brave_wallet_permission_context.h"
@@ -170,7 +170,7 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerBrowserTest, RequestPermissions) {
 
     // Check sub-requests are created as expected.
     EXPECT_EQ(permission_request_manager->Requests().size(), addresses.size());
-    for (const auto [request, sub_request_origin] : base::zip(
+    for (const auto [request, sub_request_origin] : std::views::zip(
              permission_request_manager->Requests(), sub_request_origins)) {
       SCOPED_TRACE(testing::Message() << sub_request_origin);
 
@@ -187,7 +187,7 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerBrowserTest, RequestPermissions) {
     for (const auto& sub_request_origin : sub_request_origins) {
       SCOPED_TRACE(testing::Message() << sub_request_origin);
 
-      EXPECT_EQ(host_content_settings_map(browser()->profile())
+      EXPECT_EQ(host_content_settings_map(browser()->GetProfile())
                     ->GetContentSetting(sub_request_origin.GetURL(),
                                         GetLastCommitedOrigin().GetURL(),
                                         test_case.type),
@@ -209,7 +209,7 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerBrowserTest, RequestPermissions) {
 
     // Check sub-requests are created as expected.
     EXPECT_EQ(permission_request_manager->Requests().size(), addresses.size());
-    for (const auto [request, sub_request_origin] : base::zip(
+    for (const auto [request, sub_request_origin] : std::views::zip(
              permission_request_manager->Requests(), sub_request_origins)) {
       SCOPED_TRACE(testing::Message() << sub_request_origin);
 
@@ -231,10 +231,10 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerBrowserTest, RequestPermissions) {
     EXPECT_TRUE(!observer->IsShowingBubble());
 
     for (const auto [setting, sub_request_origin] :
-         base::zip(expected_settings, sub_request_origins)) {
+         std::views::zip(expected_settings, sub_request_origins)) {
       SCOPED_TRACE(testing::Message() << sub_request_origin);
 
-      EXPECT_EQ(host_content_settings_map(browser()->profile())
+      EXPECT_EQ(host_content_settings_map(browser()->GetProfile())
                     ->GetContentSetting(sub_request_origin.GetURL(),
                                         GetLastCommitedOrigin().GetURL(),
                                         test_case.type),
@@ -301,7 +301,7 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerBrowserTest,
 
     // Check sub-requests are created as expected.
     EXPECT_EQ(permission_request_manager->Requests().size(), addresses.size());
-    for (const auto [request, sub_request_origin] : base::zip(
+    for (const auto [request, sub_request_origin] : std::views::zip(
              permission_request_manager->Requests(), sub_request_origins)) {
       SCOPED_TRACE(testing::Message() << sub_request_origin);
 
@@ -433,7 +433,7 @@ class PermissionManagerIncognitoBrowserTest : public InProcessBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(PermissionManagerIncognitoBrowserTest,
                        IncognitoPermissionsDoNotLeak) {
-  auto* incognito_browser = CreateIncognitoBrowser(browser()->profile());
+  auto* incognito_browser = CreateIncognitoBrowser(browser()->GetProfile());
 
   // Verify permissions do not leak from incognito profile into normal profile.
   TestRequestPermissionsDoNotLeak(incognito_browser, browser());
@@ -441,7 +441,7 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerIncognitoBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PermissionManagerIncognitoBrowserTest,
                        PermissionsDoNotLeak) {
-  auto* incognito_browser = CreateIncognitoBrowser(browser()->profile());
+  auto* incognito_browser = CreateIncognitoBrowser(browser()->GetProfile());
 
   // Verify permissions do not leak from normal profile into incognito profile.
   TestRequestPermissionsDoNotLeak(browser(), incognito_browser);

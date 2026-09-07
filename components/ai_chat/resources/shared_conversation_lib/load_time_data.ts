@@ -8,12 +8,11 @@ import braveComponentsStrings from 'gen/components/grit/brave_components_webui_m
 const boolValues: Record<string, boolean> = {
   isMobile: false,
   isHistoryEnabled: false,
+  // Matches the default state of `kAIChatMathRendering`.
+  isMathRenderingEnabled: true,
   isAIChatAgentProfileFeatureEnabled: false,
   isAIChatAgentProfile: false,
 }
-
-const stringKeys = Object.keys(braveComponentsStrings)
-console.log('Setting up loadTimeData mock with keys:', stringKeys)
 
 const global: any = window
 global.loadTimeData = {

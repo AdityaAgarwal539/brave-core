@@ -41,7 +41,7 @@
 <translation id="5197219128592971597">અમેશક ગૂગલની એસેલેરેટેડ મોબાઇલ પેજ સંસ્કરણોની બદલે મૂળ (નોન-AMP) પેજ URL ને મુલાકાત લો</translation>
 <translation id="920638232916443453">ટ્રેકિંગ URL ને ઓટો-રીડાયરેક્ટ કરો</translation>
 <translation id="1118970888826017401">ટોચના-સ્તરના રીડાયરેક્ટ ટ્રેકિંગ URLને બાયપાસ કરવા માટે સપોર્ટ સક્ષમ કરો.</translation>
-<translation id="94154759592465111">લિપિઓ અવરોધિત કરો</translation>
+<translation id="4824468494729001999">સ્ક્રિપ્ટ્સ બ્લોક કરો</translation>
 <translation id="7714773920987474116">જાવો (સાઇટ્સ તોડવામાં આવી શકે છે)</translation>
 <translation id="2233004324252915283">YouTube દ્વારા ભલામણ કરેલ કન્ટેન્ટને બ્લોક કરો</translation>
 <translation id="1005372663692637999">Youtube.com પર અપ નેક્સ્ટ અને એન્ડ કાર્ડ એલિમેન્ટને બ્લોક કરે છે.</translation>
@@ -152,6 +152,33 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="6975864539539353406">શુંકcookies અને અન્ય સાઇડ ડેટા સાફ કરે છે જ્યારે તમે સાઇટ બંધ કરો છો</translation>
 <translation id="7740929262043547697">ખાનગી Windowsમાં એલિમેન્ટ બ્લોક કરવાની મંજૂરી આપો</translation>
 <translation id="1260864846935682371">ખાનગી Windowsમાં 'શિલ્ડ્સ બ્લોક એલિમેન્ટ્સ' ફીચર સક્રિય કરે છે. નોંધો કે ખાનગી Windowsમાં બ્લોક કરેલા એલિમેન્ટ્સ એ નોન-પ્રાઇવેટ Windowsમાં પણ બ્લોક થશે.</translation>
+<translation id="4021136205151368133">નોંધ: આ Brave ના ગોપનીયતા સંરક્ષણ ઘટાડે છે.</translation>
+<translation id="2876155735620608356">આ સાઇટ માટે શિલ્ડ્સ ચાલુ</translation>
+<translation id="8605306630462821888">આ સાઇટ માટે શિલ્ડ્સ બંધ</translation>
+<translation id="1574700443447059851">ટ્રેકર્સ, એડ્સ, અને વધુને બ્લોક કર્યું.</translation>
+<translation id="4039014515785210563">ટ્રેકર્સ અને એડ્સને કેવી રીતે હેન્ડલ કરવા તે પસંદ કરો</translation>
+<translation id="8423733350479881051">કૂકીઝને કેવી રીતે હેન્ડલ કરવી તે પસંદ કરો</translation>
+<translation id="9064628362799094520">આ સાઇટનો ડેટા કાચરાઓ</translation>
+<translation id="2862348905922940916">આ સાઇટને શિલ્ડ્સ ડિફોલ્ટ પર રીસેટ કરો</translation>
+<translation id="269939061709857874">સાઇટ શિલ્ડ્સ ડિફોલ્ટ પર રીસેટ થઈ</translation>
+<translation id="3623708006387030755">શિલ્ડ્સ ગ્લોબલ સેટિંગ્સ</translation>
+<translation id="2387532482048804818">જેવું Shields ચાલુ હોય તેવું સાઇટ યોગ્ય રીતે કામ ન કરતું હોય તો જણાવો.</translation>
+<translation id="5412004902081180614">અહેવાલ</translation>
+<translation id="1209739344687072997">બ્રેક થયેલી સાઇટ અંગે રિપોર્ટ કરો</translation>
+<translation id="2606165159306988240">શિલ્ડ્સ સાથે આ સાઇટ યોગ્ય રીતે કામ કરતી નથી તે Brave ના ડેવલપરને જાણ થવા દો.</translation>
+<translation id="6806248680442980382">Brave ને બધી માટે સારી બનાવવામાં મદદ કરવા માટે આભાર. આ અહેવાલમાં અમારી સિસ્ટમને ઠીક કરવા માટે જરૂરી માહિતી જ શામેલ હશે.</translation>
+<translation id="7549123865054511884">આ સાઇટ પર શું કામ કરતું નથી?</translation>
+<translation id="9094461910562981998">અહીં મારો સંપર્ક કરો (વૈકલ્પિક)</translation>
+<translation id="7645128170699559106">ઈમેઇલ, X વપરાશકર્તાનામ અને વધુ</translation>
+<translation id="446579367766109694">જો તમે સંપર્ક માહિતી પૂરી પાડો છો, તો તે ભવિષ્યના રિપોર્ટ્સ માટે સંગ્રહિત થશે</translation>
+<translation id="2653659639078652383">સબમિટ કરો</translation>
+<translation id="8459191579769999214">સ્ક્રીનશૉટ જુઓ</translation>
+<translation id="4530541918195747729">રિપોર્ટ સબમિટ થયો. આભાર!</translation>
+<translation id="5528772406060281700">આ સાઇટ ડેટાને કાચરાઓ</translation>
+<translation id="6795622376590884449">ઓટો કાચરાઓ</translation>
+<translation id="3520341243738311408">જ્યારે સાઇટ ટૅબ્સ બંધ થાય</translation>
+<translation id="3559735673608367395">જ્યારે એપ બહાર નીકળે</translation>
+<translation id="9140049656798805345">હવે સાઇટ ડેટા કાચરાઓ</translation>
 <translation id="1680858055899097121">બ્રાઉઝિંગ સત્રોની વચ્ચે ટૅબ્સ ચાલુ રાખતા નહીં</translation>
 <translation id="7142548388914389999">ગોપનીયતા જાળવતા પ્રોડક્ટ એનાલિટિક્સને મંજૂરી આપો (P3A)</translation>
 <translation id="5254037869598726291">અનામિક P3A માહિતી Braveને કુલ ઉપયોગનો અંદાજ લગાવવા, અને લોકપ્રિય સુવિધાઓ સુધારાયલી સુનિશ્ચિત કરવા માટે મદદ કરે છે.</translation>
@@ -176,6 +203,7 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="8026334261755873520">બ્રાઉઝિંગ ડેટા સાફ કરો</translation>
 <translation id="1690924763769415936">બૅકગ્રાઉન્ડ પ્લે</translation>
 <translation id="6332924730165919598">તમામ ટૅબ્સ બંધ કરવાથી Brave બંધ થાય છે</translation>
+<translation id="2557725907027944082">સમૂહો</translation>
 <translation id="8308305244351876417">જ્યારે તમે Braveમાં અન્ય ટૅબ પર અથવા અન્ય ઍપ પર સ્વિચ કરો અથવા તમારા ડિવાઇસની સ્ક્રીન બંધ હોય ત્યારે પણ ઑડિયો ચાલુ રહેવા દે છે.</translation>
 <translation id="49147335255967913">YouTube લિંક્સ Braveમાં ખોલો</translation>
 <translation id="4150201353443180367">ડિસ્પ્લે</translation>
@@ -186,9 +214,11 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="4736073408974888559"><ph name="BEGIN_LINK"/>Widevine વિશે વધુ જાણો<ph name="END_LINK"/></translation>
 <translation id="6961369821791548622">મંજૂર કરો (હવે ફરીથી લોન્ચ)</translation>
 <translation id="2433507940547922241">દેખાવ</translation>
+<translation id="316542773973815724">નૅવિગેશન</translation>
 <translation id="9040069796107003510">Brave રિવોર્ડ્સ ચિહ્ન</translation>
 <translation id="6333347122924254968">સરનામા પટ્ટીમાં Brave રિવોર્ડ્સ ચિહ્ન બતાવો</translation>
-<translation id="1215433243238902715">નીચેના નૅવિગેશન ટૂલબારમાં સક્ષમ બનાવો</translation>
+<translation id="4393974575368329991">નીચેનું નૅવિગેશન ટૂલબાર</translation>
+<translation id="1834226716203076292">હોમ, બુકમાર્ક્સ, અને શોધ માટે ઝડપી ઍક્સેસ કરવા નીચે એક બાર બતાવો</translation>
 <translation id="1422686363939271829">જો નીચેનું સરનામું બાર વિરામ પર પસંદ કરવામાં આવે છે તો આ સેટિંગ અક્ષમ છે</translation>
 <translation id="6587448235155023666">આગલા વખતે જ્યારે તમે Brave ને ફરીથી લોન્ચ કરો ત્યારે તમારા ફેરફારો પ્રભાવમાં આવશે</translation>
 <translation id="8701563696941209024">હમણાં ફરીથી લોન્ચ કરો</translation>
@@ -208,26 +238,13 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="6188781052835527980">જો તમને કોઈ ક્રેશ થવા કે અટકવાનો અનુભવ થાય તો અનામી ડાયગ્નોસ્ટિક્સ રિપોર્ટ મોકલો.</translation>
 <translation id="4780647518983772446">Brave ફીચર્સ વિશે શું ઉપયોગમાં લેવાઈ રહ્યું છે તે વિશે ખાનગી અને અનામી પ્રોડક્ટ આંતરદ્રષ્ટિ શેર કરો.</translation>
 <translation id="5109496672133133896">ખાનગી પ્રોડક્ટ આંતરદ્રષ્ટિ</translation>
-<translation id="3545804467215833536">Brave શિલ્ડ્સ જોવા માટે ટૅપ કરો</translation>
-<translation id="1724327820822194498">શિલ્ડ્સ સાથે, BraveBlocked બધું ખરાબ છે, દરેક પાને પર.</translation>
-<translation id="5386259141409498372"><ph name="BIG_TECH"/> અને <ph name="TRACKER"/> અન્ય જાહેરાતો અને ટ્રેકર્સને બ્લોક કર્યા</translation>
-<translation id="7256200875155794202"><ph name="BIG_TECH"/> અને અન્ય એડ્સ અને ટ્રેકર્સ બ્લોક કર્યા</translation>
+<translation id="4340039903315468568">શિલ્ડ્સ સાથે દરેક પૃષ્ઠ પર Brave એ બ્લૉક કરેલી બધી ખરાબ સામગ્રી જુઓ. જોવા માટે ટૅપ કરો</translation>
 <translation id="3092683655478890840"><ph name="TRACKER_COUNT"/> જાહેરાતો અને ટ્રેકર્સ બ્લોક કર્યા</translation>
 <translation id="8281886186245836920">છોડો</translation>
-<translation id="986879628471635371">સમસ્યાનિવારણ ઑનબોર્ડિંગ</translation>
 <translation id="5806601733251372221">Brave શિલ્ડ્સ</translation>
-<translation id="8537217141725709400"><ph name="TOKEN"/> મેળવો</translation>
-<translation id="3333887201479867589">Brave પુરસ્કારો</translation>
-<translation id="5870330605209713397">ગોપનીયતા માનનારી જાહેરાતો અને તમારા મનપસંદ સાઇટ્સ અને ક્રિએટર્સને ડિફૉલ્ટથી ટેકો કરવા માટે વિઝ્યુઅલ કરીને.</translation>
-<translation id="5302488867897327287">Brave Rewards નો ઉપયોગ શરૂ કરીને, તમે સાથે સંમત છો</translation>
 <translation id="4281844954008187215">સેવાની શરતો</translation>
 <translation id="6871397658902960384">બ્રાઉઝ કરવાનું પ્રારંભ કરો</translation>
-<translation id="454386012157232640">મને કોઈ જાહેરાત દેખાઈ નથી</translation>
-<translation id="1448877943847791441">Brave તમારી પ્રથમ જાહેરાત</translation>
-<translation id="4410793187232041318">હવે તમે Brave Ads માંથી ટોકન કમાશે.</translation>
 <translation id="6511854390690723657">આ તમારી પહેલી Brave જાહેરાત છે. વધુ જાણવા ટૅપ કરો.</translation>
-<translation id="2070991379950719711">Brave Rewardsનો ઉપયોગ શરૂ કરો</translation>
-<translation id="48520986898237073">વૉલેટ પર આગળ વધો</translation>
 <translation id="6213254277250932867">મારી પાસે 12 શબ્દ Recovery Phrase છે</translation>
 <translation id="4225265925807365011">મારી પાસે 24 શબ્દ Recovery Phrase છે</translation>
 <translation id="3570367516044491911">ડિફૉલ્ટ બ્રાઉઝર તરીકે સેટ કરો</translation>
@@ -235,6 +252,7 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="1545749641540134597">QR કોડ સ્કેન કરો</translation>
 <translation id="5317781812114905957">સૂચનાઓ</translation>
 <translation id="8515319483805157233">QR કોડ દ્વારા શોધ માટે, ફ્રેમના કેન્દ્રમાં QR કોડને ઑલાઇન કરો.</translation>
+<translation id="3333887201479867589">Brave પુરસ્કારો</translation>
 <translation id="7658239707568436148">રદ કરો</translation>
 <translation id="1201402288615127009">આગલું</translation>
 <translation id="8481779960444041069">તમારી ગોપનીયતા સુધારવા માટે, Braveને તમારા ડિફૉલ્ટ Browser તરીકે સેટ કરો.</translation>
@@ -347,10 +365,11 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="2803313416453193357">ફોલ્ડર ખોલો</translation>
 <translation id="8985635554450124959">સિંક્રનાઇઝ સેટ થઈ શક્યું નથી</translation>
 <translation id="7173114856073700355">સેટિંગ ખોલો</translation>
-<translation id="496896260395129787">આ Brave Sync એકાઉન્ટને બીજા ડિવાઇસ પરથી ડિલીટ કરવામાં આવ્યું હતું. જો તમે સિંક અક્ષમ કરવા માટે ઈચ્છતા ન હતા તો <ph name="LINK_TEXT"/></translation>
-<translation id="4353815407425635948"><ph name="INFOBAR_TEXT"/>એકાઉન્ટ ફરીથી બનાવો</translation>
+<translation id="674078455841038219">આ Brave Sync એકાઉન્ટને બીજા ડિવાઇસ પરથી ડિલીટ કરવામાં આવ્યું હતું. જો તમે સિંક અક્ષમ કરવા માટે ઈચ્છતા ન હતા, તો એકાઉન્ટ ફરીથી બનાવો.</translation>
+<translation id="8913415701676265311">ફરીથી બનાવો</translation>
 <translation id="4094590686212463338">આ સિંક ચેઇન સાથે જોડાઈ ન શક્યા. સિંક ચેઇન ડિલીટ કરવામાં આવી હતી.</translation>
 <translation id="4908081302669157000">ફોન નંબર્સ, ઇમેઇલ અને સરનામા</translation>
+<translation id="1571419474754278280">Leo AI વાતચીતો</translation>
 <translation id="1056898198331236512">ચેતવણી</translation>
 <translation id="1426410128494586442">હા</translation>
 <translation id="7811264919113243207">આ તમારી Brave ડેટા, જેને તમારા પાસવર્ડનો સમાવેશ થતો હોઈ શકે છે, એ ઉપકરણ સાથે શેર કરશે, જેના દ્વારા આ QR કોડ જનરેટ થયો છે.
@@ -374,10 +393,9 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="1413177583895309156">Brave VPN તમે ઓનલાઇન જે કંઈપણ કરતાં હોવ તેને એન્ક્રિપ્ટ અને સંરક્ષિત કરે છે, Brave બ્રાઉઝરની બહાર પણ.</translation>
 <translation id="3974348661685061050">7 દિવસ માટે મફતમાં અજમાવો</translation>
 <translation id="5789441016350810005">તેણે Brave એડ્સ મોકલ્યું છે જ્યારે બ્રાઉઝર બૅકગ્રાઉન્ડમાં છે</translation>
-<translation id="1486343603936278248">ટોકન</translation>
 <translation id="7781069478569868053">નવું ટૅબ પેજ</translation>
 <translation id="5927196110206824867">પ્રાયોજિત બૅકગ્રાઉન્ડ ઇમેજ Braveના સ્વતંત્ર, વપરાશકર્તા-પ્રથમ વેબ બનાવવાના મિશનને સપોર્ટ કરે છે. અને Big Techથી વિપરીત, અમે તમારી ગોપનીયતા જાળવવા માટે અનામી રીતે જાહેરાત પ્રદર્શનને માપીએ છીએ.</translation>
-<translation id="8748471354357836070">વધુ જાણો / ઓપ્ટ આઉટ પસંગીઓ</translation>
+<translation id="6165508094623778733">વધુ જાણો</translation>
 <translation id="3171669670217312786">પૃષ્ઠભૂમિ છબીઓ</translation>
 <translation id="8522669544471808198">બૅકગ્રાઉન્ડ ઇમેજ બતાવો</translation>
 <translation id="6258554626602400736">નવી ટેબ પેજ એડ્સ બતાવો</translation>
@@ -405,7 +423,7 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="7151914815476509258">ટ્રેકર્સ અને એડ્સ બ્લૉક કરો (માનક)</translation>
 <translation id="7384778069178817075">બધા ટ્રેકરો અને જાહેરાતોને મંજૂરી આપો</translation>
 <translation id="1173312143376149085"><ph name="BEGIN_LINK_0"/>"તમામ કૂકિઝને બ્લોક" વિકલ્પને બંદ કરાઈ ગયું છે. આ વિકલ્પને બ્લોક કેવી રીતે સક્રિય કરવું તે જાણવા<ph name="END_LINK_0"/> <ph name="BEGIN_LINK_1"/>અમારા સહાય પેજ વીઝીટ કરો<ph name="END_LINK_1"/></translation>
-<translation id="3763681089644577874">કૂકિઝ બ્લોક કરો</translation>
+<translation id="8823559166155093873">કૂકિઝ બ્લૉક કરો</translation>
 <translation id="614747795780742163">તમે અગાઉની મુલાકાતોને લઈને માહિતી સંગ્રહ કરવાથી રોકે છે</translation>
 <translation id="6883611015375728278">બધી કૂકી બ્લોક કરો</translation>
 <translation id="6196640612572343990">તૃતીય પક્ષની કુકીઝ અવરોધિત કરો</translation>
@@ -416,7 +434,7 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="1876882294512858963">હંમેશા કસોટી બંધ રાખો</translation>
 <translation id="554464532999080267">કસોટી બંધ કરવાની વિનંતી કરવાના પહેલાં પૂછો (માનક)</translation>
 <translation id="926857659063503456">ક્યારેય કસોટી બંધ ન કરો</translation>
-<translation id="3895527457258986253">ફિંગરપ્રિંટિંગ બ્લોક કરો</translation>
+<translation id="6531019308847917584">ફિંગરપ્રિંટિંગ બ્લોક કરો</translation>
 <translation id="7854108565842971747">આ નવું સાઇટ્સ માટે હંમેશા Brave શિલ્ડ્સ સેટિંગ્સ છે. એ બદલવા ભારતને અથવા કોઈ ખાસ સાઇટ્સ સેટિંગ્સમાં ફેરફાર નહીં કરશે.</translation>
 <translation id="218587021686734263">ભાષાની સેટિંગ્સ દ્વારા ફિંગરપ્રિંટિંગને અટકાવો</translation>
 <translation id="1706099589708266367">તમારા બ્રાઉઝરની ભાષાની સેટિંગ્સના આધારે વેબસાઇટ્સ તમારા વિશે કેટલું શીખી શકે છે તે ઘટાડે છે.</translation>
@@ -426,22 +444,13 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="7445306466605902444">ફિંગરપ્રિન્ટિંગ બ્લોક કર્યું (કડક, સાઇટ્સ બ્રેક થઈ શકે છે)</translation>
 <translation id="5582686930349810484">ફિંગરપ્રિન્ટિંગ બ્લોક કર્યું (માનક)</translation>
 <translation id="769702552748212954">બધા ફિંગરપ્રિન્ટિંગને મંજૂરી આપો</translation>
-<translation id="876424292214881779">જાહેરાતો અને અન્ય નકામી વસ્તુઓ બ્લોક થશે</translation>
-<translation id="6849027612978668678">સાઇટ્સમાં ઘણીવાર કૂકીઝ અને સ્ક્રિપ્ટ્સ શામેલ હોય છે જે તમને અને તમારા ઉપકરણને ઓળખવાનો પ્રયાસ કરે છે. તેઓ જાણી લેવાનો પ્રયાસ કરે છે કે તમે કોણ છો અને તમે વેબમાં શું કરો છો તે ટ્રૅક કરે છે.\n\nBrave આ વસ્તુઓને બ્લૉક કરે છે જેથી તમે અનુસરણ વિના બ્રાઉઝ કરી શકો.</translation>
-<translation id="8553998445606452168">Brave શિલ્ડ્સ વિશે</translation>
-<translation id="8912304686498704084">ઉપર</translation>
-<translation id="4963218453264888510">નીચે</translation>
-<translation id="7474113515179313724">તમે આ સાઇટને Braveના ગોપનિયતા સંરક્ષણો વગર બ્રાઉઝ કરી રહ્યા છો. શું તે શિલ્ડ ઉપર રાખીને યોગ્ય રીતે કામ નથી કરતું?</translation>
 <translation id="4226543734057230801">Ethereum નેટવર્ક્સ</translation>
 <translation id="3504157706952484145">FileCoin નેટવર્ક્સ</translation>
 <translation id="1561541094377237745">Solana નેટવર્ક્સ</translation>
 <translation id="7141438739990875547">Bitcoin નેટવર્ક્સ</translation>
 <translation id="9055546041146396417">જો આ સાઇટ બરાબર ન દેખાતી હોય, તો શિલ્ડ નીચે કરી જુઓ.</translation>
 <translation id="7898672232170410330">એલિમેંટ બ્લોક કરો</translation>
-<translation id="9064628362799094520">આ સાઇટનો ડેટા કાચરાઓ</translation>
-<translation id="8949611615512336262">ઓટો કાચરાઓ: <ph name="AUTO_SHRED_MODE_TEXT"/></translation>
-<translation id="9140049656798805345">હવે સાઇટ ડેટા કાચરાઓ</translation>
-<translation id="6795622376590884449">ઓટો કાચરાઓ</translation>
+<translation id="7205939464631857223">બધા બ્લોક કરેલા એલિમેંટ સાફ કરો</translation>
 <translation id="7961015016161918242">ક્યારેય નહીં</translation>
 <translation id="3200744626782631683">બ્રાઉઝિંગ ડેટા ક્યારેય આપમેળે કાઢી નખાતું નથી</translation>
 <translation id="1991004083507807299">સાઇટ ટેબ બંધ</translation>
@@ -452,23 +461,11 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="2997451887458851244">ઓટો શ્રેડ અપડેટ કરો અને કયા ડેટાને શ્રેડ કરવામાં આવશે તે સમાયોજિત કરો</translation>
 <translation id="363903976200491771">બ્રાઉઝિંગ ડેટા આપમેળે શ્રેડ કરો</translation>
 <translation id="1028873002018537235">બ્રાઉઝિંગ ઇતિહાસને શ્રેડ કરો</translation>
-<translation id="1209739344687072997">બ્રેક થયેલી સાઇટ અંગે રિપોર્ટ કરો</translation>
-<translation id="8510478288840333677">શિલ્ડ્સ સાથે આ સાઇટ યોગ્ય રીતે કામ કરતી નથી તે Brave ના ડેવલપરને જાણ થવા દો:</translation>
-<translation id="1653405824851871276">Braveને બધા માટે વધુ સારો બનાવવા માટે મદદ કરવા બદલ આભાર. આ રિપોર્ટમાં માત્ર આ સાઇટને ઠીક કરવા માટેની માહિતી જ હશે. <ph name="LEARN_MORE"/></translation>
-<translation id="8759753423332885148">વધુ જાણો.</translation>
-<translation id="8740275226259417070">આ એક એરર પેજ છે. તેને બ્રેક થયેલી સાઇટ તરીકે રિપોર્ટ કરી શકાતી નથી.</translation>
 <translation id="721949491455392748">વર્તમાન પેજનો સ્ક્રીનશૉટ શામેલ કરો</translation>
-<translation id="8459191579769999214">સ્ક્રીનશૉટ જુઓ</translation>
 <translation id="6476216365964140603">વધુ વિગતો (વૈકલ્પિક)</translation>
-<translation id="6145852496180774737">અહીં મારો સંપર્ક કરો: (વૈકલ્પિક)</translation>
-<translation id="6367576083705149078">જો તમે સંપર્ક માહિતી પૂરી પાડો છો તો તે ભવિષ્યના રિપોર્ટ્સ માટે સંગ્રહિત થશે.</translation>
-<translation id="7616645803364270729">ઇમેઇલ, Twitter, વગેરે.</translation>
-<translation id="5299848999918506028">આપનો આભાર!</translation>
-<translation id="76550953340008122">શિલ્ડસ સાથે સમસ્યાઓ છે તે Brave ના ડેવલપરને જણાવવા બદલ આભાર. અમે તેને ઠીક કરવા માટે અમારા શ્રેષ્ઠ પ્રયાસ કરીશું!</translation>
 <translation id="3037432377946455872">તમને જે મુખ્ય મુદ્દા જોઈ રહ્યા છે તે શું છે?</translation>
 <translation id="8731661215617360873">એક વિકલ્પ પસંદ કરો</translation>
 <translation id="650318023204990401">ઉન્નત કંટ્રોલ</translation>
-<translation id="7205939464631857223">બધા બ્લોક કરેલા એલિમેંટ સાફ કરો</translation>
 <translation id="5370478469168390143">ડેટા ઑનલાઇન સાચવો</translation>
 <translation id="1118508688433541158">Brave સાથે ઝડપી બ્રાઉઝ કરો અને એડ્સને બ્લોક કરો</translation>
 <translation id="7427391215172269363">દરરોજ હું Brave સાથે વેબ બ્રાઉઝ કરીને ડેટાની બચત કરું છું.</translation>
@@ -516,19 +513,22 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="3980704343258720102">તમામ બ્રાઉઝિંગ ડેટા સાફ કરે છે</translation>
 <translation id="8089997572759938512">તમારા ગોપનીયતા રિપોર્ટને શૂન્ય પર પાછા લાવે છે</translation>
 <translation id="2718046830255553131">ગોપનીયતા રિપોર્ટના ડેટા સાફ કરવામાં આવ્યા છે.</translation>
-<translation id="8376263745431603066">"નાઇટ મોડ" સક્ષમ કરો (પ્રયોગાત્મક)</translation>
+<translation id="3623948252408240879">નાઇટ મોડ</translation>
+<translation id="1257950165130031194">વેબ સામગ્રી માટે ડાર્ક મોડ ફરજિયાત કરો</translation>
+<translation id="8710601165725654801">ડાયનૅમિક રંગો</translation>
+<translation id="7865194971711852999">એપ થીમ વૉલપેપર રંગો સાથે મેળ ખાય છે</translation>
 <translation id="1383876407941801731">શોધો</translation>
-<translation id="6165508094623778733">વધુ જાણો</translation>
 <translation id="13296465911709339">તમારો ટેક્સ્ટ ક્લિપબોર્ડમાં નકલ કરવામાં આવ્યો છે.</translation>
 <translation id="2735834606413553397">જાહેર સરનામું ક્લિપબોર્ડમાં નકલ કરવામાં આવ્યું છે.</translation>
 <translation id="2977461003134694205">ગોપનિયતા આંકડા</translation>
 <translation id="8804164990146287819">પ્રાઇવસી પોલિસી</translation>
 <translation id="5705882733397021510">પાછા જાઓ</translation>
+<translation id="8450375131309292971">રિફ્રેશ કરવા ખેંચો</translation>
+<translation id="880475987868032564">રિફ્રેશ કરવા ખેંચવાના જેસ્ચરને સક્ષમ કરે છે. પૃષ્ઠની ટોચ પરથી નીચે સ્વાઇપ કરવાથી પૃષ્ઠ રિફ્રેશ થશે.</translation>
 <translation id="7889432931837317731">જો શક્ય હોય તો આપમેળે ખોલો</translation>
 <translation id="1029304566263314007">ડાઉનલોડ પ્રગતિ સૂચનાઓ બતાવો</translation>
 <translation id="2977501775944575564">સમાનાંતર ડાઉનલોડિંગ</translation>
 <translation id="6224180438946945617">ડાઉનલોડ ઝડપમાં વૃદ્ધિ કરવા માટે સમાનાંતર ડાઉનલોડિંગ સક્રિય કરો</translation>
-<translation id="8967385052772844086">પૂર્ણ ગોપનીયતા રિપોર્ટ જુઓ</translation>
 <translation id="3479552764303398839">હમણાં નહીં</translation>
 <translation id="7138272885617540195">Braveની બહાર એપ લિંક્સ ખોલવા મંજૂરી આપો</translation>
 <translation id="4954512758656527938">ડિફૉલ્ટ Ethereum વૉલેટ</translation>
@@ -734,7 +734,7 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="4979796155378508955">જો કસ્ટમ નવસ ની કિંમત અનુક્રમણક ના હોય અથવા તેમાં અન્ય ભૂલ હોય તો ટ્રાન્ઝેક્શન નેટવર્કમાં પ્રસારિત ન થઈ શકે.</translation>
 <translation id="750843150060816463">ગેસ કિંમત (Gwei)</translation>
 <translation id="1426320910664514906">ગેસ મર્યાદા</translation>
-<translation id="6389441740143786465">શેરિંગ હબને નિષ્ક્રિય કરો</translation>
+<translation id="1784950057929740513">શેરિંગ હબ</translation>
 <translation id="473775607612524610">અપડેટ કરો</translation>
 <translation id="479795390141144417">એકાઉન્ટ અપડેટ નિષ્ફળ થયું.</translation>
 <translation id="8084782383392198011">એકાઉન્ટનું નામ લavu ક હોવું જોઈએ નહીં.</translation>
@@ -790,7 +790,6 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="2156993118928861787">અમાન્ય સરનામું</translation>
 <translation id="7791543448312431591">ઉમેરો</translation>
 <translation id="6889920539620318793">સક્રિય તરીકે સેટ કરો</translation>
-<translation id="2653659639078652383">સબમિટ કરો</translation>
 <translation id="4945690646623486292">નેટવર્ક પસંદ કરો</translation>
 <translation id="8006088103295786154">Brave Wallet નો ઉપયોગ કરો</translation>
 <translation id="5308380583665731573">કનેક્ટ કરો</translation>
@@ -810,8 +809,12 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="1060221736464994328">આ સાઇટને નેટવર્ક બદલવાની પરવાનગી આપીએ?</translation>
 <translation id="2478788592457735063">આ નેટવર્કને પહેલાંથી ઉમેરેલા નેટવર્કમાં બદલી દેશે.</translation>
 <translation id="8756686998207163764">નેટવર્ક બદલો</translation>
+<translation id="8905793906896555159">ટૅબ જૂથો સક્ષમ કરો</translation>
+<translation id="7632160823264702523">ટૅબ જૂથો બાર</translation>
+<translation id="2477807195394450274">હાલમાં ખુલ્લા ટૅબ જૂથમાં ટૅબ્સ પર ઝડપી ઍક્સેસ કરવા નીચે એક બાર બતાવો</translation>
+<translation id="8374720587111523381">વર્તમાન ટૅબ જૂથમાં લિંક્સ ખોલો</translation>
 <translation id="5324095733417835490">ફક્ત વર્તમાન ટૅબ જૂથમાં લિંક્સ ખોલો</translation>
-<translation id="2620277345862119868">આપોઆપ તમામ લિંક્સ વર્તમાન ટૅબ જૂથમાં ખોલે છે</translation>
+<translation id="1227658541937938697">આપોઆપ તમામ લિંક્સ વર્તમાન ટૅબ જૂથમાં ખોલો</translation>
 <translation id="5242300593039211344">વૉલેટ લોક કરો</translation>
 <translation id="1108298724135935307">જોડાયેલ સાઇટ્સ</translation>
 <translation id="4255623233927788178">બ્લોક એક્સ્પ્લોરરમાં જુઓ</translation>
@@ -1090,7 +1093,7 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="6393423486818299209">તમારા વર્તમાન સર્વિસ પ્રોવાઇડર અથવા Wikimedia DNS નો ઉપયોગ કરો</translation>
 <translation id="3401384982562827787">તમારા વર્તમાન સર્વિસ પ્રોવાઇડર અથવા Cloudflare નો ઉપયોગ કરો</translation>
 <translation id="8812367543786936496">જો તમારો વર્તમાન સર્વિસ પ્રોવાઇડર અસुरક્ષિત છે, તો Brave સિક્યુર આલ્ટરનેટિવ DNS પ્રોવાઇડરનો ઉપયોગ કરે છે</translation>
-<translation id="1381108437654541567">મલ્ટિપલ વિન્ડોઝ સક્ષમ કરો</translation>
+<translation id="750538469281113679">મલ્ટિપલ વિન્ડોઝ</translation>
 <translation id="6167344249617630304">એક જ સમયે 5 વિન્ડોઝ ખોલો અને ટૅબ્સને એક વિન્ડો માંથી બીજી વિન્ડોમાં ખસેડો</translation>
 <translation id="1063948063403254568">મલ્ટિપલ વિન્ડોઝ શોધી કાઢવામાં આવ્યા છે</translation>
 <translation id="4661882208707630158">મલ્ટિપલ વિન્ડોઝ ફીચર અક્ષમ કરવા પહેલા કૃપા કરીને ટૅબ્સને અન્ય Brave વિન્ડોમાં મર્જ કરો અથવા અન્ય Brave વિન્ડોઝ બંધ કરો.</translation>
@@ -1111,7 +1114,6 @@ Brave News ખાનગી, અનાન્ય મુદાવળો સાથ�
 <translation id="1336494649091412226">શું તમે Braveમાંથી બહાર નીકળવા માટે ખાતરી કરો છો?</translation>
 <translation id="6061635824229591714">આ સાઇટ ડેટાને કાચરાઓ?</translation>
 <translation id="1265051174491933207">કાચરાવવાની કાર્યવાહીમાં સાઇટ ડેટા મિટી જઈને તમામ '<ph name="SITE_NAME"/>' ટૅબ બંધ થઈ જશે. આ પ્રક્રિયાને પાછું ફેરવી શકાય તેમ નથી.</translation>
-<translation id="5528772406060281700">આ સાઇટ ડેટાને કાચરાઓ</translation>
 <translation id="4426990318287827331">ડેટા કાચરો કરો</translation>
 <translation id="7942415993090181327">ચેટનો ઇતિહાસ</translation>
 <translation id="6859935199732075666">સેફ બ્રાઉઝિંગ ભૂલો બતાવો</translation>

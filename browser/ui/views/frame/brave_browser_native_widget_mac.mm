@@ -10,6 +10,7 @@
 #include "brave/browser/ui/tabs/brave_tab_prefs.h"
 #include "brave/browser/ui/tabs/public/vertical_tab_controller.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -51,9 +52,12 @@ void BraveBrowserNativeWidgetMac::GetWindowFrameTitlebarHeight(
 
   if (*override_titlebar_height && !browser_view_->ShouldDrawTabStrip()) {
     if (tabs::UseCompactHorizontalTabs()) {
-      // Upstream always adds kWebAppMenuMargin * 2 to the titlebar height, but
-      // we don't want that for Brave in case Compact mode is on.
-      *titlebar_height -= kWebAppMenuMargin * 2;
+      // Upstream always adds kWebAppMenuMargin * 2 (14px) to the titlebar
+      // height. In Compact mode use a tighter 5px of vertical padding
+      // instead.
+      constexpr int kCompactWebAppTitlebarPadding = 5;
+      *titlebar_height -=
+          (kWebAppMenuMargin * 2) - kCompactWebAppTitlebarPadding;
     }
   }
 }
@@ -89,7 +93,7 @@ bool BraveBrowserNativeWidgetMac::ExecuteCommand(
     // focus) command from 'ctrl + w' (true, as tab was in focus) command.
     if (BrowserView* browser_view = browser_view_.get()) {
       Browser* browser = browser_view->browser();
-      if (browser->profile()->GetPrefs()->GetBoolean(
+      if (browser->GetProfile()->GetPrefs()->GetBoolean(
               brave_tabs::kSharedPinnedTab) &&
           command == IDC_CLOSE_TAB && is_before_first_responder &&
           browser->tab_strip_model()->IsTabPinned(

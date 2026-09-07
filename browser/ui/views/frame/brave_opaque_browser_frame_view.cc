@@ -38,7 +38,7 @@ BraveOpaqueBrowserFrameView::BraveOpaqueBrowserFrameView(
   auto* browser = browser_view->browser();
   DCHECK(browser);
   frame_graphic_ =
-      std::make_unique<BraveWindowFrameGraphic>(browser->profile());
+      std::make_unique<BraveWindowFrameGraphic>(browser->GetProfile());
 
   if (auto* controller = browser->GetFeatures().focus_mode_controller()) {
     focus_mode_observation_.Observe(controller);
@@ -103,8 +103,8 @@ int BraveOpaqueBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
   }
 
   if (auto res = browser_view->browser()
-                     ->browser_window_features()
-                     ->brave_non_client_hit_test_helper()
+                     ->GetFeatures()
+                     .brave_non_client_hit_test_helper()
                      ->NonClientHitTest(GetBrowserView(), point);
       res != HTNOWHERE) {
     return res;

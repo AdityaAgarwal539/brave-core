@@ -20,9 +20,13 @@
 #include "brave/browser/ui/browser_commands.h"
 #include "brave/browser/ui/focus_mode/focus_mode_utils.h"
 #include "brave/browser/ui/sidebar/sidebar_utils.h"
+#include "brave/browser/ui/views/frame/brave_browser_view.h"
+#include "brave/browser/ui/views/toolbar/brave_toolbar_view.h"
+#include "brave/browser/ui/views/toolbar/screenshot_button.h"
 #include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
 #include "brave/components/brave_news/common/buildflags/buildflags.h"
 #include "brave/components/brave_rewards/core/rewards_util.h"
+#include "brave/components/brave_shields/core/common/features.h"
 #include "brave/components/brave_talk/buildflags/buildflags.h"
 #include "brave/components/brave_vpn/common/buildflags/buildflags.h"
 #include "brave/components/brave_wallet/common/buildflags/buildflags.h"
@@ -38,9 +42,12 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/features.h"
@@ -53,6 +60,7 @@
 #include "components/sync/base/command_line_switches.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/actions/actions.h"
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
 #include "brave/browser/ai_chat/ai_chat_utils.h"
@@ -86,6 +94,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_BRAVE_NEWS)
+#include "brave/components/brave_news/common/features.h"
 #include "brave/components/brave_news/common/pref_names.h"
 #endif
 
@@ -118,9 +127,16 @@ bool IsBraveOverrideCommands(int id) {
       IDC_NEW_WINDOW,
       IDC_NEW_INCOGNITO_WINDOW,
       IDC_TOGGLE_VERTICAL_TABS,
+      IDC_SHARING_HUB_SCREENSHOT,
   });
   return kOverrideCommands.contains(id);
 }
+
+#if BUILDFLAG(ENABLE_BRAVE_WAYBACK_MACHINE)
+void InvokeAction(actions::ActionId id, actions::ActionItem* scope) {
+  actions::ActionManager::Get().FindAction(id, scope)->InvokeAction();
+}
+#endif
 
 }  // namespace
 
@@ -134,7 +150,7 @@ BraveBrowserCommandController::BraveBrowserCommandController(
   InitBraveCommandState();
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
   if (auto* vpn_service = brave_vpn::BraveVpnServiceFactory::GetForProfile(
-          browser_->profile())) {
+          browser_->GetProfile())) {
     brave_vpn::BraveVpnServiceObserver::Observe(vpn_service);
   }
 #endif
@@ -143,18 +159,21 @@ BraveBrowserCommandController::BraveBrowserCommandController(
 BraveBrowserCommandController::~BraveBrowserCommandController() = default;
 
 void BraveBrowserCommandController::OnTabChangedAt(tabs::TabInterface* tab,
-                                                   int index,
                                                    TabChangeType change_type) {
-  BrowserCommandController::OnTabChangedAt(tab, index, change_type);
+  BrowserCommandController::OnTabChangedAt(tab, change_type);
   UpdateCommandEnabled(IDC_CLOSE_DUPLICATE_TABS,
-                       brave::HasDuplicateTabs(&*browser_));
+                       brave::HasDuplicatesOfActiveTab(&*browser_));
+  UpdateCommandEnabled(IDC_CLOSE_ALL_DUPLICATE_TABS,
+                       brave::HasAnyDuplicateTabs(&*browser_));
   UpdateCommandsForTabs();
   UpdateCommandsForSend();
+  UpdateCommandForBlockElements();
 }
 
 void BraveBrowserCommandController::OnTabPinnedStateChanged(
     tabs::TabInterface* tab,
     int index) {
+  BrowserCommandController::OnTabPinnedStateChanged(tab, index);
   UpdateCommandsForPin();
 }
 
@@ -168,12 +187,16 @@ void BraveBrowserCommandController::OnTabStripModelChanged(
   UpdateCommandEnabled(IDC_WINDOW_CLOSE_TABS_TO_LEFT,
                        brave::CanCloseTabsToLeft(&*browser_));
   UpdateCommandEnabled(IDC_CLOSE_DUPLICATE_TABS,
-                       brave::HasDuplicateTabs(&*browser_));
+                       brave::HasDuplicatesOfActiveTab(&*browser_));
+  UpdateCommandEnabled(IDC_CLOSE_ALL_DUPLICATE_TABS,
+                       brave::HasAnyDuplicateTabs(&*browser_));
   UpdateCommandsForTabs();
   UpdateCommandsForSend();
   UpdateCommandsForPin();
+  UpdateCommandForBlockElements();
 
-  if (browser_->is_type_normal() && selection.active_tab_changed()) {
+  if (browser_->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
+      selection.active_tab_changed()) {
     UpdateCommandForSplitView();
   }
 }
@@ -198,14 +221,16 @@ bool BraveBrowserCommandController::IsCommandEnabled(int id) const {
                              : BrowserCommandController::IsCommandEnabled(id);
 }
 
-bool BraveBrowserCommandController::ExecuteCommandWithDisposition(
+bool BraveBrowserCommandController::ExecuteCommandWithDispositionAndContext(
     int id,
     WindowOpenDisposition disposition,
+    std::optional<actions::ActionInvocationContext> context,
     base::TimeTicks time_stamp) {
   return IsBraveCommands(id) || IsBraveOverrideCommands(id)
              ? ExecuteBraveCommandWithDisposition(id, disposition, time_stamp)
-             : BrowserCommandController::ExecuteCommandWithDisposition(
-                   id, disposition, time_stamp);
+             : BrowserCommandController::
+                   ExecuteCommandWithDispositionAndContext(
+                       id, disposition, std::move(context), time_stamp);
 }
 
 void BraveBrowserCommandController::AddCommandObserver(
@@ -240,15 +265,15 @@ void BraveBrowserCommandController::InitBraveCommandState() {
   // Sync, Rewards, and Wallet pages don't work in tor(guest) sessions.
   // They also don't work in private windows but they are redirected
   // to a normal window in this case.
-  const bool is_guest_session = browser_->profile()->IsGuestSession();
+  const bool is_guest_session = browser_->GetProfile()->IsGuestSession();
   if (!is_guest_session) {
     // If Rewards is not supported due to OFAC sanctions we still want to show
     // the menu item.
-    if (brave_rewards::IsSupported(browser_->profile()->GetPrefs())) {
+    if (brave_rewards::IsSupported(browser_->GetProfile()->GetPrefs())) {
       UpdateCommandForBraveRewards();
     }
 #if BUILDFLAG(ENABLE_BRAVE_WALLET)
-    if (brave_wallet::IsAllowed(browser_->profile()->GetPrefs())) {
+    if (brave_wallet::IsAllowed(browser_->GetProfile()->GetPrefs())) {
       UpdateCommandForBraveWallet();
     }
 #endif
@@ -264,11 +289,11 @@ void BraveBrowserCommandController::InitBraveCommandState() {
   UpdateCommandForBraveVPN();
   UpdateCommandForPlaylist();
   UpdateCommandForWaybackMachine();
-  pref_change_registrar_.Init(browser_->profile()->GetPrefs());
+  pref_change_registrar_.Init(browser_->GetProfile()->GetPrefs());
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
   UpdateCommandForAIChat();
-  if (ai_chat::IsAllowedForContext(browser_->profile(), false)) {
+  if (ai_chat::IsAllowedForContext(browser_->GetProfile(), false)) {
     pref_change_registrar_.Add(
         ai_chat::prefs::kEnabledByPolicy,
         base::BindRepeating(
@@ -278,7 +303,7 @@ void BraveBrowserCommandController::InitBraveCommandState() {
 #endif
 
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
-  if (brave_vpn::IsAllowedForContext(browser_->profile())) {
+  if (brave_vpn::IsAllowedForContext(browser_->GetProfile())) {
     pref_change_registrar_.Add(
         brave_vpn::prefs::kManagedBraveVPNDisabled,
         base::BindRepeating(
@@ -313,7 +338,7 @@ void BraveBrowserCommandController::InitBraveCommandState() {
 #endif
 
   UpdateCommandEnabled(IDC_SHOW_APPS_PAGE,
-                       !browser_->profile()->IsPrimaryOTRProfile());
+                       !browser_->GetProfile()->IsPrimaryOTRProfile());
 
   UpdateCommandEnabled(IDC_BRAVE_BOOKMARK_BAR_SUBMENU, true);
 
@@ -323,8 +348,8 @@ void BraveBrowserCommandController::InitBraveCommandState() {
 
 #if BUILDFLAG(ENABLE_BRAVE_NEWS)
   UpdateCommandEnabled(IDC_CONFIGURE_BRAVE_NEWS,
-                       !browser_->profile()->IsOffTheRecord() &&
-                           !browser_->profile()->GetPrefs()->GetBoolean(
+                       !browser_->GetProfile()->IsOffTheRecord() &&
+                           !browser_->GetProfile()->GetPrefs()->GetBoolean(
                                brave_news::prefs::kBraveNewsDisabledByPolicy));
 #endif  // BUILDFLAG(ENABLE_BRAVE_NEWS)
 
@@ -334,14 +359,17 @@ void BraveBrowserCommandController::InitBraveCommandState() {
 
 #if BUILDFLAG(ENABLE_BRAVE_TALK)
   UpdateCommandEnabled(IDC_SHOW_BRAVE_TALK,
-                       !browser_->profile()->GetPrefs()->GetBoolean(
+                       !browser_->GetProfile()->GetPrefs()->GetBoolean(
                            brave_talk::prefs::kDisabledByPolicy));
 #endif
   UpdateCommandEnabled(IDC_TOGGLE_SHIELDS, true);
   UpdateCommandEnabled(IDC_TOGGLE_JAVASCRIPT, true);
+  UpdateCommandForBlockElements();
 
   UpdateCommandEnabled(IDC_CLOSE_DUPLICATE_TABS,
-                       brave::HasDuplicateTabs(&*browser_));
+                       brave::HasDuplicatesOfActiveTab(&*browser_));
+  UpdateCommandEnabled(IDC_CLOSE_ALL_DUPLICATE_TABS,
+                       brave::HasAnyDuplicateTabs(&*browser_));
   UpdateCommandEnabled(IDC_WINDOW_ADD_ALL_TABS_TO_NEW_GROUP, true);
 
   UpdateCommandEnabled(IDC_SCROLL_TAB_TO_TOP, true);
@@ -361,18 +389,17 @@ void BraveBrowserCommandController::InitBraveCommandState() {
       IDC_SHOW_EMAIL_ALIASES,
       email_aliases::features::IsEmailAliasesEnabled() &&
           email_aliases::EmailAliasesServiceFactory::GetServiceForProfile(
-              browser_->profile()));
+              browser_->GetProfile()));
 #endif
 
 #if BUILDFLAG(ENABLE_CONTAINERS)
   UpdateCommandEnabled(
       IDC_NEW_TEMPORARY_CONTAINER,
-      ContainersServiceFactory::GetForProfile(browser_->profile()));
+      ContainersServiceFactory::GetForProfile(browser_->GetProfile()));
 #endif
 
-  if (browser_->is_type_normal()) {
+  if (browser_->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
     // Delete these when upstream enables by default.
-    UpdateCommandEnabled(IDC_READING_LIST_MENU, true);
     UpdateCommandEnabled(IDC_READING_LIST_MENU_ADD_TAB, true);
     UpdateCommandEnabled(IDC_READING_LIST_MENU_SHOW_UI, true);
   }
@@ -408,10 +435,10 @@ void BraveBrowserCommandController::UpdateCommandForWebcompatReporter() {
 void BraveBrowserCommandController::UpdateCommandForTor() {
   // Enable new tor connection only for tor profile.
   UpdateCommandEnabled(IDC_NEW_TOR_CONNECTION_FOR_SITE,
-                       browser_->profile()->IsTor());
+                       browser_->GetProfile()->IsTor());
   UpdateCommandEnabled(
       IDC_NEW_OFFTHERECORD_WINDOW_TOR,
-      !TorProfileServiceFactory::IsTorDisabled(browser_->profile()));
+      !TorProfileServiceFactory::IsTorDisabled(browser_->GetProfile()));
 }
 #endif
 
@@ -420,13 +447,29 @@ void BraveBrowserCommandController::UpdateCommandForSidebar() {
     UpdateCommandEnabled(IDC_SIDEBAR_SHOW_OPTION_MENU, true);
     UpdateCommandEnabled(IDC_SIDEBAR_TOGGLE_POSITION, true);
     UpdateCommandEnabled(IDC_TOGGLE_SIDEBAR, true);
+    UpdateCommandEnabled(IDC_TOGGLE_BOOKMARKS_SIDE_PANEL, true);
+    UpdateCommandEnabled(IDC_TOGGLE_READING_LIST_SIDE_PANEL, true);
+#if BUILDFLAG(ENABLE_PLAYLIST_WEBUI)
+    UpdateCommandEnabled(
+        IDC_TOGGLE_PLAYLIST_SIDE_PANEL,
+        playlist::IsPlaylistAllowed(browser_->GetProfile()->GetPrefs()));
+#endif
+#if BUILDFLAG(ENABLE_BRAVE_NEWS)
+    // The Brave News side panel is only shown when the sidebar feature is on
+    // and the user has opted into Brave News.
+    UpdateCommandEnabled(
+        IDC_TOGGLE_BRAVE_NEWS_SIDE_PANEL,
+        base::FeatureList::IsEnabled(brave_news::features::kBraveNewsSidebar) &&
+            brave_news::IsEnabled(browser_->GetProfile()->GetPrefs()));
+#endif
   }
 }
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
 void BraveBrowserCommandController::UpdateCommandForAIChat() {
   // AI Chat command implementation needs sidebar
-  bool allowed_for_context = ai_chat::IsAllowedForContext(browser_->profile());
+  bool allowed_for_context =
+      ai_chat::IsAllowedForContext(browser_->GetProfile());
   UpdateCommandEnabled(IDC_TOGGLE_AI_CHAT, sidebar::CanUseSidebar(&*browser_) &&
                                                allowed_for_context);
   UpdateCommandEnabled(
@@ -437,7 +480,7 @@ void BraveBrowserCommandController::UpdateCommandForAIChat() {
 
 void BraveBrowserCommandController::UpdateCommandForBraveVPN() {
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
-  if (!brave_vpn::IsBraveVPNEnabled(browser_->profile())) {
+  if (!brave_vpn::IsBraveVPNEnabled(browser_->GetProfile())) {
     UpdateCommandEnabled(IDC_SHOW_BRAVE_VPN_PANEL, false);
     UpdateCommandEnabled(IDC_BRAVE_VPN_MENU, false);
     UpdateCommandEnabled(IDC_TOGGLE_BRAVE_VPN_TOOLBAR_BUTTON, false);
@@ -460,7 +503,7 @@ void BraveBrowserCommandController::UpdateCommandForBraveVPN() {
   UpdateCommandEnabled(IDC_MANAGE_BRAVE_VPN_PLAN, true);
 
   if (auto* vpn_service = brave_vpn::BraveVpnServiceFactory::GetForProfile(
-          browser_->profile())) {
+          browser_->GetProfile())) {
     // Only show vpn sub menu for purchased user.
     UpdateCommandEnabled(IDC_BRAVE_VPN_MENU, vpn_service->IsPurchased());
     UpdateCommandEnabled(IDC_TOGGLE_BRAVE_VPN, vpn_service->IsPurchased());
@@ -470,12 +513,12 @@ void BraveBrowserCommandController::UpdateCommandForBraveVPN() {
 
 void BraveBrowserCommandController::UpdateCommandForPlaylist() {
 #if BUILDFLAG(ENABLE_PLAYLIST_WEBUI)
-  if (playlist::IsPlaylistAllowed(browser_->profile()->GetPrefs())) {
+  if (playlist::IsPlaylistAllowed(browser_->GetProfile()->GetPrefs())) {
     UpdateCommandEnabled(
         IDC_SHOW_PLAYLIST_BUBBLE,
-        browser_->is_type_normal() &&
+        browser_->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
             playlist::PlaylistServiceFactory::GetForBrowserContext(
-                browser_->profile()));
+                browser_->GetProfile()));
   }
 #endif
 }
@@ -527,6 +570,15 @@ void BraveBrowserCommandController::UpdateCommandsForPin() {
                        brave::CanCloseUnpinnedTabs(&*browser_));
 }
 
+void BraveBrowserCommandController::UpdateCommandForBlockElements() {
+  auto* contents = browser_->tab_strip_model()->GetActiveWebContents();
+  const bool enabled =
+      base::FeatureList::IsEnabled(
+          brave_shields::features::kBraveShieldsElementPicker) &&
+      contents && contents->GetLastCommittedURL().SchemeIsHTTPOrHTTPS();
+  UpdateCommandEnabled(IDC_BLOCK_ELEMENTS, enabled);
+}
+
 void BraveBrowserCommandController::UpdateCommandForFocusMode() {
   UpdateCommandEnabled(IDC_TOGGLE_FOCUS_MODE,
                        BrowserSupportsFocusMode(base::to_address(browser_)));
@@ -575,19 +627,21 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
   switch (id) {
     case IDC_NEW_WINDOW:
       // Use chromium's action for non-Tor profiles.
-      if (!browser_->profile()->IsTor()) {
-        return BrowserCommandController::ExecuteCommandWithDisposition(
-            id, disposition, time_stamp);
+      if (!browser_->GetProfile()->IsTor()) {
+        return BrowserCommandController::
+            ExecuteCommandWithDispositionAndContext(id, disposition,
+                                                    std::nullopt, time_stamp);
       }
-      NewEmptyWindow(browser_->profile()->GetOriginalProfile());
+      NewEmptyWindow(browser_->GetProfile()->GetOriginalProfile());
       break;
     case IDC_NEW_INCOGNITO_WINDOW:
       // Use chromium's action for non-Tor profiles.
-      if (!browser_->profile()->IsTor()) {
-        return BrowserCommandController::ExecuteCommandWithDisposition(
-            id, disposition, time_stamp);
+      if (!browser_->GetProfile()->IsTor()) {
+        return BrowserCommandController::
+            ExecuteCommandWithDispositionAndContext(id, disposition,
+                                                    std::nullopt, time_stamp);
       }
-      NewIncognitoWindow(browser_->profile()->GetOriginalProfile());
+      NewIncognitoWindow(browser_->GetProfile()->GetOriginalProfile());
       break;
     case IDC_SHOW_BRAVE_REWARDS:
       brave::ShowBraveRewards(&*browser_);
@@ -650,6 +704,18 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
     case IDC_TOGGLE_SIDEBAR:
       brave::ToggleSidebar(&*browser_);
       break;
+    case IDC_TOGGLE_BOOKMARKS_SIDE_PANEL:
+      brave::ToggleSidePanel(&*browser_, SidePanelEntryId::kBookmarks);
+      break;
+    case IDC_TOGGLE_READING_LIST_SIDE_PANEL:
+      brave::ToggleSidePanel(&*browser_, SidePanelEntryId::kReadingList);
+      break;
+    case IDC_TOGGLE_PLAYLIST_SIDE_PANEL:
+      brave::ToggleSidePanel(&*browser_, SidePanelEntryId::kPlaylist);
+      break;
+    case IDC_TOGGLE_BRAVE_NEWS_SIDE_PANEL:
+      brave::ToggleSidePanel(&*browser_, SidePanelEntryId::kBraveNews);
+      break;
     case IDC_COPY_CLEAN_LINK:
       brave::CopySanitizedURL(
           &*browser_,
@@ -661,6 +727,18 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
     case IDC_TOGGLE_VERTICAL_TABS:
       brave::ToggleVerticalTabStrip(&*browser_);
       break;
+    case IDC_SHARING_HUB_SCREENSHOT: {
+      auto* browser_view =
+          BraveBrowserView::GetBrowserViewForBrowser(&*browser_);
+      auto* toolbar =
+          views::AsViewClass<BraveToolbarView>(browser_view->toolbar());
+      if (auto* screenshot_button = toolbar->screenshot_button()) {
+        screenshot_button->ShowBubbleAndRevealButtonTemporarily();
+      } else {
+        chrome::ScreenshotCapture(&*browser_);
+      }
+      break;
+    }
     case IDC_TOGGLE_VERTICAL_TABS_WINDOW_TITLE:
       brave::ToggleWindowTitleVisibilityForVerticalTabs(&*browser_);
       break;
@@ -686,6 +764,9 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
     case IDC_TOGGLE_JAVASCRIPT:
       brave::ToggleJavascriptEnabled(&*browser_);
       break;
+    case IDC_BLOCK_ELEMENTS:
+      brave::LaunchContentPicker(&*browser_);
+      break;
     case IDC_SHOW_PLAYLIST_BUBBLE:
 #if BUILDFLAG(ENABLE_PLAYLIST_WEBUI)
       brave::ShowPlaylistBubble(&*browser_);
@@ -695,7 +776,8 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
 #endif
     case IDC_SHOW_WAYBACK_MACHINE_BUBBLE:
 #if BUILDFLAG(ENABLE_BRAVE_WAYBACK_MACHINE)
-      brave::ShowWaybackMachineBubble(&*browser_);
+      InvokeAction(kActionShowWaybackMachine,
+                   BrowserActions::From(&*browser_)->root_action_item());
 #endif
       break;
     case IDC_GROUP_TABS_ON_CURRENT_ORIGIN:
@@ -705,7 +787,10 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
       brave::MoveGroupToNewWindow(&*browser_);
       break;
     case IDC_CLOSE_DUPLICATE_TABS:
-      brave::CloseDuplicateTabs(&*browser_);
+      brave::CloseDuplicatesOfActiveTab(&*browser_);
+      break;
+    case IDC_CLOSE_ALL_DUPLICATE_TABS:
+      brave::CloseAllDuplicateTabs(&*browser_);
       break;
     case IDC_WINDOW_CLOSE_TABS_TO_LEFT:
       brave::CloseTabsToLeft(&*browser_);
@@ -757,9 +842,9 @@ bool BraveBrowserCommandController::ExecuteBraveCommandWithDisposition(
 #endif
 #if BUILDFLAG(ENABLE_CONTAINERS)
     case IDC_NEW_TEMPORARY_CONTAINER:
-      brave::CreateTemporaryContainerAndOpenUrl(base::to_address(browser_),
-                                                browser_->GetNewTabURL(),
-                                                /*is_link=*/false);
+      brave::CreateTemporaryContainerAndOpenUrl(
+          base::to_address(browser_), chrome::GetNewTabURL(&*browser_),
+          /*is_link=*/false);
       break;
 #endif
     case IDC_WINDOW_GROUP_UNGROUPED_TABS:

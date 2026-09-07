@@ -10,9 +10,11 @@
 #include <utility>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -27,6 +29,8 @@
 #include "brave/components/brave_wallet/common/common_utils.h"
 #include "brave/components/brave_wallet/common/features.h"
 #include "brave/components/brave_wallet/common/test_utils.h"
+#include "components/content_settings/core/browser/content_settings_observer.h"
+#include "components/content_settings/core/browser/content_settings_type_set.h"
 #include "components/grit/brave_components_strings.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
@@ -35,6 +39,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 using base::test::TestFuture;
 using testing::_;
@@ -75,7 +80,6 @@ class MockBraveWalletProviderDelegate : public BraveWalletProviderDelegate {
   MOCK_METHOD0(ShowWalletBackup, void());
   MOCK_METHOD0(UnlockWallet, void());
   MOCK_METHOD0(WalletInteractionDetected, void());
-  MOCK_METHOD1(ShowWalletOnboarding, void(const url::Origin&));
   MOCK_METHOD2(ShowAccountCreation,
                void(mojom::CoinType type, const url::Origin& origin));
   MOCK_METHOD4(RequestPermissions,
@@ -95,6 +99,17 @@ class MockBraveWalletProviderDelegate : public BraveWalletProviderDelegate {
   MOCK_METHOD1(IsSolanaAccountConnected, bool(const std::string& account));
 };
 
+class TestCardanoServiceDelegate : public TestBraveWalletServiceDelegate {
+ public:
+  bool HasPermission(mojom::CoinType coin,
+                     const url::Origin& origin,
+                     const std::string& account) override {
+    return permission_granted;
+  }
+
+  bool permission_granted = true;
+};
+
 }  // namespace
 
 class CardanoApiImplTest : public testing::Test {
@@ -106,9 +121,11 @@ class CardanoApiImplTest : public testing::Test {
     RegisterLocalStatePrefs(local_state_.registry());
     RegisterProfilePrefs(prefs_.registry());
     RegisterProfilePrefsForMigration(prefs_.registry());
+    auto service_delegate = std::make_unique<TestCardanoServiceDelegate>();
+    service_delegate_ = service_delegate.get();
     brave_wallet_service_ = std::make_unique<BraveWalletService>(
-        url_loader_factory_.GetSafeWeakWrapper(),
-        TestBraveWalletServiceDelegate::Create(), &prefs_, &local_state_);
+        url_loader_factory_.GetSafeWeakWrapper(), std::move(service_delegate),
+        &prefs_, &local_state_);
     auto delegate =
         std::make_unique<testing::NiceMock<MockBraveWalletProviderDelegate>>();
     provider_ = std::make_unique<CardanoApiImpl>(
@@ -150,6 +167,10 @@ class CardanoApiImplTest : public testing::Test {
 
   BraveWalletService* brave_wallet_service() {
     return brave_wallet_service_.get();
+  }
+
+  TestCardanoServiceDelegate* service_delegate() {
+    return service_delegate_.get();
   }
 
   KeyringService* keyring_service() {
@@ -253,6 +274,7 @@ class CardanoApiImplTest : public testing::Test {
   sync_preferences::TestingPrefServiceSyncable local_state_;
   network::TestURLLoaderFactory url_loader_factory_;
   std::unique_ptr<BraveWalletService> brave_wallet_service_;
+  raw_ptr<TestCardanoServiceDelegate> service_delegate_ = nullptr;
   std::unique_ptr<CardanoTestRpcServer> cardano_test_rpc_server_;
 
   std::unique_ptr<CardanoApiImpl> provider_;
@@ -458,6 +480,58 @@ TEST_F(CardanoApiImplTest, SignData_Rejected) {
             mojom::CardanoProviderErrorBundle::New(
                 3, l10n_util::GetStringUTF8(IDS_WALLET_USER_REJECTED_REQUEST),
                 nullptr));
+}
+
+TEST_F(CardanoApiImplTest,
+       SignData_PermissionRevokedWhileQueued_RejectedBeforeSigning) {
+  CreateWallet();
+  auto added_account = AddAccount();
+
+  ON_CALL(*delegate(), GetAllowedAccounts(_, _))
+      .WillByDefault(
+          [&](mojom::CoinType coin, const std::vector<std::string>& accounts) {
+            EXPECT_EQ(coin, mojom::CoinType::ADA);
+            return std::vector<std::string>(
+                {added_account->account_id->unique_key});
+          });
+
+  auto address = keyring_service()->GetCardanoAddress(
+      added_account->account_id,
+      mojom::CardanoKeyId::New(mojom::CardanoKeyRole::kExternal, 0));
+
+  int captured_id = -1;
+  auto subscription =
+      brave_wallet_service()->RegisterSignMessageRequestAddedCallback(
+          base::BindLambdaForTesting([&] {
+            captured_id = brave_wallet_service()
+                              ->GetPendingSignMessageRequestsSync()
+                              .back()
+                              ->id;
+          }));
+
+  TestFuture<std::optional<base::DictValue>,
+             mojom::CardanoProviderErrorBundlePtr>
+      future;
+
+  provider()->SignData(address->address_string, base::HexEncode("message"),
+                       future.GetCallback());
+
+  ASSERT_TRUE(base::test::RunUntil([&] { return captured_id >= 0; }));
+
+  // Simulate permission revocation while the request is still queued and
+  // trigger the drain manually (the test delegate doesn't observe HCSM).
+  service_delegate()->permission_granted = false;
+  brave_wallet_service()->OnContentSettingChanged(
+      ContentSettingsPattern(), ContentSettingsPattern(),
+      ContentSettingsTypeSet(ContentSettingsType::BRAVE_CARDANO));
+
+  auto& signature = future.Get<0>();
+  auto& error = future.Get<1>();
+
+  EXPECT_EQ(signature, std::nullopt);
+  ASSERT_TRUE(error);
+  // kDataSignUserDeclined: the drained request is rejected without signing.
+  EXPECT_EQ(error->code, 3);
 }
 
 TEST_F(CardanoApiImplTest, MethodReturnsError_WhenNoPermission) {
@@ -1343,6 +1417,60 @@ TEST_F(CardanoApiImplTest, SignTx_Declined) {
                        -3, WalletUserRejectedRequestErrorMessage(), nullptr));
 }
 
+TEST_F(CardanoApiImplTest,
+       SignTx_PermissionRevokedWhileQueued_RejectedBeforeSigning) {
+  CreateWallet();
+  auto added_account = AddAccount();
+
+  ON_CALL(*delegate(), GetAllowedAccounts(_, _))
+      .WillByDefault(
+          [&](mojom::CoinType coin, const std::vector<std::string>& accounts) {
+            EXPECT_EQ(coin, mojom::CoinType::ADA);
+            EXPECT_EQ(accounts.size(), 1u);
+            EXPECT_EQ(accounts[0], added_account->account_id->unique_key);
+            return std::vector<std::string>(
+                {added_account->account_id->unique_key});
+          });
+
+  CardanoTransaction unsigned_tx;
+  SetupUnsignedReferenceTransaction(added_account, unsigned_tx);
+
+  auto unsigned_tx_bytes =
+      *CardanoTransactionSerializer().SerializeTransaction(unsigned_tx);
+
+  bool request_queued = false;
+  auto subscription =
+      brave_wallet_service()->RegisterSignTransactionRequestAddedCallback(
+          base::BindLambdaForTesting([&] { request_queued = true; }));
+
+  TestFuture<const std::optional<std::string>&,
+             mojom::CardanoProviderErrorBundlePtr>
+      future;
+
+  provider()->SignTx(base::HexEncode(unsigned_tx_bytes), true,
+                     future.GetCallback());
+
+  ASSERT_TRUE(base::test::RunUntil([&] { return request_queued; }));
+  ASSERT_EQ(brave_wallet_service()
+                ->GetPendingSignCardanoTransactionRequestsSync()
+                .size(),
+            1u);
+
+  // Simulate permission revocation while the request is still queued and
+  // trigger the drain manually (the test delegate doesn't observe HCSM).
+  service_delegate()->permission_granted = false;
+  brave_wallet_service()->OnContentSettingChanged(
+      ContentSettingsPattern(), ContentSettingsPattern(),
+      ContentSettingsTypeSet(ContentSettingsType::BRAVE_CARDANO));
+
+  auto& signed_tx = future.Get<0>();
+  auto& error = future.Get<1>();
+
+  EXPECT_FALSE(signed_tx);
+  EXPECT_EQ(error, mojom::CardanoProviderErrorBundle::New(
+                       -3, WalletUserRejectedRequestErrorMessage(), nullptr));
+}
+
 TEST_F(CardanoApiImplTest, SignTx_DeclinedByPartialSignError) {
   CreateWallet();
   auto added_account = AddAccount();
@@ -1468,30 +1596,6 @@ TEST_F(CardanoApiImplTest, SignTx) {
 
   EXPECT_EQ(request->origin_info->origin_spec, "https://brave.com");
   EXPECT_EQ(request->raw_tx_data, base::HexEncode(unsigned_tx_bytes));
-
-  EXPECT_EQ(request->inputs.size(), 3u);
-  EXPECT_EQ(request->inputs[0]->address, addr1);
-  EXPECT_EQ(request->inputs[0]->value, 34451133u);
-
-  EXPECT_EQ(request->inputs[1]->address, addr2);
-  EXPECT_EQ(request->inputs[1]->value, 34451133u);
-
-  EXPECT_EQ(request->inputs[2]->address, addr1);
-  EXPECT_EQ(request->inputs[2]->value, 5000000u);
-
-  EXPECT_EQ(request->outputs.size(), 3u);
-  EXPECT_EQ(request->outputs[0]->address,
-            "addr1q9zwt6rfn2e3mc63hesal6muyg807cwjnkwg3j5azkvmxm0tyqeyc8eu034zz"
-            "mj4z53l7lh5u7z08l0rvp49ht88s5uskl6tsl");
-  EXPECT_EQ(request->outputs[0]->value, 10000000u);
-
-  EXPECT_EQ(request->outputs[1]->address,
-            "addr1q8s90ehlgwwkq637d3r6qzuxwu6qnprphqadn9pjg2mtcp9hkfmyv4zfhyefv"
-            "jmpww7f7w9gwem3x6gcm3ulw3kpcgws9sgrhg");
-  EXPECT_EQ(request->outputs[1]->value, 24282816u);
-
-  EXPECT_EQ(request->outputs[2]->address, addr1);
-  EXPECT_EQ(request->outputs[2]->value, 24282816u);
 
   auto& api_signed_tx = future.Get<0>();
   auto& error = future.Get<1>();
@@ -1712,46 +1816,6 @@ TEST_F(CardanoApiImplTest, SignTx_PartialSign) {
 
   EXPECT_EQ(request->origin_info->origin_spec, "https://brave.com");
   EXPECT_EQ(request->raw_tx_data, base::HexEncode(unsigned_tx_bytes));
-
-  EXPECT_EQ(request->inputs.size(), 4u);
-
-  EXPECT_EQ(request->inputs[0]->address, "");
-  EXPECT_EQ(request->inputs[0]->value, 0u);
-  EXPECT_EQ(request->inputs[0]->outpoint_txid,
-            "3737373737373737373737373737373737373737373737373737373737373737");
-  EXPECT_EQ(request->inputs[0]->outpoint_index, 0u);
-
-  EXPECT_EQ(request->inputs[1]->address, addr1);
-  EXPECT_EQ(request->inputs[1]->value, 34451133u);
-  EXPECT_EQ(request->inputs[1]->outpoint_txid,
-            "A7B4C1021FA375A4FCCB1AC1B3BB01743B3989B5EB732CC6240ADD8C71EDB925");
-  EXPECT_EQ(request->inputs[1]->outpoint_index, 0u);
-
-  EXPECT_EQ(request->inputs[2]->address, addr2);
-  EXPECT_EQ(request->inputs[2]->value, 34451133u);
-  EXPECT_EQ(request->inputs[2]->outpoint_txid,
-            "A7B4C1021FA375A4FCCB1AC1B3BB01743B3989B5EB732CC6240ADD8C71EDB925");
-  EXPECT_EQ(request->inputs[2]->outpoint_index, 1u);
-
-  EXPECT_EQ(request->inputs[3]->address, addr1);
-  EXPECT_EQ(request->inputs[3]->value, 5000000u);
-  EXPECT_EQ(request->inputs[3]->outpoint_txid,
-            "A7B4C1021FA375A4FCCB1AC1B3BB01743B3989B5EB732CC6240ADD8C71EDB925");
-  EXPECT_EQ(request->inputs[3]->outpoint_index, 10u);
-
-  EXPECT_EQ(request->outputs.size(), 3u);
-  EXPECT_EQ(request->outputs[0]->address,
-            "addr1q9zwt6rfn2e3mc63hesal6muyg807cwjnkwg3j5azkvmxm0tyqeyc8eu034zz"
-            "mj4z53l7lh5u7z08l0rvp49ht88s5uskl6tsl");
-  EXPECT_EQ(request->outputs[0]->value, 10000000u);
-
-  EXPECT_EQ(request->outputs[1]->address,
-            "addr1q8s90ehlgwwkq637d3r6qzuxwu6qnprphqadn9pjg2mtcp9hkfmyv4zfhyefv"
-            "jmpww7f7w9gwem3x6gcm3ulw3kpcgws9sgrhg");
-  EXPECT_EQ(request->outputs[1]->value, 24282816u);
-
-  EXPECT_EQ(request->outputs[2]->address, addr1);
-  EXPECT_EQ(request->outputs[2]->value, 24282816u);
 
   auto& api_signed_tx = future.Get<0>();
   auto& error = future.Get<1>();

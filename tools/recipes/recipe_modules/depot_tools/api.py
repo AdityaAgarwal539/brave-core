@@ -15,7 +15,7 @@ from recipe_api import RecipeApi
 DEPOT_TOOLS_URL = 'https://chromium.googlesource.com/chromium/tools/depot_tools'
 
 # the relative path for depot_tools in the chromium checkout.
-DEPOT_TOOLS_PATH = Path('third_party') / 'depot_tools'
+DEPOT_TOOLS_PATH = 'third_party/depot_tools'
 
 
 class DepotToolsApi(RecipeApi):
@@ -45,12 +45,12 @@ class DepotToolsApi(RecipeApi):
         if resolved is not None:
             logging.debug('depot_tools already on PATH, skipping clone')
             # Using whatever depot_tools is already on PATH.
-            self._depot_tools_path = Path(resolved).parent
+            self._depot_tools_path = self.m.path.abs(resolved).parent
             return
 
-        # Checking for a standalone depot_tools under what would be a supposed
-        # Chromium checkout.
-        depot_tools_path = self.m.path.abs(self.m.path.chromium_src.parent /
+        # Checking for a standalone depot_tools inside what would be a supposed
+        # Chromium checkout (Chromium vendors it at `src/third_party/depot_tools`).
+        depot_tools_path = self.m.path.abs(self.m.path.chromium_src /
                                            DEPOT_TOOLS_PATH)
         if self.m.path.is_file(depot_tools_path / 'gclient'):
             # If Chromium has already been deployed, we just use whatever

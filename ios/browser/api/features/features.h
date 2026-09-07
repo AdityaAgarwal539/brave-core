@@ -36,7 +36,6 @@ OBJC_EXPORT
 @property(class, nonatomic, readonly)
     Feature* kBraveAdblockMobileNotificationsListDefault;
 @property(class, nonatomic, readonly) Feature* kBraveAdblockScriptletDebugLogs;
-@property(class, nonatomic, readonly) Feature* kBraveDarkModeBlock;
 @property(class, nonatomic, readonly) Feature* kBraveDeAMP;
 @property(class, nonatomic, readonly) Feature* kBraveDebounce;
 @property(class, nonatomic, readonly) Feature* kBraveDomainBlock;
@@ -51,6 +50,7 @@ OBJC_EXPORT
 @property(class, nonatomic, readonly) Feature* kBraveShredFeature;
 @property(class, nonatomic, readonly) Feature* kBraveShredCacheData;
 @property(class, nonatomic, readonly) Feature* kBraveShieldsContentSettings;
+@property(class, nonatomic, readonly) Feature* kShowUpdatedShieldsPanel;
 @property(class, nonatomic, readonly) Feature* kBraveIOSDebugAdblock;
 @property(class, nonatomic, readonly) Feature* kBraveIOSEnableFarblingPlugins;
 @property(class, nonatomic, readonly)
@@ -80,10 +80,8 @@ OBJC_EXPORT
     Feature* kShouldCancelRequestsForUserAgentChange;
 @property(class, nonatomic, readonly) Feature* kUseProfileWebViewConfiguration;
 @property(class, nonatomic, readonly) Feature* kBraveAllowExternalPurchaseLinks;
-@property(class, nonatomic, readonly, nullable) Feature* kBraveWalletWebUIIOS;
 @property(class, nonatomic, readonly, nullable)
     Feature* kBraveWalletCardanoDAppSupportIOS;
-@property(class, nonatomic, readonly) Feature* kAIChatWebUIEnabled;
 @property(class, nonatomic, readonly) Feature* kBraveSyncDefaultPasswords;
 @property(class, nonatomic, readonly)
     Feature* kWebKitAdvancedPrivacyProtections;

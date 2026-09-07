@@ -37,6 +37,7 @@
 #include "content/public/browser/web_contents_user_data.h"
 #include "net/base/net_errors.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace brave_shields {
 
@@ -65,8 +66,8 @@ ShouldBlockDomainOnTaskRunner(
   // necessary.
   bool aggressive_for_engine = true;
   auto result = engine_wrapper->ShouldStartRequest(
-      url, blink::mojom::ResourceType::kMainFrame, std::string(url.host()),
-      aggressive_for_engine, false, false, false);
+      url, blink::mojom::ResourceType::kMainFrame, url::Origin::Create(url),
+      "GET", aggressive_for_engine, false, false, false);
 
   block_result.should_block =
       result.important || (result.matched && !result.has_exception);
@@ -89,6 +90,19 @@ ShouldBlockDomainOnTaskRunner(
     info.has_mock_data = false;
     if (!block_result.new_url.empty()) {
       info.rewritten_url = block_result.new_url;
+    }
+    if (result.filter) {
+      info.filter = content::devtools_instrumentation::AdblockFilterRuleInfo();
+      info.filter->raw_line = std::string(result.filter->raw_line);
+      info.filter->line_number = result.filter->line_number;
+      info.filter->source_index = result.filter->source_index;
+    }
+    if (result.exception) {
+      info.exception =
+          content::devtools_instrumentation::AdblockFilterRuleInfo();
+      info.exception->raw_line = std::string(result.exception->raw_line);
+      info.exception->line_number = result.exception->line_number;
+      info.exception->source_index = result.exception->source_index;
     }
     block_result.info = std::move(info);
   }

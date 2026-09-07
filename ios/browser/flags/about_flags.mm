@@ -40,11 +40,15 @@ const flags_ui::FeatureEntry::FeatureParam
         {"zcash_shielded_transactions_enabled", "false"}};
 const flags_ui::FeatureEntry::FeatureParam kZCashShieldedTransactionsEnabled[] =
     {{"zcash_shielded_transactions_enabled", "true"}};
+const flags_ui::FeatureEntry::FeatureParam kZCashIronwoodEnabled[] = {
+    {"zcash_ironwood_enabled", "true"},
+    {"zcash_shielded_transactions_enabled", "true"}};
 const flags_ui::FeatureEntry::FeatureVariation kZCashFeatureVariations[] = {
     {"- Shielded support disabled", kZCashShieldedTransactionsDisabled,
      nullptr},
     {"- Shielded support enabled (WebUI Only)",
-     kZCashShieldedTransactionsEnabled, nullptr}};
+     kZCashShieldedTransactionsEnabled, nullptr},
+    {"- Ironwood support enabled", kZCashIronwoodEnabled, nullptr}};
 #endif  // BUILDFLAG(ENABLE_BRAVE_WALLET)
 
 const flags_ui::FeatureEntry::FeatureParam kBraveIOSUserAgentVersion[] = {
@@ -144,6 +148,14 @@ const flags_ui::FeatureEntry::FeatureVariation
               brave_shields::features::kBraveShieldsContentSettingsIOS),       \
       },                                                                       \
       {                                                                        \
+          "brave-show-updated-shields-panel",                                  \
+          "Show updated shields panel",                                        \
+          "Shows an updated design for the Brave Shields panel.",              \
+          flags_ui::kOsIos,                                                    \
+          FEATURE_VALUE_TYPE(                                                  \
+              brave_shields::features::kShowUpdatedShieldsPanel),              \
+      },                                                                       \
+      {                                                                        \
           "https-by-default",                                                  \
           "Use HTTPS by Default",                                              \
           "Attempt to connect to all websites using HTTPS before falling "     \
@@ -180,6 +192,15 @@ const flags_ui::FeatureEntry::FeatureVariation
           flags_ui::kOsIos,                                                    \
           FEATURE_VALUE_TYPE(                                                  \
               brave_shields::features::kWebKitAdvancedPrivacyProtections),     \
+      },                                                                       \
+      {                                                                        \
+          "ios-webkit-global-privacy-control",                                 \
+          "Enable WebKit Global Privacy Control",                              \
+          "Attach the Global Privacy Control signal to navigation request "    \
+          "headers",                                                           \
+          flags_ui::kOsIos,                                                    \
+          FEATURE_VALUE_TYPE(                                                  \
+              brave_shields::features::kWebKitGlobalPrivacyControl),           \
       })
 
 #define BRAVE_AI_CHAT_FEATURE_ENTRIES                                       \
@@ -197,13 +218,6 @@ const flags_ui::FeatureEntry::FeatureVariation
           "Enables AI Chat History persistence and management",             \
           flags_ui::kOsIos,                                                 \
           FEATURE_VALUE_TYPE(ai_chat::features::kAIChatHistory),            \
-      },                                                                    \
-      {                                                                     \
-          "brave-ai-chat-webui",                                            \
-          "Brave AI Chat WebUI",                                            \
-          "Enables the use of Leo via WebUI",                               \
-          flags_ui::kOsIos,                                                 \
-          FEATURE_VALUE_TYPE(ai_chat::features::kAIChatWebUIEnabled),       \
       },                                                                    \
       {                                                                     \
           "brave-ai-chat-allow-private-ips",                                \
@@ -230,14 +244,6 @@ const flags_ui::FeatureEntry::FeatureVariation
 
 #define BRAVE_WALLET_FEATURE_ENTRIES                                      \
   EXPAND_FEATURE_ENTRIES(                                                 \
-      {                                                                   \
-          "brave-wallet-webui-ios",                                       \
-          "Enable WebUI for Brave Wallet iOS",                            \
-          "Enables WebUI for Brave Wallet",                               \
-          flags_ui::kOsIos,                                               \
-          FEATURE_VALUE_TYPE(                                             \
-              brave_wallet::features::kBraveWalletWebUIFeature),          \
-      },                                                                  \
       {                                                                   \
           "brave-wallet-cardano-dapp-support-ios",                        \
           "Enable Cardano dApp Support for Brave Wallet(WebUI) iOS",      \

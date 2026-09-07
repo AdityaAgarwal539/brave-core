@@ -29,6 +29,7 @@
 #include "components/tabs/public/tab_strip_collection.h"
 #include "components/tabs/public/unpinned_tab_collection.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/models/list_selection_model.h"
 
 BraveTabStripModel::BraveTabStripModel(
     TabStripModelDelegate* delegate,
@@ -85,6 +86,61 @@ void BraveTabStripModel::SelectRelativeTab(TabRelativeDirection direction,
   }
 }
 
+std::vector<int> BraveTabStripModel::GetTreeTabDescendantIndices(int index) {
+  if (!tree_tab_model_) {
+    return {};
+  }
+
+  auto* node_collection =
+      tabs::TreeTabNodeTabCollection::GetTreeTabNodeCollection(
+          GetTabAtIndex(index));
+  if (!node_collection) {
+    return {};
+  }
+
+  std::vector<tree_tab::TreeTabNodeId> descendant_ids;
+  node_collection->node().CollectDescendantIds(descendant_ids);
+
+  std::vector<int> descendant_indices;
+  for (const auto& id : descendant_ids) {
+    auto* node = tree_tab_model_->GetNode(id);
+    if (!node) {
+      continue;
+    }
+    for (const tabs::TabInterface* descendant_tab : node->GetTabs()) {
+      const int descendant_index = GetIndexOfTab(descendant_tab);
+      if (descendant_index != TabStripModel::kNoTab) {
+        descendant_indices.push_back(descendant_index);
+      }
+    }
+  }
+  return descendant_indices;
+}
+
+bool BraveTabStripModel::IsOnlyActiveTabAndTreeDescendantsSelected() {
+  const auto& selected_indices =
+      selection_model().GetListSelectionModel().selected_indices();
+  CHECK(!selected_indices.empty());
+
+  // When automatically selecting a tree tab, active index should be the
+  // smallest index of selected indices
+  if (active_index() != static_cast<int>(*selected_indices.begin())) {
+    return false;
+  }
+
+  const std::vector<int> descendant_indices =
+      GetTreeTabDescendantIndices(active_index());
+  if (descendant_indices.empty()) {
+    return false;
+  }
+
+  base::flat_set<size_t> expected_indices(descendant_indices.begin(),
+                                          descendant_indices.end());
+
+  expected_indices.insert(active_index());
+  return selected_indices == expected_indices;
+}
+
 void BraveTabStripModel::SelectMRUTab(TabRelativeDirection direction,
                                       TabStripUserGestureDetails detail) {
   if (mru_cycle_list_.empty()) {
@@ -108,7 +164,7 @@ void BraveTabStripModel::SelectMRUTab(TabRelativeDirection direction,
               });
 
     // Tell the cycling controller that we start cycling to handle tabs keys
-    static_cast<BraveBrowserWindow*>(browser_window)->StartTabCycling();
+    BraveBrowserWindow::From(browser_window)->StartTabCycling();
   }
 
   if (direction == TabRelativeDirection::kNext) {
@@ -242,4 +298,28 @@ void BraveTabStripModel::SetSplitPinnedImplForTesting(
   auto* split_collection = contents_data_->GetSplitTabCollection(split);
   CHECK(split_collection);
   TabStripModel::SetSplitPinnedImpl(split_collection, pinned);  // IN-TEST
+}
+
+std::vector<std::variant<std::unique_ptr<DetachedTab>,
+                         std::unique_ptr<DetachedTabCollection>>>
+BraveTabStripModel::DetachTabsAndCollectionsForInsertion(
+    const std::vector<int>& tab_indices) {
+  if (!tree_tab_model_) {
+    return TabStripModel::DetachTabsAndCollectionsForInsertion(tab_indices);
+  }
+
+  // Hoisting non-selected children out of a moving tab's tree node can shift
+  // tab positions (e.g. a hoisted child lands ahead of its former parent), so
+  // `tab_indices` may no longer point at the originally-selected tabs once
+  // this returns. Resolve the tabs first, then re-derive their indices from
+  // the (possibly moved) tabs before detaching.
+  const std::vector<tabs::TabInterface*> tabs = GetTabsAtIndices(tab_indices);
+  contents_data_->PrepareTreeTabNodesForBatchDetach(tabs);
+
+  std::vector<int> updated_indices;
+  updated_indices.reserve(tabs.size());
+  for (tabs::TabInterface* tab : tabs) {
+    updated_indices.push_back(GetIndexOfTab(tab));
+  }
+  return TabStripModel::DetachTabsAndCollectionsForInsertion(updated_indices);
 }

@@ -316,6 +316,7 @@ struct SuggestedNetworkView: View {
     .buttonStyle(.outline)
     .controlSize(.large)
     .disabled(isLoading)
+
     WalletLoadingButton(
       isLoading: isLoading,
       action: {  // approve

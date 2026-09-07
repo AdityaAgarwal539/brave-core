@@ -71,12 +71,19 @@ class PsstUiDesktopPresenter
 
   void ShowConsentDialog() override;
 
+  void HideConsentDialog() override;
+
   bool IsDialogShown() const override;
 
  private:
-  // page_actions::PsstActionController::Delegate:
+  // page_actions::PsstActionController::Delegate overrides:
+
+  // Handles the left mouse button click on the omnibar.
   void OnShowConsentDialogSelected() override;
+  // Handles the omnibar menu item that stops running Psst for a specific
+  // website
   void OnDontShowThisSiteSelected() override;
+  // Handles the omnibar menu item that disables Psst
   void OnDisablePrivacySettingsTuningSelected() override;
 
   base::WeakPtr<content::WebContents> web_contents_;

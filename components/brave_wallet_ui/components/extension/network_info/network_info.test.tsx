@@ -11,14 +11,14 @@ import { NetworkInfo } from './network_info'
 
 // Mocks
 import { mockBNBChainNetwork } from '../../../stories/mock-data/mock-networks'
-import BraveCoreThemeProvider from '../../../../common/BraveCoreThemeProvider'
+import { WalletTestThemeProvider } from '../../../utils/test-utils'
 
 describe('NetworkInfo', () => {
   it('should render network information correctly', () => {
     const { container } = render(
-      <BraveCoreThemeProvider>
+      <WalletTestThemeProvider>
         <NetworkInfo network={mockBNBChainNetwork} />
-      </BraveCoreThemeProvider>,
+      </WalletTestThemeProvider>,
     )
 
     // Check if the component renders
@@ -26,20 +26,20 @@ describe('NetworkInfo', () => {
 
     // Check if all network information sections are displayed
     expect(
-      screen.getByText('braveWalletAllowAddNetworkName:'),
+      screen.getByText('BRAVE_WALLET_ALLOW_ADD_NETWORK_NAME:'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('braveWalletAllowAddNetworkUrl:'),
+      screen.getByText('BRAVE_WALLET_ALLOW_ADD_NETWORK_URL:'),
     ).toBeInTheDocument()
-    expect(screen.getByText('braveWalletChainId:')).toBeInTheDocument()
+    expect(screen.getByText('BRAVE_WALLET_CHAIN_ID:')).toBeInTheDocument()
     expect(
-      screen.getByText('braveWalletAllowAddNetworkCurrencySymbol:'),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('braveWalletWatchListTokenDecimals:'),
+      screen.getByText('BRAVE_WALLET_ALLOW_ADD_NETWORK_CURRENCY_SYMBOL:'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('braveWalletAllowAddNetworkExplorer:'),
+      screen.getByText('BRAVE_WALLET_WATCH_LIST_TOKEN_DECIMALS:'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('BRAVE_WALLET_ALLOW_ADD_NETWORK_EXPLORER:'),
     ).toBeInTheDocument()
 
     // Check if network values are displayed

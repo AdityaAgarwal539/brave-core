@@ -6,6 +6,9 @@
 #ifndef BRAVE_COMPONENTS_BRAVE_ADS_CORE_INTERNAL_DATABASE_DATABASE_MANAGER_H_
 #define BRAVE_COMPONENTS_BRAVE_ADS_CORE_INTERNAL_DATABASE_DATABASE_MANAGER_H_
 
+#include <optional>
+#include <string>
+
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -50,6 +53,10 @@ class DatabaseManager final {
   // Shutdowns the database.
   void Shutdown(ResultCallback callback);
 
+  // Returns the reason the most recent migration attempt in this session
+  // failed, or nullopt if it either hasn't run yet or succeeded.
+  const std::optional<std::string>& GetLastMigrationFailureReason() const;
+
  private:
   void CreateOrOpenCallback(
       ResultCallback callback,
@@ -61,19 +68,23 @@ class DatabaseManager final {
 
   // Create the database from scratch.
   void Create(ResultCallback callback);
-  void CreateCallback(ResultCallback callback, bool success);
+  void CreateCallback(
+      ResultCallback callback,
+      mojom::DBTransactionResultInfoPtr mojom_db_transaction_result);
 
   // Raze the database and create it from scratch.
   void RazeAndCreate(int from_version, ResultCallback callback);
-  void RazeAndCreateCallback(ResultCallback callback,
-                             int from_version,
-                             bool success);
+  void RazeAndCreateCallback(
+      int from_version,
+      ResultCallback callback,
+      mojom::DBTransactionResultInfoPtr mojom_db_transaction_result);
 
   // Migrate the database from `from_version` to the current version.
   void MaybeMigrate(int from_version, ResultCallback callback);
-  void MigrateFromVersionCallback(int from_version,
-                                  ResultCallback callback,
-                                  bool success);
+  void MigrateFromVersionCallback(
+      int from_version,
+      ResultCallback callback,
+      mojom::DBTransactionResultInfoPtr mojom_db_transaction_result);
 
   void NotifyWillCreateOrOpenDatabase();
   void NotifyDidCreateDatabase();
@@ -86,6 +97,8 @@ class DatabaseManager final {
 
   const scoped_refptr<base::SequencedTaskRunner> database_task_runner_;
   base::SequenceBound<Database> database_;
+
+  std::optional<std::string> last_migration_failure_reason_;
 
   base::ObserverList<DatabaseManagerObserver> observers_;
 

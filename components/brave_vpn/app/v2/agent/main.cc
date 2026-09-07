@@ -3,12 +3,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#include <string>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/process/launch.h"
 #include "base/process/memory.h"
+#include "base/task/thread_pool/thread_pool_instance.h"
 #include "brave/components/brave_vpn/app/v2/agent/agent_app.h"
 #include "brave/components/brave_vpn/app/v2/agent/single_instance.h"
 #include "brave/components/brave_vpn/app/v2/shared/app_utils.h"
@@ -64,6 +68,11 @@ int main(int argc, char* argv[]) {
   if (crashpad_handler_status.has_value()) {
     return crashpad_handler_status.value();
   }
+
+  // Attach a console to the process if requested.
+  if (command_line.HasSwitch(brave_vpn::v2::switches::kVpnAppConsole)) {
+    base::RouteStdioToConsole(/*create_console_if_not_found=*/true);
+  }
 #endif  // BUILDFLAG(IS_WIN)
 
   brave_vpn::v2::app_utils::InitLogging(command_line);
@@ -97,6 +106,15 @@ int main(int argc, char* argv[]) {
   CrashReporterClient::InitializeForProcess(
       process_type, kBraveVpnAgentAppProductName, channel_name, user_data_dir);
 
+  base::ThreadPoolInstance::CreateAndStartWithDefaultParams(
+      kBraveVpnAgentAppProductName);
+
   AgentApp agent_app;
-  return agent_app.Run();
+  const int exit_code = agent_app.Run();
+
+  // Blocks until running pool tasks have finished, so the IPC server's socket
+  // work is not still executing while the process unwinds.
+  base::ThreadPoolInstance::Get()->Shutdown();
+
+  return exit_code;
 }

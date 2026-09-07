@@ -7,7 +7,7 @@ import * as React from 'react'
 import { render } from '@testing-library/react'
 
 // Utils
-import BraveCoreThemeProvider from '../../../../common/BraveCoreThemeProvider'
+import { WalletTestThemeProvider } from '../../../utils/test-utils'
 
 // Components
 import { TransactionQueueSelector } from './transaction_queue_selector'
@@ -19,27 +19,27 @@ describe('AdvancedTransactionSettings', () => {
     const rejectAllTransactions = jest.fn()
 
     const { container } = render(
-      <BraveCoreThemeProvider>
+      <WalletTestThemeProvider>
         <TransactionQueueSelector
           transactionsQueueLength={5}
           queueNextTransaction={queueNextTransaction}
           queuePreviousTransaction={queuePreviousTransaction}
           rejectAllTransactions={rejectAllTransactions}
         />
-      </BraveCoreThemeProvider>,
+      </WalletTestThemeProvider>,
     )
 
     // Check button
     const button = container.querySelector('leo-button')
     expect(button).toBeInTheDocument()
-    expect(button).toHaveTextContent('braveWalletPendingTransactionsNumber')
+    expect(button).toHaveTextContent(S.BRAVE_WALLET_PENDING_TRANSACTIONS_NUMBER)
 
     // Check menu items
     const menuItems = container.querySelectorAll('leo-menu-item')
     expect(menuItems).toHaveLength(3)
-    expect(menuItems[0]).toHaveTextContent('braveWalletNextTransaction')
-    expect(menuItems[1]).toHaveTextContent('braveWalletPreviousTransaction')
-    expect(menuItems[2]).toHaveTextContent('braveWalletRejectTransactions')
+    expect(menuItems[0]).toHaveTextContent(S.BRAVE_WALLET_NEXT_TRANSACTION)
+    expect(menuItems[1]).toHaveTextContent(S.BRAVE_WALLET_PREVIOUS_TRANSACTION)
+    expect(menuItems[2]).toHaveTextContent(S.BRAVE_WALLET_REJECT_TRANSACTIONS)
 
     // Force the menu open so we can handle click events.
     const menu = container.querySelector('leo-buttonmenu')

@@ -50,6 +50,16 @@ inline constexpr uint8_t kOrchardSpendingKeySize = 32;
 inline constexpr size_t kOrchardCompleteBlockHashSize = 32u;
 // Block number where Orchard support was added
 inline constexpr size_t kNu5BlockUpdate = 1687104;
+// TODO(cypt4): NU7/Ironwood activation heights are not finalized.
+// Ironwood tree state is supplied only when a batch's last block is at or
+// above these heights.
+inline constexpr uint32_t kIronwoodActivationHeightMainnet = 3428143;
+inline constexpr uint32_t kIronwoodActivationHeightTestnet = 4134000;
+
+inline uint32_t GetIronwoodActivationHeight(const std::string& chain_id) {
+  return chain_id == mojom::kZCashTestnet ? kIronwoodActivationHeightTestnet
+                                          : kIronwoodActivationHeightMainnet;
+}
 
 using OrchardFullViewKey = std::array<uint8_t, kOrchardFullViewKeySize>;
 using OrchardMemo = std::array<uint8_t, kOrchardMemoSize>;
@@ -76,6 +86,14 @@ enum ZCashAddrType : uint8_t {
   kSapling = 0x02,
   kOrchard = 0x03,
   kMaxValue = kOrchard
+};
+
+// Distinguishes the Orchard-compatible commitment-tree pools. Both pools reuse
+// the same shard-tree logic but keep independent trees, notes, nullifiers and
+// checkpoints inside OrchardStorage, keyed by this value.
+enum class OrchardPool : uint8_t {
+  kOrchard = 0,
+  kIronwood = 1,
 };
 
 enum class OrchardAddressKind {
@@ -133,6 +151,7 @@ struct OrchardNote {
   uint32_t orchard_commitment_tree_position = 0;
   OrchardRho rho{};
   OrchardRseed seed{};
+  uint32_t note_version = 0;
 
   bool operator==(const OrchardNote& other) const = default;
   base::DictValue ToValue() const;
@@ -161,6 +180,7 @@ struct OrchardInput {
   OrchardNote note;
   std::optional<OrchardNoteWitness> witness;
 
+  bool operator==(const OrchardInput& other) const = default;
   base::DictValue ToValue() const;
   static std::optional<OrchardInput> FromValue(const base::DictValue& value);
 };

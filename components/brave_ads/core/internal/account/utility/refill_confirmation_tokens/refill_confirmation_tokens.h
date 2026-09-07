@@ -46,7 +46,7 @@ class RefillConfirmationTokens final {
  private:
   void Refill();
 
-  void GenerateTokens();
+  bool GenerateTokens();
 
   bool ShouldRequestSignedTokens() const;
   void RequestSignedTokens();
@@ -76,7 +76,7 @@ class RefillConfirmationTokens final {
   void NotifyCaptchaRequiredToRefillConfirmationTokens(
       const std::string& captcha_id) const;
   void NotifyDidRefillConfirmationTokens() const;
-  void NotifyFailedToRefillConfirmationTokens() const;
+  void NotifyFailedToRefillConfirmationTokens(bool will_retry) const;
   void NotifyWillRetryRefillingConfirmationTokens(base::Time retry_at) const;
   void NotifyDidRetryRefillingConfirmationTokens() const;
 

@@ -5,7 +5,7 @@
 
 substitutions:
   - description: "IsWebContentsVisible override for inactive split tabs'"
-    re_pattern: '(  // ChromeWebModalDialogManagerDelegate:\n)'
-    replace:
-      '\1  bool IsWebContentsVisible(content::WebContents* web_contents)
-      override;\n'
+    add_to_public:
+      class_name: BrowserWindowModalDialogDelegate
+      code:
+        'bool IsWebContentsVisible(content::WebContents* web_contents) override;'

@@ -7,22 +7,27 @@ import * as React from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkDirective from 'remark-directive'
+import remarkMath from 'remark-math'
 import type { Root, Element as HastElement } from 'hast'
-import { Url } from 'gen/url/mojom/url.mojom.m.js'
+import type { PluggableList } from 'unified'
 import Label from '@brave/leo/react/label'
 import { visit } from 'unist-util-visit'
 
 import styles from './style.module.scss'
 import CaretSVG from '../svg/caret'
 import {
-  useUntrustedConversationContext, //
-} from '../../untrusted_conversation_context'
-import {
   ALLOWED_DIRECTIVES,
   directiveComponents,
   remarkDirectives,
 } from './remark_directives'
 import { remarkColor, ColorChip } from './remark_color'
+import {
+  IS_MATH_RENDERING_ENABLED,
+  MATH_BLOCK_TAG,
+  MATH_INLINE_TAG,
+  MATH_REMARK_OPTIONS,
+  remarkMathElements,
+} from './remark_math'
 import {
   checkboxRenderer,
   createLiClickHandler,
@@ -35,8 +40,21 @@ const CodeBlock = React.lazy(async () => ({
 const CodeInline = React.lazy(async () => ({
   default: (await import('../code_block')).default.Inline,
 }))
+// KaTeX and its stylesheet are ~300KB, so they load as their own chunk rather
+// than sitting in the frame's initial bundle. This is only possible because the
+// LaTeX is rendered by a component: a rehype plugin would have to run inside
+// react-markdown's synchronous pipeline and could not await the import.
+const MathBlock = React.lazy(async () => ({
+  default: (await import('../math_block')).default.Block,
+}))
+const MathInline = React.lazy(async () => ({
+  default: (await import('../math_block')).default.Inline,
+}))
 
-const allowedElements = [
+// Exported for tests: the renderer drops (and, with `unwrapDisallowed`,
+// unwraps) any element not named here, so it is the effective allowlist for
+// everything model output can produce.
+export const allowedElements = [
   // Headings
   'h1',
   'h2',
@@ -86,6 +104,10 @@ const allowedElements = [
 
   // Color chips
   'colorchip',
+
+  // Math. Omitted entirely when the feature is off so the kill switch also
+  // closes the allowlist, rather than leaving tags nothing can produce.
+  ...(IS_MATH_RENDERING_ENABLED ? [MATH_INLINE_TAG, MATH_BLOCK_TAG] : []),
 ]
 
 interface CursorDecoratorProps {
@@ -112,31 +134,44 @@ function CursorDecorator(props: CursorDecoratorProps) {
 
 interface RenderLinkProps {
   a: React.ComponentProps<'a'>
+  // URLs sourced from the response's citations. Only links whose href matches
+  // one of these render as numbered citation chips.
   allowedLinks?: string[]
-  disableLinkRestrictions?: boolean
+}
+
+// Returns true when `href` resolves to the same canonical URL as one of the
+// citation sources. This compares URL identity rather than a string prefix so
+// that a look-alike host (e.g. `https://brave.com.evil.example`) or a userinfo
+// prefix (e.g. `https://brave.com@evil.example`) cannot masquerade as the cited
+// `https://brave.com` and render as a trusted citation chip.
+function isCitationUrl(
+  href: string | undefined,
+  allowedLinks: string[] | undefined,
+): boolean {
+  if (href === undefined || allowedLinks === undefined) {
+    return false
+  }
+  let canonicalHref: string
+  try {
+    canonicalHref = new URL(href).href
+  } catch {
+    return false
+  }
+  return allowedLinks.some((link) => {
+    try {
+      return new URL(link).href === canonicalHref
+    } catch {
+      return false
+    }
+  })
 }
 
 export function RenderLink(props: RenderLinkProps) {
-  const { a, allowedLinks, disableLinkRestrictions } = props
+  const { a, allowedLinks } = props
   const { href, children } = a
 
-  // Context
-  const context = useUntrustedConversationContext()
-
-  // Computed
-  const isHttps = href?.toLowerCase().startsWith('https://')
-  const isLinkAllowed =
-    isHttps
-    && (disableLinkRestrictions
-      || (allowedLinks?.some((link) => href?.startsWith(link)) ?? false))
-
-  const handleLinkClicked = React.useCallback(() => {
-    if (href && isLinkAllowed) {
-      const mojomUrl = new Url()
-      mojomUrl.url = href
-      context.parentUiFrame?.userRequestedOpenGeneratedUrl(mojomUrl)
-    }
-  }, [context, href])
+  // Computed. All HTTPS links are allowed; other schemes (e.g. http) are not.
+  const isLinkAllowed = href?.toLowerCase().startsWith('https://') ?? false
 
   if (!isLinkAllowed) {
     // Completely hide relative links.
@@ -146,31 +181,37 @@ export function RenderLink(props: RenderLinkProps) {
     return <span>{children}</span>
   }
 
-  const isCitation = typeof children === 'string' && /^\d+$/.test(children)
+  // Only links pointing at a citation source become numbered citation chips.
+  // Other numeric-text links render as ordinary anchors.
+  const isCitation =
+    typeof children === 'string'
+    && /^\d+$/.test(children)
+    && isCitationUrl(href, allowedLinks)
 
   if (isCitation) {
+    // Render as an anchor (not a button) so hovering discloses the destination
+    // via the browser status bubble, matching a normal tab.
     return (
       <Label>
-        <button
+        <a
           className={styles.citation}
-          onClick={handleLinkClicked}
+          href={href}
+          target='_blank'
+          rel='noopener noreferrer'
         >
           {children}
-        </button>
+        </a>
       </Label>
     )
   }
 
   return (
     <a
-      // While we preventDefault, we still need to pass the href
-      // here so we can continue to show link previews.
+      // Pass the href so link previews continue to work.
       href={href}
       className={styles.conversationLink}
-      onClick={(e) => {
-        e.preventDefault()
-        handleLinkClicked()
-      }}
+      target='_blank'
+      rel='noopener noreferrer'
     >
       {children}
     </a>
@@ -271,8 +312,8 @@ function buildTableRenderer() {
 interface MarkdownRendererProps {
   text: string
   shouldShowTextCursor: boolean
+  // Citation source URLs. Links pointing at these render as citation chips.
   allowedLinks?: string[]
-  disableLinkRestrictions?: boolean
   // Fires when the user toggles a GFM task-list checkbox. `index` is the
   // zero-based position of the checkbox among task-list checkboxes in
   // document order — matches findTaskCheckboxBracketOffsets() over the
@@ -282,11 +323,16 @@ interface MarkdownRendererProps {
 }
 
 // Module-level constant so the array reference is stable across all renders.
-const REMARK_PLUGINS = [
+const REMARK_PLUGINS: PluggableList = [
   remarkGfm,
   remarkDirective,
   remarkDirectives,
   remarkColor,
+  // remarkMath only registers parser extensions, so remarkMathElements always
+  // sees the math nodes it produces regardless of their relative order here.
+  ...(IS_MATH_RENDERING_ENABLED
+    ? ([[remarkMath, MATH_REMARK_OPTIONS], remarkMathElements] as PluggableList)
+    : []),
 ]
 
 export default function MarkdownRenderer(mainProps: MarkdownRendererProps) {
@@ -296,10 +342,6 @@ export default function MarkdownRenderer(mainProps: MarkdownRendererProps) {
   // values without being recreated when those props change.
   const allowedLinksRef = React.useRef(mainProps.allowedLinks)
   allowedLinksRef.current = mainProps.allowedLinks
-  const disableLinkRestrictionsRef = React.useRef(
-    mainProps.disableLinkRestrictions,
-  )
-  disableLinkRestrictionsRef.current = mainProps.disableLinkRestrictions
   const onToggleCheckboxRef = React.useRef(mainProps.onToggleCheckbox)
   onToggleCheckboxRef.current = mainProps.onToggleCheckbox
 
@@ -364,11 +406,29 @@ export default function MarkdownRenderer(mainProps: MarkdownRendererProps) {
         <RenderLink
           a={props}
           allowedLinks={allowedLinksRef.current}
-          disableLinkRestrictions={disableLinkRestrictionsRef.current}
         />
       ),
       input: checkboxRenderer,
       colorchip: ColorChip,
+      // The element's only child is the LaTeX source (see remarkMathElements).
+      // While the KaTeX chunk loads, fall back to that source rather than a
+      // placeholder so the expression stays readable.
+      [MATH_INLINE_TAG]: (props: { children?: React.ReactNode }) => {
+        const tex = String(props.children ?? '')
+        return (
+          <React.Suspense fallback={tex}>
+            <MathInline tex={tex} />
+          </React.Suspense>
+        )
+      },
+      [MATH_BLOCK_TAG]: (props: { children?: React.ReactNode }) => {
+        const tex = String(props.children ?? '')
+        return (
+          <React.Suspense fallback={tex}>
+            <MathBlock tex={tex} />
+          </React.Suspense>
+        )
+      },
       ...buildTableRenderer(),
       ...directiveComponents,
     }),

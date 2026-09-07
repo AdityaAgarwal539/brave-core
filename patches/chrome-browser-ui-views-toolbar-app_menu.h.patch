@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/toolbar/app_menu.h b/chrome/browser/ui/views/toolbar/app_menu.h
-index 63aa030ad4fc86a5eed3c6728926fea114cdbf49..1b14e29dda57edd6f8b82e3cf0ffb97cb7c077d5 100644
+index ede47bd7a181b03e876c1772977572469fd70213..49701b029487d80f725fb0f88d71dbc0d08d9466 100644
 --- a/chrome/browser/ui/views/toolbar/app_menu.h
 +++ b/chrome/browser/ui/views/toolbar/app_menu.h
 @@ -35,7 +35,7 @@ class MenuRunner;
@@ -11,3 +11,32 @@ index 63aa030ad4fc86a5eed3c6728926fea114cdbf49..1b14e29dda57edd6f8b82e3cf0ffb97c
                        public BookmarkMergedSurfaceServiceObserver,
                        public GlobalErrorObserver {
   public:
+@@ -47,15 +47,18 @@ class AppMenu final : public views::MenuDelegate,
+   AppMenu& operator=(const AppMenu&) = delete;
+   ~AppMenu() override;
+ 
++  std::unique_ptr<views::Background>
++  CreateInMenuButtonBackgroundWithLeadingBorder();
++
+   // Shows the menu relative to the specified controller's button.
+   // TODO(crbug.com/543867698): Specify a reasonable source type instead of
+   // defaulting to kNone.
+-  void RunMenu(
++  virtual void RunMenu(
+       views::MenuButtonController* host,
+       ui::mojom::MenuSourceType source_type = ui::mojom::MenuSourceType::kNone);
+ 
+   // Shows the menu with an anchor in the parent widget given its bounds.
+-  void RunMenu(
++  virtual void RunMenu(
+       views::Widget* parent,
+       const gfx::Rect& anchor_screen_bounds,
+       ui::mojom::MenuSourceType source_type = ui::mojom::MenuSourceType::kNone);
+@@ -143,6 +146,7 @@ class AppMenu final : public views::MenuDelegate,
+   views::View* GetZoomAppMenuViewForTest();
+ 
+  private:
++  friend class BraveAppMenu;
+   class CutCopyPasteView;
+   class RecentTabsMenuModelDelegate;
+   class ZoomView;

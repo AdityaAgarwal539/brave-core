@@ -27,16 +27,17 @@ bool IsBitcoinImportEnabled();
 bool IsBitcoinLedgerEnabled();
 bool IsZCashEnabled();
 bool IsPolkadotEnabled();
+bool IsPolkadotAssetDiscoveryEnabled();
 bool IsCardanoEnabled();
 bool IsCardanoDAppSupportEnabled();
 bool IsZCashShieldedTransactionsEnabled();
+bool IsZCashIronwoodEnabled();
 bool IsAnkrBalancesEnabled();
 bool IsTransactionSimulationsEnabled();
 bool IsAccountHidingEnabled();
 bool IsWalletDebugEnabled();
-#if BUILDFLAG(IS_IOS)
-bool IsWalletWebUIEnabled();
-#endif
+bool IsMojoForHardwareWalletEnabled();
+bool IsSnapsFeatureEnabled();
 
 bool IsEthereumKeyring(mojom::KeyringId keyring_id);
 bool IsEthereumAccount(const mojom::AccountIdPtr& account_id);

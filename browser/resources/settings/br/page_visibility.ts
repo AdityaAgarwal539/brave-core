@@ -20,6 +20,9 @@ declare module '../page_visibility.js' {
     // <if expr="enable_containers">
     containers?: boolean
     // </if>
+    // <if expr="enable_traffic_control">
+    trafficControl?: boolean
+    // </if>
     content?: boolean
     getStarted?: boolean
     leoAssistant?: boolean
@@ -57,6 +60,9 @@ function getPageVisibility () {
       // <if expr="enable_containers">
       containers: false,
       // </if>
+      // <if expr="enable_traffic_control">
+      trafficControl: false,
+      // </if>
       content: false,
       getStarted: false,
       leoAssistant: false,
@@ -87,6 +93,7 @@ function getPageVisibility () {
     // future-proof chromium actually defining something,
     ...chromiumPageVisibility,
     // overrides
+    ai: false,
     people: false,
     defaultBrowser: false,
     onStartup: false,
@@ -105,6 +112,9 @@ function getPageVisibility () {
     surveyPanelist: loadTimeData.getBoolean('isSurveyPanelistAllowed'),
     // <if expr="enable_containers">
     containers: loadTimeData.getBoolean('isContainersEnabled'),
+    // </if>
+    // <if expr="enable_traffic_control">
+    trafficControl: loadTimeData.getBoolean('isTrafficControlEnabled'),
     // </if>
     content: alwaysTrueProxy,
     playlist: loadTimeData.getBoolean('isPlaylistFeatureEnabled') &&

@@ -91,7 +91,7 @@ extension BraveWallet.NetworkInfo: @retroactive Identifiable {
       coingeckoId: "",
       chainId: chainId,
       coin: coin,
-      isShielded: false
+      zcashTokenType: .none
     )
   }
 
@@ -211,5 +211,17 @@ extension BraveWallet.MeldServiceProvider: @retroactive Identifiable {
 extension BraveWallet.MeldCryptoCurrency: @retroactive Identifiable {
   public var id: String {
     currencyCode
+  }
+}
+
+extension View {
+  func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
+    background(
+      GeometryReader { geometryProxy in
+        Color.clear
+          .preference(key: SizePreferenceKey.self, value: geometryProxy.size)
+      }
+    )
+    .onPreferenceChange(SizePreferenceKey.self, perform: onChange)
   }
 }

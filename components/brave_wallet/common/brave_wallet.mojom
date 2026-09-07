@@ -437,6 +437,9 @@ interface PanelHandler {
   // Notify the backend that the dialog should be closed.
   CloseUI();
 
+  // Close the Wallet Chromium side panel (not the popup bubble panel).
+  CloseSidePanel();
+
   ConnectToSite(array<string> accounts, PermissionLifetimeOption option);
 
   CancelConnectToSite();
@@ -475,6 +478,10 @@ interface PageHandler {
   // Wallet WebUI in another tab. For example, the user taps the button
   // to open Wallet WebUI in another tab while syncing ZCash Shielded Account.
   OpenWalletHome();
+
+  // Mobile only
+  // - Used by Wallet WebUI when user needs to scan QR code to read address
+  ScanQRCode() => (string address);
 };
 
 enum AssetPriceTimeframe {
@@ -1016,6 +1023,7 @@ struct WalletInfo {
   bool is_ankr_balances_feature_enabled;
   bool is_transaction_simulations_feature_enabled;
   bool is_z_cash_shielded_transactions_enabled;
+  bool is_z_cash_ironwood_enabled;
   bool is_cardano_enabled;
   array<CoinType> enabled_coins;
   bool is_cardano_dapp_support_enabled;
@@ -1033,6 +1041,15 @@ enum SPLTokenProgram {
   kUnsupported = 1,  // Unsupported token program or not SPL token.
   kToken = 2,
   kToken2022 = 3,
+};
+
+// Zcash only. Identifies which pool a token/asset represents.
+// kNone is the default for all non-Zcash tokens.
+enum ZCashTokenType {
+  kNone = 0,
+  kTransparent = 1,
+  kOrchard = 2,
+  kIronwood = 3,
 };
 
 struct BlockchainToken {
@@ -1056,7 +1073,8 @@ struct BlockchainToken {
   string coingecko_id = "";
   string chain_id;
   CoinType coin;
-  bool is_shielded = false;  // Zcash only, marks whether asset belongs to the shielded pool.
+  // Zcash only. kNone for every non-Zcash token.
+  ZCashTokenType zcash_token_type = kNone;
 };
 
 struct AllowanceInfo {
@@ -1147,7 +1165,7 @@ interface BlockchainRegistry {
       => (array<BlockchainToken> tokens);
 
   // Obtains all tokens for the Sell UI
-  GetSellTokens(OffRampProvider provider, string chain_id)
+  GetSellTokens(OffRampProvider provider, array<string> chain_ids)
       => (array<BlockchainToken> tokens);
 
   // Get currencies list
@@ -1417,9 +1435,6 @@ interface SwapService {
           SwapErrorUnion? error,
           string error_string);
 
-  // Obtains whether the given chain id supports swap
-  IsSwapSupported(string chain_id) => (bool result);
-
   GetStatus(Gate3SwapStatusParams params) => (Gate3SwapStatus? response,
                                               Gate3SwapError? error,
                                               string error_string);
@@ -1514,8 +1529,6 @@ const string kSolanaComputeBudgetProgramId =
 const string kMainnetChainId = "0x1";
 
 const string kSepoliaChainId = "0xaa36a7";
-
-const string kLocalhostChainId = "0x539";
 
 const string kPolygonMainnetChainId = "0x89";
 
@@ -1809,6 +1822,15 @@ struct NftIdentifier {
   string token_id;
 };
 
+struct AllNetworks {
+  array<NetworkInfo> networks;
+  array<string> custom_chain_ids;
+  array<string> hidden_chain_ids;
+  array<string> ankr_chain_ids;
+  array<string> swap_chain_ids;
+  array<string> off_ramp_chain_ids;
+};
+
 // Deals with the ETH JSON RPC API, as well as things like the user's current
 // network.
 interface JsonRpcService {
@@ -1834,13 +1856,7 @@ interface JsonRpcService {
   GetNetwork(CoinType coin, url.mojom.Origin? origin)
       => (NetworkInfo network);
 
-  GetAllNetworks() => (array<NetworkInfo> networks);
-
-  GetCustomNetworks(CoinType coin) => (array<string> chain_ids);
-
-  GetKnownNetworks(CoinType coin) => (array<string> chain_ids);
-
-  GetHiddenNetworks(CoinType coin) => (array<string> chain_ids);
+  GetAllNetworks() => (AllNetworks all_networks);
 
   AddHiddenNetwork(CoinType coin, string chain_id) => (bool success);
 
@@ -2110,8 +2126,10 @@ struct ZCashKeyId {
 struct ZCashBalance {
   uint64 total_balance;
   uint64 transparent_balance;
-  uint64 shielded_balance;
-  uint64 shielded_pending_balance;
+  uint64 orchard_balance;
+  uint64 orchard_pending_balance;
+  uint64 ironwood_balance;
+  uint64 ironwood_pending_balance;
   // Transparent balances
   map<string, uint64> balances;  // address -> balance of that address(sum of all related utxos)
 };
@@ -2132,26 +2150,37 @@ struct ZCashAccountInfo {
   ZCashAddress next_transparent_receive_address;
   ZCashAddress next_transparent_change_address;
   ZCashAccountShieldBirthday? account_shield_birthday;
-  // Address that contains both transparent and orchard part
+  // Address that contains both transparent
+  // and orchard part/ironwood part
   // Could be null if orchard is not enabled.
   string? unified_address;
   // Address that contains orchard part only
   // Could be null if orchard is not enabled.
+  // Address is the same across orchard and ironwood pool.
   string? orchard_address;
   // Address can be used to shield funds internally.
+  // Address is the same across orchard and ironwood pool.
   string? orchard_internal_address;
 };
 
 enum ZCashTxType {
   kUnknown = 0,
   kTransparentToTransparent = 1,
-  kTransparentToOrchard = 2,
-  kOrchardToOrchard = 3,
   kOrchardToTransparent = 4,
-  // Internal transfer to the account's shielded address
-  kShielding = 5,
-  // Internal transfer to the account's transparent address
-  kUnshielding = 6,
+  // Internal transfer to a same-keyring account's Ironwood shielded address
+  kShieldingIronwood = 5,
+  // Internal transfer to a same-keyring account's transparent address
+  // (from Orchard)
+  kUnshieldingOrchard = 6,
+  kTransparentToIronwood = 7,
+  kOrchardToIronwood = 8,
+  kIronwoodToIronwood = 9,
+  kIronwoodToTransparent = 10,
+  // Internal transfer to a same-keyring account's transparent address
+  // (from Ironwood)
+  kUnshieldingIronwood = 11,
+  // Transfer from orchard to ironwood internal account
+  kMigratingIronwood = 12,
 };
 
 enum ZCashAddressError {
@@ -2163,6 +2192,7 @@ enum ZCashAddressError {
   kInvalidAddressNetworkMismatch = 5,
   kNotZCashAccount,
   kInvalidSenderType,
+  kInvalidRecipientType,
 };
 
 struct ZCashOrchardNoteInfo {
@@ -2222,7 +2252,7 @@ interface ZCashWalletService {
       => (string? tx_id, string? error_message);
 
   GetTransactionType(
-      AccountId account_id, bool use_shielded_pool, string recipient)
+      AccountId account_id, ZCashTokenType from_token_type, string recipient)
       => (ZCashTxType tx_type, ZCashAddressError error);
 
   AddObserver(pending_remote<ZCashWalletServiceObserver> observer);
@@ -2241,6 +2271,11 @@ interface ZCashWalletService {
 
   // `account_birthday_block` is 0 if account birthday shouldn't be changed.
   ResetSyncState(AccountId account_id, uint32 account_birthday_block)
+      => (string? error_message);
+
+  // Rewinds sync state to immediately before Ironwood activation so the
+  // activation block is rescanned. Does not change account birthday.
+  ResetSyncStateToIronwoodActivation(AccountId account_id)
       => (string? error_message);
 
   GetChainTipStatus(AccountId account_id)
@@ -2362,15 +2397,17 @@ struct BtcTxData {
 struct ZecTxInput {
   string address;
   uint64 value;
+  ZCashTokenType pool = kNone;
 };
 
 struct ZecTxOutput {
   string address;
   uint64 value;
+  ZCashTokenType pool = kNone;
 };
 
 struct ZecTxData {
-  bool use_shielded_pool;
+  ZCashTokenType zcash_token_type = kNone;
   string to;
   bool sending_max_amount;
   // Memo field should exist only for shielded output.
@@ -2419,6 +2456,9 @@ struct PolkadotTxdata {
   uint128 fee;
   bool sending_max_amount;
   PolkadotAssetId? asset_id;
+  // 0x-prefixed hex of the blob the sender signs, for displaying in the UI
+  // before transaction confirmation.
+  string? signature_payload;
 };
 
 union TxDataUnion {
@@ -2545,7 +2585,7 @@ struct NewZCashTransactionParams {
   bool sending_max_amount;
   // Memo field should exist only for shielded output.
   array<uint8>? memo;
-  bool use_shielded_pool;
+  ZCashTokenType zcash_token_type;
   SwapInfo? swap_info;
 };
 
@@ -2948,11 +2988,8 @@ struct SignCardanoTransactionRequest {
 
   string raw_tx_data;
 
-  // Transaction inputs.
-  // Inputs that belong to the selected account has address and value filled.
-  array<CardanoTxInput> inputs;
-  // Transaction outputs.
-  array<CardanoTxOutput> outputs;
+  // Human-readable transaction summary for the signing UI.
+  string details_json;
 };
 
 enum ExternalWalletType {
@@ -3178,8 +3215,6 @@ interface BraveWalletService {
   // transacted and tries next one if it is(prefs are changed).
   GenerateReceiveAddress(AccountId account_id)
       => (string? address, string? error_message);
-
-  GetAnkrSupportedChainIds() => (array<string> chain_ids);
 
   IsPrivateWindow() => (bool is_private_window);
 

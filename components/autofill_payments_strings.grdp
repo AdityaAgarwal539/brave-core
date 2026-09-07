@@ -1055,10 +1055,10 @@
   <message name="IDS_AUTOFILL_CARD_BNPL_LINKED_ISSUER_PILL_LABEL" desc="Label for the linked issuer pill view, which may be displayed on the BNPL select provider screen that prompts the user to choose a pay later provider. If this label is present, it indicates that the user has previously associated this BNPL provider with their Brave account." formatter_data="android_java">
     Linked
   </message>
-  <message name="IDS_AUTOFILL_PAY_NOW" desc="Label for the tab in the autofill dropdown allowing the user to pay using a standard payment method, such as a credit card.">
+  <message name="IDS_AUTOFILL_PAY_NOW" desc="Label for the tab in the autofill dropdown allowing the user to pay using a standard payment method, such as a credit card." formatter_data="android_java">
       Pay now
   </message>
-  <message name="IDS_AUTOFILL_PAY_LATER" desc="Label for the tab in the autofill dropdown allowing the user to pay later using a Buy Now, Pay Later (BNPL) provider.">
+  <message name="IDS_AUTOFILL_PAY_LATER" desc="Label for the tab in the autofill dropdown allowing the user to pay later using a Buy Now, Pay Later (BNPL) provider." formatter_data="android_java">
       Pay later
   </message>
   <message name="IDS_AUTOFILL_PAY_NOW_PAY_LATER_TAB_ACCESSIBILITY_ANNOUNCEMENT" desc="Accessibility announcement when a tab is selected within the Autofill popup tabbed pane.">
@@ -1311,6 +1311,12 @@
   <message name="IDS_AUTOFILL_SETTINGS_PAGE_CARD_BENEFITS_LABEL" desc="Label for the card benefits preferences in both the payments settings page and card benefits settings page. These preferences help users access the card benefits settings." formatter_data="android_java">
       Card benefits
   </message>
+  <message name="IDS_AUTOFILL_MAXIMIZE_CREDIT_CARD_BENEFITS_SUGGESTION_MAIN_TEXT" desc="The main text shown for the AI card recommendation suggestion. When this suggestion is accepted, it prompts Gemini to recommend credit cards for autofill.">
+    Maximize rewards
+  </message>
+  <message name="IDS_AUTOFILL_MAXIMIZE_CREDIT_CARD_BENEFITS_SUGGESTION_SECONDARY_TEXT" desc="The secondary text shown for the AI card recommendation suggestion. When this suggestion is accepted, it prompts Gemini to recommend credit cards for autofill.">
+    Compare card benefits using Gemini
+  </message>
   <if expr="not is_android">
     <message name="IDS_AUTOFILL_SETTINGS_PAGE_CARD_BENEFITS_TOGGLE_SUBLABEL_WITH_LEARN_LINK" desc="Sublabel for the payments settings page card benefits toggle, including a hyperlinked text to learn about card benefits.">
       Show which rewards and benefits are available for your cards at checkout. <ph name="CARD_BENEFIT_HELP_LINK_BEGIN">&lt;a href="$1" aria-description="$2"&gt;</ph>Learn about card benefits<ph name="CARD_BENEFIT_HELP_LINK_END">&lt;/a&gt;</ph>
@@ -1435,6 +1441,40 @@
     </message>
     <message name="IDS_AUTOFILL_CREATE_FIRST_CREDIT_CARD_BUTTON_TEXT" desc="Button text for a call to action settings preference to add a new autofill credit card when the user does not have any cards added." formatter_data="android_java">
       Add payment method
+    </message>
+  </if>
+
+  <!-- Payments churned users strings -->
+  <message name="IDS_AUTOFILL_CHURNED_USERS_BUBBLE_ACCEPT_BUTTON_LABEL" desc="Accept button label for the payments churned users bubble. On acceptance, payments autofill is turned on for a user and a confirmation bubble is shown.">
+    Turn on
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_BUBBLE_CANCEL_BUTTON_LABEL" desc="Cancel button label for the payments churned users bubble. On cancellation, the bubble is closed.">
+    No thanks
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_BUBBLE_SECURITY_TITLE" desc="Security title for the payments churned users bubble. On acceptance, payments autofill is turned on for a user and a confirmation bubble is shown.">
+    Check out securely with autofill
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_BUBBLE_CONVENIENCE_TITLE" desc="Convenience title for the payments churned users bubble. On acceptance, payments autofill is turned on for a user and a confirmation bubble is shown.">
+    Check out faster with autofill
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_BUBBLE_SECURITY_DESCRIPTION" desc="Security description for the payments churned users bubble. On acceptance, payments autofill is turned on for a user and a confirmation bubble is shown.">
+    Turn on autofill to safely check out online. Your card details are encrypted in Brave Wallet.
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_BUBBLE_CONVENIENCE_DESCRIPTION" desc="Convenience description for the payments churned users bubble. On acceptance, payments autofill is turned on for a user and a confirmation bubble is shown.">
+    Fill card details automatically when you check out online. Cards are saved in Brave Wallet securely.
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_CONFIRMATION_BUBBLE_TITLE" desc="Title for the churned users confirmation bubble, which comes after the user has accepted the churned users bubble, letting the user know that autofill is turned on.">
+    Autofill turned on
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_CONFIRMATION_BUBBLE_LINK_TEXT" desc="Link text in the description for the churned users confirmation bubble, which comes after the user has accepted the churned users bubble, letting the user know that autofill is turned on.">
+    View autofill settings
+  </message>
+  <message name="IDS_AUTOFILL_CHURNED_USERS_CONFIRMATION_BUBBLE_DESCRIPTION" desc="Description for the churned users confirmation bubble, which comes after the user has accepted the churned users bubble, letting the user know that autofill is turned on.">
+    Now you can save payment methods to autofill at checkout in Brave. <ph name="LINK_TEXT">$1<ex>View autofill settings</ex></ph>
+  </message>
+  <if expr="not is_android">
+    <message name="IDS_AUTOFILL_CHURNED_USERS_CONFIRMATION_BUBBLE_LOADING_THROBBER_ACCESSIBLE_NAME" desc="Accessible name announced by the screenreader for virtual card prompt in loading state showing a throbber." is_accessibility_with_no_ui="true" formatter_data="android_java">
+      Turning on autofill
     </message>
   </if>
 

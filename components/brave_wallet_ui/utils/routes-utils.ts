@@ -42,6 +42,7 @@ export function getWalletLocationPathname(locationKey: string): string {
 export function isPersistableSessionRoute(
   route?: string,
   isPanel?: boolean,
+  isSidePanel?: boolean,
 ): boolean {
   if (!route) {
     return false
@@ -63,19 +64,19 @@ export function isPersistableSessionRoute(
      */
     || route.includes(WalletRoutes.Backup)
     /**
-     * Insure that the Deposit Funds route is an exact match.
+     * Insure that the Deposit route is an exact match.
      */
-    || routePath === WalletRoutes.DepositFundsPageStart
+    || routePath === WalletRoutes.DepositPageStart
     /**
      * or allow if it includes a trailing slash which is followed
      * by a currencyCode query param.
      */
-    || route.includes(WalletRoutes.DepositFundsPageStart + '/')
+    || route.includes(WalletRoutes.DepositPageStart + '/')
     /**
-     * Fund wallet route uses a query param to determine the asset
+     * Buy route uses a query param to determine the asset
      * and can not be exact matched.
      */
-    || route.includes(WalletRoutes.FundWalletPageStart)
+    || route.includes(WalletRoutes.BuyPageStart)
     /**
      * Insure that the Portfolio Assets route is an exact match.
      */
@@ -109,11 +110,6 @@ export function isPersistableSessionRoute(
      */
     || route.includes(WalletRoutes.Market + '/')
     /**
-     * Web3 route uses a query param to determine the
-     * dappCategory and can not be exact matched.
-     */
-    || route.includes(WalletRoutes.Web3)
-    /**
      * Insure that the Connections route is an exact match.
      */
     || routePath === WalletRoutes.Connections
@@ -122,7 +118,7 @@ export function isPersistableSessionRoute(
      * collectionName and can not be exact matched.
      */
     || route.includes(WalletRoutes.PortfolioNFTCollectionsStart)
-  if (isPanel) {
+  if (isPanel && !isSidePanel) {
     return isPersistableInPanel
   }
   return (
@@ -145,10 +141,15 @@ export function isPersistableSessionRoute(
   )
 }
 
-export function getInitialSessionRoute(isPanel?: boolean): string | undefined {
+export function getInitialSessionRoute(
+  isPanel?: boolean,
+  isSidePanel?: boolean,
+): string | undefined {
   const route =
     window.localStorage.getItem(LOCAL_STORAGE_KEYS.SAVED_SESSION_ROUTE) || ''
-  return isPersistableSessionRoute(route, isPanel) ? route : undefined
+  return isPersistableSessionRoute(route, isPanel, isSidePanel)
+    ? route
+    : undefined
 }
 
 export function getOnboardingTypeFromPath(
@@ -201,7 +202,7 @@ export const makeAccountTransactionRoute = (
   )
 }
 
-export const makeFundWalletRoute = (
+export const makeBuyRoute = (
   asset: Pick<MeldCryptoCurrency, 'chainId' | 'currencyCode'>,
   account?: BraveWallet.AccountInfo,
 ) => {
@@ -216,10 +217,10 @@ export const makeFundWalletRoute = (
       : baseQueryParams,
   )
 
-  return `${WalletRoutes.FundWalletPageStart}?${params.toString()}`
+  return `${WalletRoutes.BuyPageStart}?${params.toString()}`
 }
 
-export const makeDepositFundsRoute = (
+export const makeDepositRoute = (
   assetId: string,
   options?: {
     searchText?: string
@@ -239,17 +240,17 @@ export const makeDepositFundsRoute = (
       params.append('coinType', options.coinType)
     }
 
-    return `${WalletRoutes.DepositFundsPage.replace(
+    return `${WalletRoutes.DepositPage.replace(
       ':assetId?',
       assetId,
     )}?${params.toString()}`
   }
 
-  return WalletRoutes.DepositFundsPage.replace(':assetId?', assetId)
+  return WalletRoutes.DepositPage.replace(':assetId?', assetId)
 }
 
-export const makeDepositFundsAccountRoute = (assetId: string) => {
-  return WalletRoutes.DepositFundsAccountPage.replace(':assetId', assetId)
+export const makeDepositAccountRoute = (assetId: string) => {
+  return WalletRoutes.DepositAccountPage.replace(':assetId', assetId)
 }
 
 export const makeSendRoute = (
@@ -276,8 +277,11 @@ export const makeSendRoute = (
     : tokenIdQueryParams
 
   const params = new URLSearchParams(
-    asset.isShielded
-      ? { ...recipientQueryParams, isShielded: 'true' }
+    asset.zcashTokenType !== BraveWallet.ZCashTokenType.kNone
+      ? {
+          ...recipientQueryParams,
+          zcashTokenType: String(asset.zcashTokenType),
+        }
       : recipientQueryParams,
   )
 
@@ -328,13 +332,21 @@ export const makeSwapOrBridgeRoute = ({
       }
     : toAccountIdParams
 
-  const fromShieldedParams = fromToken.isShielded
-    ? { ...toTokenParams, fromIsShielded: 'true' }
-    : toTokenParams
+  const fromShieldedParams =
+    fromToken.zcashTokenType !== BraveWallet.ZCashTokenType.kNone
+      ? {
+          ...toTokenParams,
+          fromZcashTokenType: String(fromToken.zcashTokenType),
+        }
+      : toTokenParams
 
-  const allParams = toToken?.isShielded
-    ? { ...fromShieldedParams, toIsShielded: 'true' }
-    : fromShieldedParams
+  const allParams =
+    toToken && toToken.zcashTokenType !== BraveWallet.ZCashTokenType.kNone
+      ? {
+          ...fromShieldedParams,
+          toZcashTokenType: String(toToken.zcashTokenType),
+        }
+      : fromShieldedParams
 
   const params = new URLSearchParams(allParams)
 

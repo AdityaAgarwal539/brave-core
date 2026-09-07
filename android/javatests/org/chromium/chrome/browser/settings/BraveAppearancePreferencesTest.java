@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.settings;
 
 import static org.junit.Assert.assertTrue;
 
+import android.os.Build;
 import android.os.Looper;
 
 import androidx.annotation.Nullable;
@@ -24,7 +25,9 @@ import org.chromium.base.BravePreferenceKeys;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 
 /** Test for {@link AppearancePreferences}. */
@@ -61,6 +64,7 @@ public class BraveAppearancePreferencesTest {
         final String[] sortedPrefKeys = {
             AppearancePreferences.PREF_NAVIGATION_SECTION,
             AppearanceSettingsFragment.PREF_UI_THEME,
+            BravePreferenceKeys.BRAVE_ANDROID_DYNAMIC_COLORS_ENABLED,
             AppearancePreferences.PREF_BRAVE_CUSTOMIZE_MENU,
             AppearanceSettingsFragment.PREF_TOOLBAR_SHORTCUT,
             AppearancePreferences.PREF_ADDRESS_BAR,
@@ -89,6 +93,34 @@ public class BraveAppearancePreferencesTest {
                     pref.getOrder() > prevPref.getOrder());
             prevPref = pref;
         }
+    }
+
+    @Test
+    @SmallTest
+    public void testDynamicColorsPreferenceAvailability() {
+        startSettings();
+
+        Preference dynamicColorsPreference =
+                mAppearancePreferences.findPreference(
+                        BravePreferenceKeys.BRAVE_ANDROID_DYNAMIC_COLORS_ENABLED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Assert.assertNotNull(dynamicColorsPreference);
+            assertTrue(dynamicColorsPreference.isVisible());
+        } else {
+            Assert.assertNull(dynamicColorsPreference);
+        }
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.S)
+    public void testDynamicColorsInitializationDoesNotPersistDefault() {
+        String key = BravePreferenceKeys.BRAVE_ANDROID_DYNAMIC_COLORS_ENABLED;
+        ChromeSharedPreferences.getInstance().removeKey(key);
+
+        startSettings();
+
+        Assert.assertFalse(ChromeSharedPreferences.getInstance().contains(key));
     }
 
     @Test

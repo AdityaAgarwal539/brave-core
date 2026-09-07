@@ -5,7 +5,8 @@
 
 #include "brave/components/ai_chat/core/browser/engine/oai_message_utils.h"
 
-#include "base/containers/adapters.h"
+#include <ranges>
+
 #include "base/containers/span.h"
 #include "base/json/json_writer.h"
 #include "base/strings/escape.h"
@@ -126,7 +127,7 @@ std::vector<mojom::ContentBlockPtr> BuildOAIPageContentBlocks(
 
   // Note: We iterate in reverse so that we prefer more recent page content
   // (i.e. the oldest content will be truncated when we run out of context).
-  for (const auto& page_content : base::Reversed(page_contents)) {
+  for (const auto& page_content : std::views::reverse(page_contents)) {
     uint32_t effective_length_limit = max_associated_content_length;
     if (max_per_content_length.has_value()) {
       effective_length_limit =
@@ -157,7 +158,7 @@ std::vector<mojom::ContentBlockPtr> BuildOAIPageContentBlocks(
 
 std::vector<OAIMessage> BuildOAIMessages(
     PageContentsMap&& page_contents,
-    const EngineConsumer::ConversationHistory& conversation_history,
+    const EngineConsumer::ConversationHistoryView& conversation_history,
     PrefService* prefs,
     bool exclude_memory,
     uint32_t remaining_length,
@@ -444,7 +445,7 @@ std::vector<OAIMessage> BuildOAIMessages(
     } else {
       oai_message.content.push_back(
           mojom::ContentBlock::NewTextContentBlock(mojom::TextContentBlock::New(
-              EngineConsumer::GetPromptForEntry(message))));
+              EngineConsumer::GetPromptForEntry(*message))));
     }
 
     // Add the assistant message first
@@ -625,7 +626,7 @@ BuildOAIGenerateConversationTitleMessages(
                                   !assistant_turn->text.empty();
   std::string title_text = use_assistant_text
                                ? assistant_turn->text
-                               : EngineConsumer::GetPromptForEntry(first_turn);
+                               : EngineConsumer::GetPromptForEntry(*first_turn);
 
   // Withdraw the request entirely if we have nothing to summarize. Sending an
   // empty title block wastes a server round-trip and cannot produce a useful

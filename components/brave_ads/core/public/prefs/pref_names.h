@@ -13,7 +13,8 @@ static_assert(BUILDFLAG(ENABLE_BRAVE_ADS));
 namespace brave_ads::prefs {
 
 // IMPORTANT: Prefs that need clearing should be prefixed with
-// `brave.brave_ads`.
+// `brave.brave_ads`. `kSponsoredEnabled` is the exception; it records a user
+// choice that must outlive ads data, so `ClearAdsPrefs` restores it.
 
 // Ads prefs.
 inline constexpr char kFirstRunAt[] = "brave.brave_ads.first_run_at";
@@ -22,12 +23,12 @@ inline constexpr char kGracePeriod[] = "brave.brave_ads.grace_period";
 
 inline constexpr char kDiagnosticId[] = "brave.brave_ads.diagnostics.id";
 
-inline constexpr char kOptedInToNotificationAds[] = "brave.brave_ads.enabled";
+inline constexpr char kNotificationsEnabled[] =
+    "brave.brave_ads.notifications.enabled";
 inline constexpr char kMaximumNotificationAdsPerHour[] =
     "brave.brave_ads.ads_per_hour";
 
-inline constexpr char kOptedInToSearchResultAds[] =
-    "brave.brave_ads.opted_in_to_search_result_ads";
+inline constexpr char kSponsoredEnabled[] = "brave.brave_ads.sponsored.enabled";
 
 inline constexpr char kShouldAllowSubdivisionTargeting[] =
     "brave.brave_ads.should_allow_ads_subdivision_targeting";
@@ -58,8 +59,6 @@ inline constexpr char kSaveAds[] = "brave.brave_ads.reactions.saved_ads";
 inline constexpr char kMarkedAsInappropriate[] =
     "brave.brave_ads.reactions.marked_as_inappropriate";
 
-inline constexpr char kHasMigratedClientState[] =
-    "brave.brave_ads.state.has_migrated.client.v7";
 inline constexpr char kBrowserVersionNumber[] =
     "brave.brave_ads.browser_version_number";
 

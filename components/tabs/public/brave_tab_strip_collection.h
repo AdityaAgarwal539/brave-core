@@ -21,6 +21,7 @@ class SplitTabVisualData;
 namespace tabs {
 
 class BraveTabStripCollectionDelegate;
+class TreeTabNodeTabCollection;
 
 // BraveTabStripCollection is a TabStripCollection that allows a delegate to
 // override certain behaviors such as adding, removing, and moving tabs
@@ -44,12 +45,12 @@ class BraveTabStripCollection : public TabStripCollection {
   const ChildrenVector& GetChildrenForDelegate(
       const TabCollection& collection,
       base::PassKey<BraveTabStripCollectionDelegate> pass_key) const;
-  void AddTabRecursive(std::unique_ptr<TabInterface> tab,
+  void AddTabRecursive(ScopedTab tab,
                        size_t index,
                        std::optional<tab_groups::TabGroupId> new_group_id,
                        bool new_pinned_state,
                        base::PassKey<BraveTabStripCollectionDelegate> pass_key);
-  std::unique_ptr<TabInterface> RemoveTabAtIndexRecursive(
+  ScopedTab RemoveTabAtIndexRecursive(
       size_t index,
       base::PassKey<BraveTabStripCollectionDelegate> pass_key);
   void AddTabCollectionAtPosition(
@@ -74,7 +75,7 @@ class BraveTabStripCollection : public TabStripCollection {
       base::PassKey<BraveTabStripCollectionDelegate> pass_key);
 
   // TabStripCollection:
-  void AddTabRecursive(std::unique_ptr<TabInterface> tab,
+  void AddTabRecursive(ScopedTab tab,
                        size_t index,
                        std::optional<tab_groups::TabGroupId> new_group_id,
                        bool new_pinned_state,
@@ -90,8 +91,7 @@ class BraveTabStripCollection : public TabStripCollection {
       std::optional<tab_groups::TabGroupId> new_group_id,
       bool new_pinned_state,
       const TabCollection::TypeEnumSet retain_collection_types) override;
-  std::unique_ptr<TabInterface> RemoveTabAtIndexRecursive(
-      size_t index) override;
+  ScopedTab RemoveTabAtIndexRecursive(size_t index) override;
   void CreateSplit(split_tabs::SplitTabId split_id,
                    const std::vector<TabInterface*>& tabs,
                    split_tabs::SplitTabVisualData visual_data) override;
@@ -100,6 +100,17 @@ class BraveTabStripCollection : public TabStripCollection {
   void RemoveCollectionMapping(TabCollection* root_collection) override;
   const tree_tab::TreeTabNodeId* GetTreeTabNodeIdForGroup(
       tab_groups::TabGroupId group_id) const override;
+  void PrepareTreeTabNodesForBatchDetach(
+      const std::vector<TabInterface*>& moving_tabs) override;
+  bool ShouldDetachAsTreeSubtreeRoot(
+      TabInterface* tab,
+      const std::vector<TabInterface*>& moving_tabs) override;
+  void WillDetachTreeTabNodeSubtree(
+      TreeTabNodeTabCollection& subtree_root) override;
+  void DidAttachTreeTabNodeSubtree(
+      TreeTabNodeTabCollection& subtree_root) override;
+  void InsertDetachedTreeTabNode(std::unique_ptr<TabCollection> collection,
+                                 int index) override;
 
  private:
   std::unique_ptr<BraveTabStripCollectionDelegate> delegate_;

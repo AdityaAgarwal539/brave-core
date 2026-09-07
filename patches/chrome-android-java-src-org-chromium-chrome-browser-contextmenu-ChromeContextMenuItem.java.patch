@@ -1,40 +1,40 @@
 diff --git a/chrome/android/java/src/org/chromium/chrome/browser/contextmenu/ChromeContextMenuItem.java b/chrome/android/java/src/org/chromium/chrome/browser/contextmenu/ChromeContextMenuItem.java
-index 8dd0826e96505eab8cb2ba1b58cb281a637c9af2..2223fbf942a5a74fb8e8c2b86054b75745a8304a 100644
+index 7fd8506b0fe77decf68efd25812b6d4193ac62f1..da7b54365c7c027a9bb5a3b82706335ebc7708d6 100644
 --- a/chrome/android/java/src/org/chromium/chrome/browser/contextmenu/ChromeContextMenuItem.java
 +++ b/chrome/android/java/src/org/chromium/chrome/browser/contextmenu/ChromeContextMenuItem.java
-@@ -84,7 +84,8 @@ class ChromeContextMenuItem {
-         Item.INSPECT_ELEMENT,
-         Item.COPY_VIDEO_FRAME,
-         Item.DOWNLOAD_VIDEO_FRAME,
--        Item.READING_MODE
-+        Item.READING_MODE,
+@@ -91,7 +91,8 @@ class ChromeContextMenuItem {
+         Item.SEND_TAB_TO_SELF,
+         Item.TRANSLATE,
+         Item.CREATE_QR_CODE,
+-        Item.ASK_GEMINI
++        Item.ASK_GEMINI,
 +        Item.COPY_CLEAN_LINK,
      })
      @Retention(RetentionPolicy.SOURCE)
      public @interface Item {
-@@ -149,8 +150,9 @@ class ChromeContextMenuItem {
-         int COPY_VIDEO_FRAME = 47;
-         int DOWNLOAD_VIDEO_FRAME = 48;
-         int READING_MODE = 49;
-+        int COPY_CLEAN_LINK = 50;
+@@ -160,8 +161,9 @@ class ChromeContextMenuItem {
+         int TRANSLATE = 51;
+         int CREATE_QR_CODE = 52;
+         int ASK_GEMINI = 53;
++        int COPY_CLEAN_LINK = 54;
          // ALWAYS UPDATE!
--        int NUM_ENTRIES = 50;
+-        int NUM_ENTRIES = 54;
 +        int NUM_ENTRIES = COPY_CLEAN_LINK + 1;
      }
  
      /** Mapping from {@link Item} to the ID found in the ids.xml. */
-@@ -205,6 +207,7 @@ class ChromeContextMenuItem {
-         R.id.contextmenu_copy_video_frame, // Item.COPY_VIDEO_FRAME
-         R.id.contextmenu_download_video_frame, // Item.DOWNLOAD_VIDEO_FRAME
-         R.id.contextmenu_open_in_reading_mode, // Item.READING_MODE
+@@ -220,6 +222,7 @@ class ChromeContextMenuItem {
+         R.id.contextmenu_translate, // Item.TRANSLATE
+         R.id.contextmenu_create_qr_code, // Item.CREATE_QR_CODE
+         R.id.contextmenu_ask_gemini, // Item.ASK_GEMINI
 +        R.id.contextmenu_copy_clean_link, // Item.COPY_CLEAN_LINK
      };
  
      /** Mapping from {@link Item} to the ID of the string that describes the action of the item. */
-@@ -259,6 +262,7 @@ class ChromeContextMenuItem {
-         R.string.contextmenu_copy_video_frame, // Item.COPY_VIDEO_FRAME
-         R.string.contextmenu_download_video_frame, // Item.DOWNLOAD_VIDEO_FRAME
-         R.string.contextmenu_open_in_reading_mode, // Item.READING_MODE
+@@ -278,6 +281,7 @@ class ChromeContextMenuItem {
+         R.string.contextmenu_translate, // Item.TRANSLATE
+         R.string.contextmenu_create_qr_code, // Item.CREATE_QR_CODE
+         R.string.glic_button_entrypoint_ask_gemini_label, // Item.ASK_GEMINI
 +        R.string.contextmenu_copy_clean_link, // Item.COPY_CLEAN_LINK
      };
  

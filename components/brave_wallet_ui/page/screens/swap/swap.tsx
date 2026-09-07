@@ -36,6 +36,7 @@ import { QuoteInfo } from './components/swap/quote-info/quote-info'
 import { PrivacyModal } from './components/swap/privacy-modal/privacy-modal'
 import { ComposerControls } from '../composer_ui/composer_controls/composer_controls'
 import WalletPageWrapper from '../../../components/desktop/wallet-page-wrapper/wallet-page-wrapper'
+import { DefaultPanelHeader } from '../../../components/desktop/card-headers/default-panel-header'
 import { PanelActionHeader } from '../../../components/desktop/card-headers/panel-action-header'
 import { SwapProviders } from './components/swap/swap_providers/swap_providers'
 import {
@@ -106,6 +107,7 @@ export const Swap = () => {
   // Selectors
   const isPanel = useSafeUISelector(UISelectors.isPanel)
   const isMobile = useSafeUISelector(UISelectors.isMobile)
+  const isSidePanel = useSafeUISelector(UISelectors.isSidePanel)
   const isMobileOrPanel = isMobile || isPanel
   const isIOS = useSafeUISelector(UISelectors.isIOS)
   const isKeyboardVisible = useIsKeyboardVisible()
@@ -140,22 +142,28 @@ export const Swap = () => {
     ? undefined
     : getDominantColorFromImageURL(toToken?.logo ?? '')
 
+  const title = isBridge
+    ? getLocale(S.BRAVE_WALLET_BRIDGE)
+    : getLocale(S.BRAVE_WALLET_SWAP)
+
   // render
   return (
     <>
       <WalletPageWrapper
         wrapContentInBox={true}
+        useCardInPanel={true}
         noCardPadding={true}
         noMinCardHeight={true}
-        hideNav={isMobileOrPanel}
+        hideNav={!isSidePanel && isMobileOrPanel}
         cardHeader={
-          isMobileOrPanel ? (
+          isSidePanel ? (
+            <DefaultPanelHeader
+              expandRoute={isBridge ? WalletRoutes.Bridge : WalletRoutes.Swap}
+              title={title}
+            />
+          ) : isMobileOrPanel ? (
             <PanelActionHeader
-              title={
-                isBridge
-                  ? getLocale('braveWalletBridge')
-                  : getLocale('braveWalletSwap')
-              }
+              title={title}
               expandRoute={isBridge ? WalletRoutes.Bridge : WalletRoutes.Swap}
             />
           ) : undefined
@@ -247,7 +255,9 @@ export const Swap = () => {
                         justifyContent='flex-start'
                         gap='4px'
                       >
-                        {getLocale('braveWalletProviderNotSupported').replace(
+                        {getLocale(
+                          S.BRAVE_WALLET_PROVIDER_NOT_SUPPORTED,
+                        ).replace(
                           '$1',
                           SwapProviderNameMapping[selectedProvider],
                         )}
@@ -257,7 +267,7 @@ export const Swap = () => {
                             size='tiny'
                             onClick={() => setShowSwapProviders(true)}
                           >
-                            {getLocale('braveWalletChangeProvider')}
+                            {getLocale(S.BRAVE_WALLET_CHANGE_PROVIDER)}
                           </AlertMessageButton>
                         </div>
                       </AlertMessageWrapper>

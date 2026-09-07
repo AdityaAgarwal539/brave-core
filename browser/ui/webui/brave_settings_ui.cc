@@ -48,6 +48,7 @@
 #include "brave/components/email_aliases/buildflags/buildflags.h"
 #include "brave/components/ntp_background_images/browser/features.h"
 #include "brave/components/playlist/core/common/buildflags/buildflags.h"
+#include "brave/components/psst/buildflags/buildflags.h"
 #include "brave/components/search_engines/brave_prepopulated_engines.h"
 #include "brave/components/speedreader/common/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
@@ -58,6 +59,7 @@
 #include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/webui/settings/metrics_reporting_handler.h"
+#include "components/policy/policy_constants.h"
 #include "components/regional_capabilities/regional_capabilities_country_id.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/sync/base/command_line_switches.h"
@@ -123,6 +125,10 @@
 #include "brave/components/containers/core/browser/containers_settings_handler.h"
 #include "brave/components/containers/core/common/features.h"
 #endif
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+#include "brave/components/traffic_control/core/browser/traffic_control_settings_handler.h"
+#include "brave/components/traffic_control/core/common/features.h"
+#endif
 
 #if BUILDFLAG(ENABLE_BRAVE_WALLET)
 #include "brave/browser/brave_wallet/brave_wallet_context_utils.h"
@@ -136,6 +142,10 @@
 #include "brave/components/email_aliases/email_aliases.mojom.h"
 #include "brave/components/email_aliases/email_aliases_service.h"
 #include "brave/components/email_aliases/features.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PSST)
+#include "brave/components/psst/core/common/features.h"
 #endif
 
 namespace {
@@ -303,10 +313,29 @@ void BraveSettingsUI::AddResources(content::WebUIDataSource* html_source,
           email_aliases::EmailAliasesServiceFactory::GetServiceForProfile(
               profile));
 #endif
+#if BUILDFLAG(ENABLE_PSST)
+  auto* brave_origin_service =
+      brave_origin::BraveOriginServiceFactory::GetForProfile(profile);
+  bool is_managed_by_brave_origin = false;
+  if (brave_origin_service) {
+    is_managed_by_brave_origin =
+        brave_origin_service->IsPolicyControlledByBraveOrigin(
+            policy::key::kPsstEnabled);
+  }
+
+  html_source->AddBoolean("isPsstEnabled", base::FeatureList::IsEnabled(
+                                               psst::features::kEnablePsst) &&
+                                               is_managed_by_brave_origin);
+#endif
 #if BUILDFLAG(ENABLE_CONTAINERS)
   html_source->AddBoolean(
       "isContainersEnabled",
       base::FeatureList::IsEnabled(containers::features::kContainers));
+#endif
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+  html_source->AddBoolean(
+      "isTrafficControlEnabled",
+      base::FeatureList::IsEnabled(traffic_control::features::kTrafficControl));
 #endif
   html_source->AddBoolean(
       "isBraveAccountEnabled",
@@ -419,6 +448,22 @@ void BraveSettingsUI::BindInterface(
   MakeOwnedReceiver(std::move(handler), std::move(pending_receiver));
 }
 #endif  // BUILDFLAG(ENABLE_CONTAINERS)
+
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+void BraveSettingsUI::BindInterface(
+    mojo::PendingReceiver<traffic_control::mojom::TrafficControlSettingsHandler>
+        pending_receiver) {
+  if (!base::FeatureList::IsEnabled(
+          traffic_control::features::kTrafficControl)) {
+    return;
+  }
+  auto handler =
+      std::make_unique<traffic_control::TrafficControlSettingsHandler>(
+          user_prefs::UserPrefs::Get(
+              web_ui()->GetWebContents()->GetBrowserContext()));
+  MakeOwnedReceiver(std::move(handler), std::move(pending_receiver));
+}
+#endif  // BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
 
 #if BUILDFLAG(ENABLE_EMAIL_ALIASES)
 void BraveSettingsUI::BindInterface(

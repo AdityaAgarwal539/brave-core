@@ -32,6 +32,9 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol ProtectionStatsTabHelperBridge;
 @protocol PrintHandler;
 @protocol RequestBlockingTabHelperBridge;
+@protocol CosmeticFilteringTabHelperBridge;
+@protocol ScriptletsTabHelperBridge;
+@protocol BraveWalletProviderDelegate;
 
 typedef void (^ResetConfigurationCallback)(id<ProfileBridge>,
                                            WKWebViewConfiguration*);
@@ -145,8 +148,8 @@ CWV_EXPORT
 // AdsReportingScript is converted to a Chromium JavaScriptFeature
 CWV_EXPORT
 @interface BraveWebView (AdsNotifier)
-- (void)notifyTabDidStartPlayingMedia;
-- (void)notifyTabDidStopPlayingMedia;
+- (void)notifyTabDidStartPlayingMedia:(NSInteger)playerId;
+- (void)notifyTabDidStopPlayingMedia:(NSInteger)playerId;
 @end
 
 CWV_EXPORT
@@ -166,10 +169,13 @@ CWV_EXPORT
 @end
 
 CWV_EXPORT
-@interface BraveWebView (WalletWebUI)
+@interface BraveWebView (Wallet)
 /// A bridge for handling Brave Wallet WebUI page actions
 @property(nonatomic, weak, nullable) id<WalletPageHandlerBridge>
     walletPageHandler;
+/// A bridge for handling wallet provider actions
+@property(nonatomic, weak, nullable) id<BraveWalletProviderDelegate>
+    walletProviderDelegate;
 @end
 
 CWV_EXPORT
@@ -268,6 +274,19 @@ CWV_EXPORT
 /// A bridge for Request Blocking javascript feature
 - (void)setRequestBlockingTabHelperBridge:
     (id<RequestBlockingTabHelperBridge>)bridge;
+@end
+
+CWV_EXPORT
+@interface BraveWebView (CosmeticFiltering)
+/// A bridge for Cosmetic Filtering javascript feature
+- (void)setCosmeticFilteringTabHelperBridge:
+    (id<CosmeticFilteringTabHelperBridge>)bridge;
+@end
+
+CWV_EXPORT
+@interface BraveWebView (Scriptlets)
+/// A bridge for the Scriptlets javascript feature
+- (void)setScriptletsTabHelperBridge:(id<ScriptletsTabHelperBridge>)bridge;
 @end
 
 NS_ASSUME_NONNULL_END

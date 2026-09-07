@@ -22,11 +22,13 @@ MockOrchardBlockScannerProxy::~MockOrchardBlockScannerProxy() = default;
 
 void MockOrchardBlockScannerProxy::ScanBlocks(
     OrchardTreeState tree_state,
+    std::optional<OrchardTreeState> ironwood_tree_state,
     std::vector<zcash::mojom::CompactBlockPtr> blocks,
     base::OnceCallback<void(base::expected<OrchardBlockScanner::Result,
                                            OrchardBlockScanner::ErrorCode>)>
         callback) {
-  callback_.Run(std::move(tree_state), std::move(blocks), std::move(callback));
+  callback_.Run(std::move(tree_state), std::move(ironwood_tree_state),
+                std::move(blocks), std::move(callback));
 }
 
 OrchardNullifier GenerateMockNullifier(const mojom::AccountIdPtr& account_id,
@@ -39,7 +41,7 @@ OrchardNullifier GenerateMockNullifier(const mojom::AccountIdPtr& account_id,
 
 TestingZCashWalletService::~TestingZCashWalletService() {
   sync_state_ptr = nullptr;
-  sync_state().SynchronouslyResetForTest();
+  ShutdownSyncStateForTesting();
 }
 
 void TestingZCashWalletService::SetupSyncState(
@@ -72,21 +74,24 @@ OrchardNoteSpend GenerateMockNoteSpend(const mojom::AccountIdPtr& account_id,
 OrchardNote GenerateMockOrchardNote(const mojom::AccountIdPtr& account_id,
                                     uint32_t block_id,
                                     uint8_t seed) {
-  return OrchardNote{{},
-                     block_id,
-                     GenerateMockNullifier(account_id, seed),
-                     static_cast<uint32_t>(seed * 10),
-                     0,
-                     {},
-                     {}};
+  OrchardNote note;
+  note.block_id = block_id;
+  note.nullifier = GenerateMockNullifier(account_id, seed);
+  note.amount = static_cast<uint32_t>(seed * 10);
+  note.note_version = 2;
+  return note;
 }
 
 OrchardNote GenerateMockOrchardNote(const mojom::AccountIdPtr& account_id,
                                     uint32_t block_id,
                                     uint8_t seed,
                                     uint64_t value) {
-  return OrchardNote{
-      {}, block_id, GenerateMockNullifier(account_id, seed), value, 0, {}, {}};
+  OrchardNote note;
+  note.block_id = block_id;
+  note.nullifier = GenerateMockNullifier(account_id, seed);
+  note.amount = value;
+  note.note_version = 2;
+  return note;
 }
 
 void SortByBlockId(std::vector<OrchardNote>& vec) {

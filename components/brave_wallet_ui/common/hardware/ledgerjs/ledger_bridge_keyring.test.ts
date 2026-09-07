@@ -62,25 +62,6 @@ test('unlock ledger error', async () => {
   expect(result).toEqual(expectedResult)
 })
 
-test('unlock unauthorized error', async () => {
-  const { keyring, transport } = createKeyring()
-
-  const sendCommandResponse: UnlockResponse = {
-    id: LedgerCommand.Unlock,
-    origin: window.origin,
-    command: LedgerCommand.Unlock,
-    payload: {
-      success: false,
-      error: 'unauthorized',
-      code: undefined,
-    },
-  }
-  transport.addSendCommandResponse(sendCommandResponse)
-  const result: HardwareOperationResult = await keyring.unlock()
-  const expectedResult: HardwareOperationResult = sendCommandResponse.payload
-  expect(result).toEqual(expectedResult)
-})
-
 test('unlock bridge error123', async () => {
   const { keyring, transport } = createKeyring()
 
@@ -88,7 +69,7 @@ test('unlock bridge error123', async () => {
   let result: HardwareOperationResult = await keyring.unlock()
   let expectedResult: HardwareOperationResult = {
     success: false,
-    error: getLocale('braveWalletBridgeNotReady'),
+    error: getLocale(S.BRAVE_WALLET_HARDWARE_BRIDGE_NOT_READY_ERROR),
     code: 0,
   }
   expect(result).toEqual(expectedResult)
@@ -97,7 +78,7 @@ test('unlock bridge error123', async () => {
   result = await keyring.unlock()
   expectedResult = {
     success: false,
-    error: getLocale('braveWalletBridgeCommandInProgress'),
+    error: getLocale(S.BRAVE_WALLET_HARDWARE_COMMAND_IN_PROGRESS_ERROR),
     code: 1,
   }
   expect(result).toEqual(expectedResult)

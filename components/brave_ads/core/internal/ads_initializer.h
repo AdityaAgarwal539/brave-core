@@ -39,6 +39,7 @@ class AdsInitializer {
   void LoadClientStateCallback(mojom::WalletInfoPtr wallet,
                                ResultCallback callback,
                                bool success);
+
   void MigrateConfirmationStateCallback(mojom::WalletInfoPtr wallet,
                                         ResultCallback callback,
                                         bool success);

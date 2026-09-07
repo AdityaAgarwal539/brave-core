@@ -53,6 +53,10 @@ class ExtensionsManifestV2Migrator
                             const extensions::Extension* extension,
                             bool is_updates) override;
 
+  // Starts the backup + Brave-hosted replacement flow for a known
+  // WebStore-hosted MV2 extension (if settings backup is enabled).
+  void MaybeBackupWebStoreExtension(
+      const extensions::ExtensionId& webstore_extension_id);
   void BackupExtensionSettings(
       const extensions::ExtensionId& webstore_extension_id);
   void OnBackupSettingsCompleted(
@@ -64,6 +68,13 @@ class ExtensionsManifestV2Migrator
                        bool success,
                        const std::string& error,
                        extensions::webstore_install::Result result);
+
+  // Copies user-facing browser prefs (permissions, incognito, file access,
+  // pinned state) from a WebStore-hosted extension to its Brave-hosted
+  // version.
+  void CopyBrowserLevelSettings(
+      const extensions::ExtensionId& webstore_extension_id,
+      const extensions::ExtensionId& brave_hosted_extension_id);
 
   const raw_ptr<Profile> profile_ = nullptr;
   base::ScopedObservation<extensions::ExtensionPrefs,

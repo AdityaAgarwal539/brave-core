@@ -29,6 +29,7 @@
 #include "brave/components/containers/core/common/features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "ui/compositor/compositor.h"
@@ -94,26 +95,27 @@ class BraveNewTabButton::NewTabButtonContainersMenuDelegate
 
   void OnContainerSelected(
       const containers::mojom::ContainerPtr& container) override {
-    auto* browser = GetBrowserToOpenSettings();
+    auto* browser = GetBrowserToOpenSettings()->GetBrowserForMigrationOnly();
     CHECK(browser);
     brave::OpenUrlInContainer(base::to_address(browser_window_interface_),
-                              browser->GetNewTabURL(), container,
+                              chrome::GetNewTabURL(browser), container,
                               /*is_link=*/false);
   }
 
   void OnNoContainerSelected() override {
-    auto* browser = GetBrowserToOpenSettings();
+    auto* browser = GetBrowserToOpenSettings()->GetBrowserForMigrationOnly();
     CHECK(browser);
     brave::OpenUrlWithoutContainer(base::to_address(browser_window_interface_),
-                                   browser->GetNewTabURL(),
+                                   chrome::GetNewTabURL(browser),
                                    /*is_link=*/false);
   }
 
   void OnNewTemporaryContainerSelected() override {
-    auto* browser = GetBrowserToOpenSettings();
+    auto* browser = GetBrowserToOpenSettings()->GetBrowserForMigrationOnly();
     CHECK(browser);
     brave::CreateTemporaryContainerAndOpenUrl(
-        base::to_address(browser_window_interface_), browser->GetNewTabURL(),
+        base::to_address(browser_window_interface_),
+        chrome::GetNewTabURL(browser),
         /*is_link=*/false);
   }
 
@@ -121,8 +123,8 @@ class BraveNewTabButton::NewTabButtonContainersMenuDelegate
   // specific container, so no menu items should appear as "current".
   base::flat_set<std::string> GetCurrentContainerIds() override { return {}; }
 
-  Browser* GetBrowserToOpenSettings() override {
-    return browser_window_interface_->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* GetBrowserToOpenSettings() override {
+    return base::to_address(browser_window_interface_);
   }
 
   float GetScaleFactor() override {
@@ -216,7 +218,11 @@ void BraveNewTabButton::ShowContextMenuForViewImpl(
       return;
     }
   }
-  NewTabButton::ShowContextMenuForViewImpl(source, point, source_type);
+  // In some tests, we want to skip running the menu runner to avoid
+  // blocking the test.
+  if (!skip_containers_context_menu_runner_for_testing_) {
+    NewTabButton::ShowContextMenuForViewImpl(source, point, source_type);
+  }
 }
 #endif  // BUILDFLAG(ENABLE_CONTAINERS)
 

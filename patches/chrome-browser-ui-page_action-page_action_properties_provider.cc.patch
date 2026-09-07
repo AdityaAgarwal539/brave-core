@@ -1,8 +1,8 @@
 diff --git a/chrome/browser/ui/page_action/page_action_properties_provider.cc b/chrome/browser/ui/page_action/page_action_properties_provider.cc
-index 8ba92fba04cde1ce171c3732e7acd4eb684eb865..d77dfb0dd71a4369cc39fe61bb26cbf45f164308 100644
+index 910ffa4b8755424e0985489e95880595388dca23..09e70fb78780af834da85a343123bc58e22bd27e 100644
 --- a/chrome/browser/ui/page_action/page_action_properties_provider.cc
 +++ b/chrome/browser/ui/page_action/page_action_properties_provider.cc
-@@ -227,6 +227,20 @@ constexpr auto kPageActionProperties = base::MakeFixedFlatMap<
+@@ -227,6 +227,55 @@ constexpr auto kPageActionProperties = base::MakeFixedFlatMap<
              .element_identifier = kAutofillAddressPageActionElementId,
          },
      },
@@ -18,6 +18,41 @@ index 8ba92fba04cde1ce171c3732e7acd4eb684eb865..d77dfb0dd71a4369cc39fe61bb26cbf4
 +        {
 +           .histogram_name = "PsstIcon",
 +           .type = brave::kPsstIconActionIconType,
++        },
++    },
++    {
++        kActionShowSpeedreader,
++        {
++            .histogram_name = "Speedreader",
++            .type = brave::kSpeedreaderPageActionIconType,
++        },
++    },
++    {
++        kActionShowWaybackMachine,
++        {
++            .histogram_name = "WaybackMachine",
++            .type = brave::kWaybackMachineActionIconType,
++        },
++    },
++    {
++        kActionShowPlaylistPageAction,
++        {
++            .histogram_name = "Playlist",
++            .type = brave::kPlaylistPageActionIconType,
++        },
++    },
++    {
++        kActionShowOnionLocation,
++        {
++            .histogram_name = "OnionLocation",
++            .type = brave::kOnionLocationPageActionIconType,
++        },
++    },
++    {
++        kActionShowBraveNews,
++        {
++            .histogram_name = "BraveNews",
++            .type = brave::kBraveNewsPageActionIconType,
 +        },
 +    },
      {

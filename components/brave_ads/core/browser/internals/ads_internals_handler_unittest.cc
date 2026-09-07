@@ -5,12 +5,18 @@
 
 #include "brave/components/brave_ads/core/browser/internals/ads_internals_handler.h"
 
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "base/test/values_test_util.h"
+#include "base/uuid.h"
 #include "base/values.h"
 #include "brave/components/brave_ads/core/browser/service/ads_service_callback.h"
 #include "brave/components/brave_ads/core/browser/service/test/ads_service_mock.h"
+#include "brave/components/brave_ads/core/public/common/locale/locale_util.h"
+#include "brave/components/brave_ads/core/public/prefs/pref_names.h"
 #include "brave/components/brave_rewards/core/pref_names.h"
 #include "brave/components/services/bat_ads/public/interfaces/bat_ads.mojom.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -18,16 +24,31 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 // npm run test -- brave_unit_tests --filter=BraveAds*
 
 namespace brave_ads {
+
+namespace {
+
+// The device locale is not pinned in this test suite, so the fallback country
+// code must be computed the same way `AdsInternalsHandler` computes it rather
+// than hardcoded, otherwise the expectation depends on the test machine's
+// locale.
+std::string ExpectedFallbackVariationsCountryCode() {
+  return base::StrCat(
+      {base::ToUpperASCII(CurrentCountryCode()), " (Fallback)"});
+}
+
+}  // namespace
 
 class BraveAdsInternalsHandlerTest : public testing::Test {
  public:
   void SetUp() override {
     profile_prefs_.registry()->RegisterBooleanPref(
         brave_rewards::prefs::kEnabled, false);
+    profile_prefs_.registry()->RegisterStringPref(prefs::kDiagnosticId, "");
   }
 
  protected:
@@ -39,7 +60,17 @@ class BraveAdsInternalsHandlerTest : public testing::Test {
 TEST_F(BraveAdsInternalsHandlerTest,
        GetAdsInternalsWithNullAdsServiceReturnsEmptyJson) {
   // Arrange
-  AdsInternalsHandler handler(/*ads_service=*/nullptr, profile_prefs_);
+  AdsInternalsHandler handler(
+      /*ads_service=*/nullptr, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
 
   mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
   handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
@@ -57,7 +88,17 @@ TEST_F(BraveAdsInternalsHandlerTest,
 TEST_F(BraveAdsInternalsHandlerTest,
        GetAdsInternalsDelegatesCallbackToAdsService) {
   // Arrange
-  AdsInternalsHandler handler(&ads_service_mock_, profile_prefs_);
+  AdsInternalsHandler handler(
+      &ads_service_mock_, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
 
   mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
   handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
@@ -80,7 +121,17 @@ TEST_F(BraveAdsInternalsHandlerTest,
 TEST_F(BraveAdsInternalsHandlerTest,
        GetAdsInternalsWithNulloptInternalsReturnsEmptyJson) {
   // Arrange
-  AdsInternalsHandler handler(&ads_service_mock_, profile_prefs_);
+  AdsInternalsHandler handler(
+      &ads_service_mock_, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
 
   mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
   handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
@@ -103,7 +154,17 @@ TEST_F(BraveAdsInternalsHandlerTest,
 TEST_F(BraveAdsInternalsHandlerTest,
        ClearAdsDataWithNullAdsServiceRunsCallbackWithFalse) {
   // Arrange
-  AdsInternalsHandler handler(/*ads_service=*/nullptr, profile_prefs_);
+  AdsInternalsHandler handler(
+      /*ads_service=*/nullptr, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
 
   mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
   handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
@@ -120,7 +181,17 @@ TEST_F(BraveAdsInternalsHandlerTest,
 TEST_F(BraveAdsInternalsHandlerTest,
        ClearAdsDataDelegatesCallbackToAdsService) {
   // Arrange
-  AdsInternalsHandler handler(&ads_service_mock_, profile_prefs_);
+  AdsInternalsHandler handler(
+      &ads_service_mock_, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
 
   mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
   handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
@@ -142,7 +213,17 @@ TEST_F(BraveAdsInternalsHandlerTest,
 TEST_F(BraveAdsInternalsHandlerTest,
        ClearAdsDataRunsCallbackWithFalseOnAdsServiceFailure) {
   // Arrange
-  AdsInternalsHandler handler(&ads_service_mock_, profile_prefs_);
+  AdsInternalsHandler handler(
+      &ads_service_mock_, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
 
   mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
   handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
@@ -159,6 +240,217 @@ TEST_F(BraveAdsInternalsHandlerTest,
 
   // Assert
   EXPECT_FALSE(test_future.Get());
+}
+
+TEST_F(BraveAdsInternalsHandlerTest,
+       GetDiagnosticsWithNullAdsServiceReturnsDiagnosticIdOnly) {
+  // Arrange
+  profile_prefs_.SetString(prefs::kDiagnosticId, "diagnostic-id");
+
+  AdsInternalsHandler handler(
+      /*ads_service=*/nullptr, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
+
+  mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
+  handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
+
+  base::test::TestFuture<std::string> test_future;
+
+  // Act
+  ads_internals_remote->GetDiagnostics(base::BindLambdaForTesting(
+      [&test_future](const std::string& json) { test_future.SetValue(json); }));
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonDict(absl::StrFormat(
+                R"JSON(
+                {
+                  "diagnosticId": "diagnostic-id",
+                  "isInitialized": false,
+                  "variationsCountryCode": "%s"
+                })JSON",
+                ExpectedFallbackVariationsCountryCode())),
+            base::test::ParseJsonDict(test_future.Get()));
+}
+
+TEST_F(BraveAdsInternalsHandlerTest,
+       GetDiagnosticsDelegatesCallbackToAdsService) {
+  // Arrange
+  profile_prefs_.SetString(prefs::kDiagnosticId, "diagnostic-id");
+
+  AdsInternalsHandler handler(
+      &ads_service_mock_, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
+
+  mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
+  handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
+
+  EXPECT_CALL(ads_service_mock_, GetDiagnostics)
+      .WillOnce([](GetDiagnosticsCallback callback) {
+        base::ListValue entries;
+        entries.Append(
+            base::DictValue().Set("name", "foo").Set("value", "bar"));
+        std::move(callback).Run(std::move(entries));
+      });
+
+  base::test::TestFuture<std::string> test_future;
+
+  // Act
+  ads_internals_remote->GetDiagnostics(base::BindLambdaForTesting(
+      [&test_future](const std::string& json) { test_future.SetValue(json); }));
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonDict(absl::StrFormat(
+                R"JSON(
+                {
+                  "diagnosticId": "diagnostic-id",
+                  "entries": [{"name": "foo", "value": "bar"}],
+                  "isInitialized": false,
+                  "variationsCountryCode": "%s"
+                })JSON",
+                ExpectedFallbackVariationsCountryCode())),
+            base::test::ParseJsonDict(test_future.Get()));
+}
+
+TEST_F(BraveAdsInternalsHandlerTest,
+       GetDiagnosticsWithNulloptEntriesReturnsDiagnosticIdOnly) {
+  // Arrange
+  profile_prefs_.SetString(prefs::kDiagnosticId, "diagnostic-id");
+
+  AdsInternalsHandler handler(
+      &ads_service_mock_, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
+
+  mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
+  handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
+
+  EXPECT_CALL(ads_service_mock_, GetDiagnostics)
+      .WillOnce([](GetDiagnosticsCallback callback) {
+        std::move(callback).Run(/*diagnostics=*/std::nullopt);
+      });
+
+  base::test::TestFuture<std::string> test_future;
+
+  // Act
+  ads_internals_remote->GetDiagnostics(base::BindLambdaForTesting(
+      [&test_future](const std::string& json) { test_future.SetValue(json); }));
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonDict(absl::StrFormat(
+                R"JSON(
+                {
+                  "diagnosticId": "diagnostic-id",
+                  "isInitialized": false,
+                  "variationsCountryCode": "%s"
+                })JSON",
+                ExpectedFallbackVariationsCountryCode())),
+            base::test::ParseJsonDict(test_future.Get()));
+}
+
+TEST_F(BraveAdsInternalsHandlerTest, SetDiagnosticIdUpdatesPrefWithValidUuid) {
+  // Arrange
+  AdsInternalsHandler handler(
+      /*ads_service=*/nullptr, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
+
+  mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
+  handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
+
+  const std::string diagnostic_id =
+      base::Uuid::GenerateRandomV4().AsLowercaseString();
+
+  // Act
+  ads_internals_remote->SetDiagnosticId(diagnostic_id);
+  ads_internals_remote.FlushForTesting();
+
+  // Assert
+  EXPECT_EQ(diagnostic_id, profile_prefs_.GetString(prefs::kDiagnosticId));
+}
+
+TEST_F(BraveAdsInternalsHandlerTest,
+       SetDiagnosticIdIgnoresNonUuidFormattedValue) {
+  // Arrange
+  profile_prefs_.SetString(prefs::kDiagnosticId, "diagnostic-id");
+
+  AdsInternalsHandler handler(
+      /*ads_service=*/nullptr, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
+
+  mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
+  handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
+
+  // Act
+  ads_internals_remote->SetDiagnosticId("not-a-uuid");
+  ads_internals_remote.FlushForTesting();
+
+  // Assert
+  EXPECT_EQ("diagnostic-id", profile_prefs_.GetString(prefs::kDiagnosticId));
+}
+
+TEST_F(BraveAdsInternalsHandlerTest, SetDiagnosticIdIgnoresEmptyValue) {
+  // Arrange
+  profile_prefs_.SetString(prefs::kDiagnosticId, "diagnostic-id");
+
+  AdsInternalsHandler handler(
+      /*ads_service=*/nullptr, profile_prefs_,
+      /*variations_service=*/nullptr,
+      /*get_ntp_sponsored_images_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_country_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      /*get_language_resource_component_id_callback=*/
+      AdsInternalsHandler::GetComponentIdCallback(),
+      AdsInternalsHandler::GetIsSponsoredImagesLoadedCallback(),
+      AdsInternalsHandler::GetComponentIdCallback());
+
+  mojo::Remote<bat_ads::mojom::AdsInternals> ads_internals_remote;
+  handler.BindInterface(ads_internals_remote.BindNewPipeAndPassReceiver());
+
+  // Act
+  ads_internals_remote->SetDiagnosticId("");
+  ads_internals_remote.FlushForTesting();
+
+  // Assert
+  EXPECT_EQ("diagnostic-id", profile_prefs_.GetString(prefs::kDiagnosticId));
 }
 
 }  // namespace brave_ads

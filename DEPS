@@ -16,7 +16,7 @@ deps = {
   },
   "vendor/bat-native-tweetnacl": "https://github.com/brave-intl/bat-native-tweetnacl.git@8b424ccf29957fe01c88c36076fd32006a357887",
   "vendor/gn-project-generators": "https://github.com/brave/gn-project-generators.git@b76e14b162aa0ce40f11920ec94bfc12da29e5d0",
-  "vendor/web-discovery-project": "https://github.com/brave/web-discovery-project@f25eb3d6f91f5618c04894db98f8d65bab8301d1",
+  "vendor/web-discovery-project": "https://github.com/brave/web-discovery-project@ae82a1b7510f4035d13df47b87a1a7fe5b6471ac",
   "third_party/bip39wally-core-native": "https://github.com/brave-intl/bat-native-bip39wally-core.git@547a7810333d821e29b8f55126aba031aa0d5fcd",
   "third_party/ethash/src": "https://github.com/chfast/ethash.git@e4a15c3d76dc09392c7efd3e30d84ee3b871e9ce",
   "third_party/bitcoin-core/src": "https://github.com/bitcoin/bitcoin.git@8105bce5b384c72cf08b25b7c5343622754e7337", # v25.0
@@ -32,7 +32,7 @@ deps = {
     "url": "https://github.com/ronaldoussoren/macholib.git@36a6777ccd0891c5d1b44ba885573d7c90740015",
     "condition": "checkout_mac",
   },
-  "components/brave_wallet/browser/zcash/rust/librustzcash/src": "https://github.com/brave/librustzcash.git@f34cb36d9287b76b52ba1a2ab58e50db96706dc8", # brave-orchard-0.14
+  "components/brave_wallet/browser/zcash/rust/librustzcash/src": "https://github.com/brave/librustzcash.git@f01f50d64214278552edbe4a34b9049244ce03c1", # brave_ironwood_support
 }
 
 recursedeps = [
@@ -40,6 +40,15 @@ recursedeps = [
 ]
 
 hooks = [
+  {
+    # Link Brave's checked-in agent skills (agents/skills/) into the Claude Code
+    # discovery dir (.claude/skills/) so every developer discovers them with no
+    # manual step. Idempotent; the generated links are gitignored. See
+    # agents/skills/setup.py.
+    'name': 'link_agent_skills',
+    'pattern': '.',
+    'action': ['python3', 'agents/skills/setup.py', 'link', '-q'],
+  },
   {
     'name': 'bootstrap_ios',
     'pattern': '.',
@@ -73,25 +82,26 @@ hooks = [
     'name': 'download_sparkle',
     'pattern': '.',
     'condition': 'checkout_mac and download_prebuilt_sparkle',
-    'action': ['vpython3', 'build/download_dep.py',
-               'sparkle/sparkle-1.24.4.tar.gz',
-               '//build/mac_files/sparkle_binaries'],
+    'action': ['vpython3',
+               'tools/cr/install_extra_deps.py',
+               'sync',
+               'src/build/mac_files/sparkle_binaries']
   },
   {
     'name': 'download_omaha4',
     'pattern': '.',
     'condition': 'checkout_mac',
-    'action': ['vpython3', 'build/download_dep.py',
-               'omaha4/BraveUpdater-143.1.87.74.zip',
-               '//brave/third_party/updater/mac',
-               'BraveUpdater.app/'],
+    'action': ['vpython3',
+               'tools/cr/install_extra_deps.py',
+               'sync',
+               'src/brave/third_party/updater/mac']
   },
   {
     'name': 'update_pip',
     'pattern': '.',
     # Required for download_cryptography below. Specifically, newer versions of
     # pip are required for obtaining binary wheels on Arm64 macOS.
-    'action': ['python3', '-m', 'pip', '-q', '--disable-pip-version-check', 'install', '-U', '--no-warn-script-location', 'pip'],
+    'action': ['python3', '-m', 'ensurepip', '--upgrade'],
   },
   {
     'name': 'download_cryptography',
@@ -110,17 +120,19 @@ hooks = [
     'name': 'wireguard_nt',
     'pattern': '.',
     'condition': 'checkout_win',
-    'action': ['vpython3', 'build/download_dep.py',
-               'brave-vpn-wireguard-dlls/brave-vpn-wireguard-nt-dlls-0.10.1.zip',
-               '//brave/third_party/brave-vpn-wireguard-nt-dlls'],
+    'action': ['vpython3',
+               'tools/cr/install_extra_deps.py',
+               'sync',
+               'src/brave/third_party/brave-vpn-wireguard-nt-dlls']
   },
   {
     'name': 'wireguard_tunnel',
     'pattern': '.',
     'condition': 'checkout_win',
-    'action': ['vpython3', 'build/download_dep.py',
-               'brave-vpn-wireguard-dlls/brave-vpn-wireguard-tunnel-dlls-v0.5.3.zip',
-               '//brave/third_party/brave-vpn-wireguard-tunnel-dlls'],
+    'action': ['vpython3',
+               'tools/cr/install_extra_deps.py',
+               'sync',
+               'src/brave/third_party/brave-vpn-wireguard-tunnel-dlls']
   },
   {
     'name': 'download_wintun',
@@ -202,6 +214,7 @@ hooks = [
     'pattern': '.',
     'action': ['vpython3',
                'tools/cr/install_extra_deps.py',
+               'sync',
                'src/third_party/rust-toolchain']
   },
   {
@@ -209,6 +222,7 @@ hooks = [
     'pattern': '.',
     'action': ['vpython3',
                'tools/cr/install_extra_deps.py',
+               'sync',
                'src/brave/third_party/ast-grep/ast-grep-linux',
                'src/brave/third_party/ast-grep/ast-grep-mac',
                'src/brave/third_party/ast-grep/ast-grep-mac_arm64',
@@ -219,6 +233,7 @@ hooks = [
     'pattern': '.',
     'action': ['vpython3',
                'tools/cr/install_extra_deps.py',
+               'sync',
                'src/brave/third_party/node/node-linux-x64',
                'src/brave/third_party/node/node-mac-x64',
                'src/brave/third_party/node/node-mac-arm64',

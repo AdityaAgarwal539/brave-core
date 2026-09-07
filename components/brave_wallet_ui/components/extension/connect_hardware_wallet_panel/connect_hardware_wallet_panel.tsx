@@ -37,15 +37,11 @@ import {
   useSignMessageHardwareMutation,
 } from '../../../common/slices/api.slice'
 
-// components
-import { AuthorizeHardwareDeviceIFrame } from '../../shared/authorize-hardware-device/authorize-hardware-device'
-
 // style
 import {
   StyledWrapper,
   Title,
   IconWrapper,
-  EmptySpace,
 } from './connect_hardware_wallet_panel.style'
 import { Row, Column } from '../../shared/style'
 
@@ -115,10 +111,7 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
 
   // memos
   const isConnected = React.useMemo((): boolean => {
-    return (
-      hardwareWalletCode !== 'deviceNotConnected'
-      && hardwareWalletCode !== 'unauthorized'
-    )
+    return hardwareWalletCode !== 'deviceNotConnected'
   }, [hardwareWalletCode])
 
   const title = React.useMemo(() => {
@@ -130,21 +123,18 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
       hardwareWalletCode === 'deviceBusy'
       || hardwareWalletCode === undefined
     ) {
-      return getLocale('braveWalletConnectHardwarePanelConfirmation')
+      return getLocale(S.BRAVE_WALLET_CONNECT_HARDWARE_PANEL_CONFIRMATION)
     }
 
-    if (
-      hardwareWalletCode === 'deviceNotConnected'
-      || hardwareWalletCode === 'unauthorized'
-    ) {
-      return getLocale('braveWalletConnectHardwarePanelConnect').replace(
+    if (hardwareWalletCode === 'deviceNotConnected') {
+      return getLocale(S.BRAVE_WALLET_CONNECT_HARDWARE_PANEL_CONNECT).replace(
         '$1',
         account.name,
       )
     }
 
     const network = getAppName(account.accountId.coin)
-    return getLocale('braveWalletConnectHardwarePanelOpenApp')
+    return getLocale(S.BRAVE_WALLET_CONNECT_HARDWARE_PANEL_OPEN_APP)
       .replace('$1', network)
       .replace('$2', account.name)
   }, [hardwareWalletCode, account])
@@ -249,7 +239,7 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
     >
       <Column gap='16px'>
         <Row padding='18px'>
-          <Title>{getLocale('braveWalletAddAccountConnect')}</Title>
+          <Title>{getLocale(S.BRAVE_WALLET_ADD_ACCOUNT_CONNECT)}</Title>
         </Row>
         <Label color={isConnected ? 'green' : 'red'}>
           <Icon
@@ -257,13 +247,12 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
             name={isConnected ? 'check-circle-filled' : 'close-circle-filled'}
           />
           {isConnected
-            ? getLocale('braveWalletConnectHardwarePanelConnected')
+            ? getLocale(S.BRAVE_WALLET_CONNECT_HARDWARE_PANEL_CONNECTED)
                 .replace('$1', account.name)
                 .replace('$2', deviceName)
-            : getLocale('braveWalletConnectHardwarePanelDisconnected').replace(
-                '$1',
-                account.name,
-              )}
+            : getLocale(
+                S.BRAVE_WALLET_CONNECT_HARDWARE_PANEL_DISCONNECTED,
+              ).replace('$1', account.name)}
         </Label>
       </Column>
       <Column gap='24px'>
@@ -281,7 +270,7 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
               size='small'
               onClick={onClickInstructions}
             >
-              {getLocale('braveWalletConnectHardwarePanelInstructions')}
+              {getLocale(S.BRAVE_WALLET_CONNECT_HARDWARE_PANEL_INSTRUCTIONS)}
             </Button>
           </Row>
         </Column>
@@ -291,11 +280,6 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
         padding='16px'
         gap='16px'
       >
-        {hardwareWalletCode === 'unauthorized' ? (
-          <AuthorizeHardwareDeviceIFrame coinType={account.accountId.coin} />
-        ) : (
-          <EmptySpace />
-        )}
         <Row>
           <Button
             kind='outline'
@@ -303,7 +287,7 @@ export const ConnectHardwareWalletPanel = ({ hardwareWalletCode }: Props) => {
             onClick={onCancelConnect}
             isDisabled={hardwareWalletCode === 'deviceBusy'}
           >
-            {getLocale('braveWalletButtonCancel')}
+            {getLocale(S.BRAVE_WALLET_BUTTON_CANCEL)}
           </Button>
         </Row>
       </Column>

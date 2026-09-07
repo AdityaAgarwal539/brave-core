@@ -10,9 +10,11 @@ import re
 import sys
 
 import brave_chromium_utils
-import brave_node
 import chromium_presubmit_overrides
 import override_utils
+
+with brave_chromium_utils.sys_path('//third_party/node'):
+    import node
 
 PRESUBMIT_VERSION = '2.0.0'
 
@@ -43,11 +45,12 @@ def CheckLeoVariables(input_api, output_api):
 
     try:
         parts = [
-            brave_node.PathInNodeModules('@brave', 'leo', 'src', 'scripts',
-                                         'audit-tokens.js'), '--ignore',
-            '.storybook-out'
+            brave_chromium_utils.wspath(
+                '//brave/node_modules/@brave/leo/src/scripts/audit-tokens.js'),
+            '--ignore',
+            '.storybook-out',
         ]
-        brave_node.RunNode(parts, include_command_in_error=False)
+        node.RunNode(parts)
         return []
     except RuntimeError as err:
         return [output_api.PresubmitError(str(err))]
@@ -144,13 +147,13 @@ def CheckPatchFormatted(input_api, output_api):
     if not input_api.PRESUBMIT_FIX:
         cmd.append('--dry-run')
     try:
-        brave_node.RunNode(cmd, include_command_in_error=False)
+        node.RunNode(cmd)
         return []
     except RuntimeError as err:
         return [
             output_api.PresubmitError(
                 f'The code requires formatting. '
-                f'Please run: npm run presubmit -- --fix.\n\n{err}')
+                f'Please run: pnpm run presubmit --fix.\n\n{err}')
         ]
 
 
@@ -166,13 +169,13 @@ def CheckESLint(input_api, output_api):
         if input_api.PRESUBMIT_FIX:
             cmd.append('--fix')
         try:
-            brave_node.RunNode(cmd, include_command_in_error=False)
+            node.RunNode(cmd)
             return []
         except RuntimeError as err:
             return [
                 output_api.PresubmitError(
                     f'ESLint issues found. '
-                    f'Run npm run eslint -- (--fix) to reproduce.\n\n{err}')
+                    f'Run pnpm run eslint (--fix) to reproduce.\n\n{err}')
             ]
 
 
@@ -229,7 +232,6 @@ def CheckLicense(input_api, output_api):
 
     files_to_check = input_api.DEFAULT_FILES_TO_CHECK + (r'.+\.gni?$', )
     files_to_skip = input_api.DEFAULT_FILES_TO_SKIP + (
-        r"\.storybook/",
         r"ios/browser/api/brave_rewards/legacy_database/core_data_models/",
         r'win_build_output/',
     )
@@ -668,6 +670,22 @@ def CheckJson5ParseErrors(input_api, output_api):
                 output_api.PresubmitError(
                     f'{affected_file.LocalPath()} could not be parsed: {e}'))
     return results
+
+
+def CheckNoCommittedSecretsFiles(input_api, output_api):
+    """Refuses a committed `secrets.gni` anywhere in the tree.
+    """
+    offending = [
+        f.LocalPath() for f in input_api.AffectedFiles(include_deletes=False)
+        if f.LocalPath().endswith('secrets.gni')
+    ]
+    if not offending:
+        return []
+    return [
+        output_api.PresubmitError(
+            'secret values must never be checked in; found:\n  ' +
+            '\n  '.join(offending))
+    ]
 
 
 # DON'T ADD NEW BRAVE CHECKS AFTER THIS LINE.

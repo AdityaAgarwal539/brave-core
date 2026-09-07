@@ -57,6 +57,16 @@ struct EventDetails {
   bool shift_key;
 };
 
+struct SponsoredSite {
+  string relative_image_url;
+  string title;
+  string ad_disclosure;
+  string target_url;
+  // Whether the user has genuinely visited this site's domain in Brave,
+  // rather than only added it as a Favorite.
+  bool has_genuine_visit;
+};
+
 struct TopSite {
   string title;
   string url;
@@ -80,6 +90,7 @@ interface NewTabPage {
   OnBackgroundsUpdated();
   OnSearchStateUpdated();
   OnTopSitesUpdated();
+  OnSponsoredSitesUpdated();
   OnClockStateUpdated();
   OnShieldsStatsUpdated();
   [EnableIf=enable_brave_talk]
@@ -166,6 +177,10 @@ interface NewTabPageHandler {
   // Opens a URL from the search box.
   OpenURLFromSearch(string url, EventDetails details) => ();
 
+  // If the Omnibox would treat `input` as a URL, returns the canonical URL to
+  // navigate to. Otherwise returns null (the input should be searched).
+  GetUrlFromSearchInput(string input) => (string? url);
+
   // Sets Brave Search as the user's default search engine.
   SetDefaultSearchEngineAsBraveSearch() => ();
 
@@ -177,6 +192,10 @@ interface NewTabPageHandler {
   // Gets or sets whether top sites are shown on the NTP
   GetShowTopSites() => (bool show_top_sites);
   SetShowTopSites(bool show_top_sites) => ();
+
+  // Gets or sets whether sponsored sites are shown on the NTP.
+  GetShowSponsoredSites() => (bool show_sponsored_sites);
+  SetShowSponsoredSites(bool show_sponsored_sites) => ();
 
   // Gets or sets the top sites list kind.
   GetTopSitesListKind() => (TopSitesListKind list_kind);
@@ -210,6 +229,12 @@ interface NewTabPageHandler {
 
   // Reports a top site tile click for navigation source metrics.
   RecordTopSiteClick() => ();
+
+  // Returns all sponsored sites the user is eligible to see. Returns an
+  // empty array if sponsored sites are disabled or unavailable. The caller
+  // is responsible for filtering these down to sites relevant to the
+  // user's top sites before display.
+  GetSponsoredSites() => (array<SponsoredSite> sites);
 
   // Gets or sets whether the clock is displayed on the new tab page.
   GetShowClock() => (bool show_clock);

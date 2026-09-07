@@ -25,7 +25,10 @@ import {
 import {
   externalWalletProviderFromString, //
 } from '../../../../brave_rewards/resources/shared/lib/external_wallet'
-import { checkIfTokenNeedsNetworkIcon } from '../../../utils/asset-utils'
+import {
+  checkIfTokenNeedsNetworkIcon,
+  isShieldedToken,
+} from '../../../utils/asset-utils'
 
 // Queries
 import {
@@ -131,7 +134,7 @@ export const AssetDetailsHeader = (props: Props) => {
       ? getRewardsTokenDescription(
           externalWalletProviderFromString(selectedAsset?.chainId ?? ''),
         )
-      : getLocale('braveWalletPortfolioAssetNetworkDescription')
+      : getLocale(S.BRAVE_WALLET_PORTFOLIO_ASSET_NETWORK_DESCRIPTION)
           .replace('$1', selectedAsset?.symbol ?? '')
           .replace('$2', selectedAssetsNetwork?.chainName ?? '')
 
@@ -207,11 +210,9 @@ export const AssetDetailsHeader = (props: Props) => {
                   variant='large.semibold'
                   textAlign='left'
                 >
-                  {selectedAsset.isShielded
-                    ? 'Zcash'
-                    : (selectedAsset?.name ?? '')}
+                  {selectedAsset.name ?? ''}
                 </Text>
-                {selectedAsset.isShielded && <ShieldedLabel />}
+                {isShieldedToken(selectedAsset) && <ShieldedLabel />}
               </Row>
             ) : (
               <Skeleton
@@ -244,7 +245,7 @@ export const AssetDetailsHeader = (props: Props) => {
             textAlign='right'
           >
             {selectedAssetFiatPrice
-              ? new Amount(selectedAssetFiatPrice.price).formatAsFiat(
+              ? new Amount(selectedAssetFiatPrice.price).compactAsSpotPrice(
                   defaultFiatCurrency,
                 )
               : '0.00'}

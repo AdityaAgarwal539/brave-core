@@ -27,8 +27,10 @@ import {
   mockSuggestedMaxPriorityFeeOptions,
   mockTransactionInfo,
 } from '../../../../stories/mock-data/mock-transaction-info'
-import { createMockStore } from '../../../../utils/test-utils'
-import BraveCoreThemeProvider from '../../../../../common/BraveCoreThemeProvider'
+import {
+  createMockStore,
+  WalletTestThemeProvider,
+} from '../../../../utils/test-utils'
 
 // Mock the specific query hooks
 jest.mock('../../../../common/slices/api.slice', () => {
@@ -72,7 +74,7 @@ describe('SuggestedMaxPriorityFeeSelector', () => {
     const store = createMockStore({})
     return render(
       <Provider store={store}>
-        <BraveCoreThemeProvider>
+        <WalletTestThemeProvider>
           <SuggestedMaxPriorityFeeSelector
             transactionInfo={mockTransactionInfo}
             selectedNetwork={mockEthMainnet}
@@ -82,7 +84,7 @@ describe('SuggestedMaxPriorityFeeSelector', () => {
             setSuggestedMaxPriorityFee={() => {}}
             onClickCustom={() => {}}
           />
-        </BraveCoreThemeProvider>
+        </WalletTestThemeProvider>
       </Provider>,
     )
   }
@@ -92,9 +94,9 @@ describe('SuggestedMaxPriorityFeeSelector', () => {
 
     await waitFor(() => {
       // Check if all fee options are rendered
-      expect(screen.getByText('braveSwapSlow')).toBeInTheDocument()
-      expect(screen.getByText('braveSwapAverage')).toBeInTheDocument()
-      expect(screen.getByText('braveSwapFast')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_SWAP_SLOW)).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_SWAP_AVERAGE)).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_SWAP_FAST)).toBeInTheDocument()
 
       // Check if durations are displayed
       expect(screen.getByText('28 min')).toBeInTheDocument()
@@ -113,10 +115,10 @@ describe('SuggestedMaxPriorityFeeSelector', () => {
       ).toBeInTheDocument()
 
       // Check if custom button is rendered
-      expect(screen.getByText('braveWalletCustom')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_CUSTOM)).toBeInTheDocument()
 
       // Check if Update button is rendered
-      expect(screen.getByText('braveWalletUpdate')).toBeInTheDocument()
+      expect(screen.getByText(S.BRAVE_WALLET_REVIEW_UPDATE)).toBeInTheDocument()
     })
   })
 })

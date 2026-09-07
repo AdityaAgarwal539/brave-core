@@ -18,7 +18,7 @@ import {
   LedgerBridgeErrorCodes,
   GetDeviceNameResponse,
 } from './ledger-messages'
-import { LedgerTrustedMessagingTransport } from './ledger-trusted-transport'
+import { LedgerMessagingTransport } from './ledger-messaging-transport'
 
 // storybook compiler thinks `randomUUID` doesn't exist
 const randomUUID = () =>
@@ -27,17 +27,15 @@ const randomUUID = () =>
 // LedgerBridgeKeyring is the parent class for the various BridgeKeyrings, e.g.
 // SolanaLedgerBridgeKeyring
 export default class LedgerBridgeKeyring {
-  protected onAuthorized?: () => void
-  protected transport?: LedgerTrustedMessagingTransport
+  protected transport?: LedgerMessagingTransport
   protected bridge?: HTMLIFrameElement
   protected readonly frameId: string
 
-  constructor(onAuthorized?: () => void) {
-    this.onAuthorized = onAuthorized
+  constructor() {
     this.frameId = randomUUID()
   }
 
-  setTransportForTesting = (transport: LedgerTrustedMessagingTransport) => {
+  setTransportForTesting = (transport: LedgerMessagingTransport) => {
     this.transport = transport
   }
 
@@ -99,10 +97,9 @@ export default class LedgerBridgeKeyring {
       return LedgerBridgeErrorCodes.BridgeNotReady
     }
     if (!this.transport) {
-      this.transport = new LedgerTrustedMessagingTransport(
+      this.transport = new LedgerMessagingTransport(
         this.bridge.contentWindow,
         LEDGER_BRIDGE_URL,
-        this.onAuthorized,
       )
     }
     return this.transport.sendCommand(command)
@@ -132,25 +129,23 @@ export default class LedgerBridgeKeyring {
   protected readonly createErrorFromCode = (
     code: LedgerBridgeErrorCodes,
   ): HardwareOperationError => {
-    const deviceName = getLocale('braveWalletConnectHardwareLedger')
+    const deviceName = getLocale(S.BRAVE_WALLET_CONNECT_HARDWARE_LEDGER)
 
     switch (code) {
       case LedgerBridgeErrorCodes.BridgeNotReady:
         return {
           success: false,
-          error: getLocale('braveWalletBridgeNotReady').replace(
-            '$1',
-            deviceName,
-          ),
+          error: getLocale(
+            S.BRAVE_WALLET_HARDWARE_BRIDGE_NOT_READY_ERROR,
+          ).replace('$1', deviceName),
           code: code,
         }
       case LedgerBridgeErrorCodes.CommandInProgress:
         return {
           success: false,
-          error: getLocale('braveWalletBridgeCommandInProgress').replace(
-            '$1',
-            deviceName,
-          ),
+          error: getLocale(
+            S.BRAVE_WALLET_HARDWARE_COMMAND_IN_PROGRESS_ERROR,
+          ).replace('$1', deviceName),
           code: code,
         }
     }

@@ -41,6 +41,7 @@
 #include "brave/components/request_otr/common/buildflags/buildflags.h"
 #include "brave/components/speedreader/common/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
+#include "brave/components/traffic_control/buildflags/buildflags.h"
 #include "brave/components/web_discovery/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
@@ -113,11 +114,16 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PSST)
+#include "brave/browser/psst/psst_reporter_service_factory.h"
 #include "brave/browser/psst/psst_settings_service_factory.h"
 #endif
 
 #if BUILDFLAG(ENABLE_CONTAINERS)
 #include "brave/browser/containers/containers_service_factory.h"
+#endif
+
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+#include "brave/browser/traffic_control/traffic_control_service_factory.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EMAIL_ALIASES)
@@ -204,6 +210,10 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   ContainersServiceFactory::GetInstance();
 #endif
 
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+  TrafficControlServiceFactory::GetInstance();
+#endif
+
 #if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(tabs::kBraveSharedPinnedTabs)) {
     SharedPinnedTabServiceFactory::GetInstance();
@@ -250,6 +260,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 
 #if BUILDFLAG(ENABLE_PSST)
   PsstSettingsServiceFactory::GetInstance();
+  PsstReporterServiceFactory::GetInstance();
 #endif  // BUILDFLAG(ENABLE_PSST)
 
   serp_metrics::SerpMetricsServiceFactory::GetInstance();

@@ -476,8 +476,12 @@ mojom::EthSignTypedDataPtr ParseEthSignTypedDataParams(
   mojom::EthSignTypedDataPtr result = mojom::EthSignTypedData::New();
   result->address_param = *address_str;
 
-  auto type_hash = base::HexEncode(helper->GetTypeHash(*primary_type));
-  if (type_hash == kCowSwapTypeHash) {
+  auto type_hash = helper->GetTypeHash(*primary_type);
+  if (!type_hash) {
+    return nullptr;
+  }
+  auto type_hash_hex = base::HexEncode(*type_hash);
+  if (type_hash_hex == kCowSwapTypeHash) {
     result->meta = ParseCowSwapOrder(*message);
   } else {
     result->meta = nullptr;
@@ -685,7 +689,7 @@ mojom::BlockchainTokenPtr ParseWalletWatchAssetParams(
       false /* is_compressed */, true /* is_erc20 */, false /* is_erc721 */,
       false /* is_erc1155 */, mojom::SPLTokenProgram::kUnsupported,
       false /* is_nft */, false /* is_spam */, *symbol, decimals, true, "", "",
-      "" /* chain_id */, mojom::CoinType::ETH, false);
+      "" /* chain_id */, mojom::CoinType::ETH, mojom::ZCashTokenType::kNone);
 }
 
 // Parses param request objects from

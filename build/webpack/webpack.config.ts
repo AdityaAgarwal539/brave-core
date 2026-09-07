@@ -10,7 +10,7 @@ import {
   deterministicOptimization,
   deterministicIdsPlugins,
 } from './deterministic-output.ts'
-import generatePathMap from './path-map.js'
+import { generatePathMap } from './path-map.ts'
 import { provideNodeGlobals, chromePrefixReplacers } from './plugins.ts'
 import { baseResolve } from './resolve.ts'
 import {
@@ -18,6 +18,8 @@ import {
   tsLoaderRule,
   ifdefLoaderRule,
   fileLoaderRule,
+  onnxRuntimeWorkerJsRule,
+  onnxRuntimeWasmRule,
   braveUiFullySpecifiedRule,
   htmlAssetRule,
 } from './rules.ts'
@@ -64,6 +66,13 @@ export function createWebpackConfig(
     path: path.resolve(options.output_dir), // Must be absolute path
     filename: '[name].bundle.js',
     chunkFilename: '[name].chunk.js',
+    // Not webpack's default [hash]: that hashes the WASM bytes, which differ
+    // between the x64 and arm64 builds. A macOS universal (fat) app merges
+    // both architectures' binaries but can only ship one resources.pak, so a
+    // per-build name is unresolvable for whichever arch didn't produce it.
+    // [id] comes from NamedModuleIdsPlugin (see deterministic-output.ts) and
+    // is stable across architectures.
+    webassemblyModuleFilename: '[id].module.wasm',
     publicPath: '/',
   }
 
@@ -142,6 +151,8 @@ export function createWebpackConfig(
         ...cssRules({ isDevMode }),
         tsLoaderRule({ configFile: tsConfigPath }),
         ifdefLoaderRule(buildFlags),
+        onnxRuntimeWorkerJsRule(),
+        onnxRuntimeWasmRule(),
         fileLoaderRule(),
         // web-discovery-project is built as CommonJS but may be classified
         // as ESM by webpack. Force auto-detection for correct CJS handling.

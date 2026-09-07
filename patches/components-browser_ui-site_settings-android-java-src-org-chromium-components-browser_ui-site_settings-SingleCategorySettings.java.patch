@@ -1,8 +1,8 @@
 diff --git a/components/browser_ui/site_settings/android/java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettings.java b/components/browser_ui/site_settings/android/java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettings.java
-index 8459e479c98723876b9341ba1a26342cab6a8e20..a07c903d86ec001c8876d0ba96201827d633a933 100644
+index 007fc5c8b116fdcb4793af09f37274fca6ea7ec1..a31713e6bb7797e10608f2e1818da9a02b0c3450 100644
 --- a/components/browser_ui/site_settings/android/java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettings.java
 +++ b/components/browser_ui/site_settings/android/java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettings.java
-@@ -601,7 +601,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
+@@ -612,7 +612,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
              if (queryHasChanged) getInfoForOrigins();
              return true;
          }

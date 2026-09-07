@@ -31,6 +31,18 @@ import sys
 # A brave checkout's path relative to the workspace root.
 _SRC_BRAVE = Path('src') / 'brave'
 
+# The path for `launcher.py` relative to brave root.
+_CHECKOUT_SENTINEL = Path('tools') / 'cr' / 'bootstrap' / 'launcher.py'
+
+# An env used to store the checkout path, inherited by child processes, so a
+# nested launcher call does not have to redo the resolution again.
+_CHECKOUT_ENV_VAR = 'BRAVE_LAUNCHER_CHECKOUT_DIR'
+
+
+def _is_checkout(path: Path) -> bool:
+    """Whether `path` is a `src/brave` checkout (carries our sentinel)."""
+    return (path / _CHECKOUT_SENTINEL).is_file()
+
 
 @dataclass(frozen=True)
 class Shim:
@@ -89,25 +101,32 @@ SHIM_TARGETS: dict[str, Shim] = {
         'src/brave/third_party/node/node-win-x64/node_modules/npm/bin/npm-cli.js',
         'node',
         self_update_extra_dep_entry='src/brave/third_party/node/node-win-x64'),
+    'pnpm': Shim(
+        'src/brave/third_party/node/node_modules/pnpm/bin/pnpm.mjs',
+        'node',
+        self_update_extra_dep_entry='src/brave/third_party/node/node_modules'),
 }
 
 
-def find_brave_checkout(start: Path) -> Path | None:
-    """The `src/brave` checkout at or above `start`, or None.
+def _resolve_checkout() -> Path | None:
+    """The checkout governing this invocation.
 
-    By layout, not git: the first ancestor `src/brave` carrying our sentinel.
+    Returns the checkout path for Brave, if one can be found, or if one has been
+    found before by a parent invocation of this launcher. Otherwise, returns
+    None.
     """
-    start = start.resolve()
-    sentinel = _SRC_BRAVE / 'tools' / 'cr' / 'bootstrap' / 'launcher.py'
+    value = os.environ.get(_CHECKOUT_ENV_VAR)
+    if value:
+        candidate = Path(value)
+        if _is_checkout(candidate):
+            return candidate
+
+    start = Path.cwd().resolve()
     for directory in (start, *start.parents):
-        if (directory / sentinel).is_file():
-            return directory / _SRC_BRAVE
+        checkout = directory / _SRC_BRAVE
+        if _is_checkout(checkout):
+            return checkout
     return None
-
-
-def _find_cwd_checkout() -> Path | None:
-    """The `brave-core` checkout governing the current working directory."""
-    return find_brave_checkout(Path.cwd())
 
 
 def host_platform_key() -> str | None:
@@ -141,14 +160,35 @@ def find_shim_target(tool: str) -> Shim:
     raise UnknownShimError(tool)
 
 
-def _resolve_vpython3(src: Path) -> Path:
-    """The `vpython3` to run tools with: one on `$PATH`, else the depot_tools
-    copy under `src` (mirrors `vpython_utils._compute_vpython3_path`)."""
+def _resolve_vpython3(checkout: Path) -> Path:
+    """Resolves `vpython3` either from path, or the one vendored."""
     found = shutil.which('vpython3')
     if found is not None:
         return Path(found)
     name = 'vpython3.bat' if platform.system() == 'Windows' else 'vpython3'
-    return src / 'third_party' / 'depot_tools' / name
+    return checkout / 'vendor' / 'depot_tools' / name
+
+
+# TODO(https://brave.dev/b/57477): this `npm_wrapper` special-casing exists
+# only while `build/npm_wrapper` sits ahead of our shims on `$PATH` in CI. That
+# wrapper translates `npm` to `pnpm` and otherwise defers to the next `npm` on
+# `$PATH` (our shim). If our `npm` fallback resolved a binary back out of the
+# wrapper dir, the wrapper would call our shim, which would fall back to the
+# wrapper again, ping-ponging forever. The wrapper dir is recognised by a
+# sentinel file it is guaranteed to contain. Delete this constant and
+# `_is_wrapper_dir`, and the guarded block in `_resolve_system_binary`, once
+# `build/npm_wrapper` is gone.
+_WRAPPER_SENTINELS: tuple[str, ...] = ('npm_wrapper.py', )
+
+
+def _is_wrapper_dir(directory: Path) -> bool:
+    """Whether `directory` is the `npm_wrapper` routing dir.
+
+    TODO(https://brave.dev/b/57477): remove with the rest of the `npm_wrapper`
+    special-casing once `build/npm_wrapper` is gone.
+    """
+    return any(
+        (directory / sentinel).is_file() for sentinel in _WRAPPER_SENTINELS)
 
 
 def _resolve_system_binary(tool: str,
@@ -159,10 +199,20 @@ def _resolve_system_binary(tool: str,
     and recurse; drop it (this file's dir by default) before searching.
     """
     here = (exclude_dir or Path(__file__).parent).resolve()
-    entries = [
-        entry for entry in os.environ.get('PATH', '').split(os.pathsep)
-        if entry and Path(entry).resolve() != here
-    ]
+    entries = []
+    for entry in os.environ.get('PATH', '').split(os.pathsep):
+        if not entry:
+            continue
+        resolved = Path(entry).resolve()
+        if resolved == here:
+            continue
+        # TODO(https://brave.dev/b/57477): the `npm` fallback alone must skip a
+        # `build/npm_wrapper` dir present on `$PATH` (the wrapper shadows `npm`
+        # only); resolving into it would ping-pong between the wrapper and our
+        # shim. Remove once `build/npm_wrapper` is gone.
+        if tool == 'npm' and _is_wrapper_dir(resolved):
+            continue
+        entries.append(entry)
     return shutil.which(tool, path=os.pathsep.join(entries))
 
 
@@ -263,10 +313,7 @@ def resolve_invocation(tool: str, checkout: Path | None,
                 updater.deploy()
         if target.is_file():
             if shim.runtime == 'vpython':
-                invocation = [
-                    str(_resolve_vpython3(checkout.parent)),
-                    str(target)
-                ]
+                invocation = [str(_resolve_vpython3(checkout)), str(target)]
             elif shim.runtime == 'node':
                 # Run with whatever `node` is on $PATH (our node shim, which
                 # resolves the right node in turn).
@@ -301,7 +348,8 @@ def build_parser() -> argparse.ArgumentParser:
         help='Allow falling back to a binary on $PATH if outside a checkout.')
     parser.add_argument('tool',
                         metavar='TOOL',
-                        help='shim to run (e.g. brockit, plaster, node, npm)')
+                        help='shim to run (e.g. brockit, plaster, node, npm, '
+                        'pnpm)')
     parser.add_argument('tool_args',
                         metavar='...',
                         nargs=argparse.REMAINDER,
@@ -316,7 +364,7 @@ def main() -> int:
     tool = parsed.tool
     tool_args = parsed.tool_args
 
-    checkout = _find_cwd_checkout()
+    checkout = _resolve_checkout()
     try:
         invocation = resolve_invocation(tool, checkout, parsed.allow_fallback)
     except UnknownShimError:
@@ -324,9 +372,14 @@ def main() -> int:
         return 2
 
     if invocation is not None:
+        env = os.environ.copy()
+        # Setting `BRAVE_LAUNCHER_CHECKOUT_DIR` so nested invocations resolve
+        # with the same checkout dir.
+        if checkout is not None and not env.get(_CHECKOUT_ENV_VAR):
+            env[_CHECKOUT_ENV_VAR] = str(checkout)
         # Intentionally do not change cwd: the tool runs relative to the current
         # path.
-        return subprocess.call([*invocation, *tool_args])
+        return subprocess.call([*invocation, *tool_args], env=env)
 
     # Resolved a known tool but produced nothing to run — report why.
     if parsed.allow_fallback:

@@ -4,6 +4,11 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import * as React from 'react'
+import ProgressRing from '@brave/leo/react/progressRing'
+
+// Selectors
+import { useSafeUISelector } from '../../../common/hooks/use-safe-selector'
+import { UISelectors } from '../../../common/selectors'
 
 // styles
 import { Column } from '../../shared/style'
@@ -20,6 +25,23 @@ interface Props {
 }
 
 export const LoadingPanel: React.FC<Props> = ({ message }) => {
+  const isPanel = useSafeUISelector(UISelectors.isPanel)
+  const isSidePanel = useSafeUISelector(UISelectors.isSidePanel)
+  const isOnlyPanel = isPanel && !isSidePanel
+
+  if (!isOnlyPanel) {
+    return (
+      <Column
+        alignItems='center'
+        justifyContent='center'
+        fullWidth
+        fullHeight
+      >
+        <ProgressRing mode='indeterminate' />
+      </Column>
+    )
+  }
+
   return (
     <Background data-testid='loading-panel'>
       <Backdrop>

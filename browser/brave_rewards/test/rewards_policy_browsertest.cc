@@ -66,7 +66,7 @@ class BraveRewardsPolicyTest : public InProcessBrowserTest,
     return web_contents()->GetBrowserContext();
   }
 
-  Profile* profile() { return browser()->profile(); }
+  Profile* profile() { return browser()->GetProfile(); }
 
   PrefService* prefs() { return user_prefs::UserPrefs::Get(browser_context()); }
 
@@ -94,21 +94,21 @@ IN_PROC_BROWSER_TEST_P(BraveRewardsPolicyTest, IsBraveRewardsDisabled) {
 // profiles regardless of the Rewards policy.
 IN_PROC_BROWSER_TEST_P(BraveRewardsPolicyTest, GetRewardsAndAdsServices) {
   if (IsBraveRewardsDisabledTest()) {
-    EXPECT_EQ(brave_rewards::RewardsServiceFactory::GetForProfile(profile()),
+    EXPECT_EQ(brave_rewards::RewardsServiceFactory::GetForProfile(GetProfile()),
               nullptr);
   } else {
-    EXPECT_NE(brave_rewards::RewardsServiceFactory::GetForProfile(profile()),
+    EXPECT_NE(brave_rewards::RewardsServiceFactory::GetForProfile(GetProfile()),
               nullptr);
   }
 #if BUILDFLAG(ENABLE_BRAVE_ADS)
-  EXPECT_NE(brave_ads::AdsServiceFactory::GetForProfile(profile()), nullptr);
+  EXPECT_NE(brave_ads::AdsServiceFactory::GetForProfile(GetProfile()), nullptr);
 #endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
 }
 
 // Verify that Rewards menu item isn't enabled in the app menu when Brave
 // Rewards are disabled by policy.
 IN_PROC_BROWSER_TEST_P(BraveRewardsPolicyTest, AppMenuItemDisabled) {
-  auto* command_controller = browser()->command_controller();
+  auto* command_controller = chrome::BrowserCommandController::From(browser());
   if (IsBraveRewardsDisabledTest()) {
     EXPECT_FALSE(command_controller->IsCommandEnabled(IDC_SHOW_BRAVE_REWARDS));
   } else {

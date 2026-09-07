@@ -63,7 +63,7 @@ class TorDisabledPolicyBrowserTest : public BravePolicyTest {
 IN_PROC_BROWSER_TEST_F(TorDisabledPolicyBrowserTest, TorDisabledPrefValueTest) {
   // When policy is set, explicit setting doesn't change its pref value.
   TorProfileServiceFactory::SetTorDisabled(false);
-  EXPECT_TRUE(TorProfileServiceFactory::IsTorDisabled(browser()->profile()));
+  EXPECT_TRUE(TorProfileServiceFactory::IsTorDisabled(browser()->GetProfile()));
 }
 
 class TorEnabledPolicyBrowserTest : public BravePolicyTest {
@@ -85,7 +85,8 @@ class TorEnabledPolicyBrowserTest : public BravePolicyTest {
 IN_PROC_BROWSER_TEST_F(TorEnabledPolicyBrowserTest, TorDisabledPrefValueTest) {
   // When policy is set, explicit setting doesn't change its pref value.
   TorProfileServiceFactory::SetTorDisabled(true);
-  EXPECT_FALSE(TorProfileServiceFactory::IsTorDisabled(browser()->profile()));
+  EXPECT_FALSE(
+      TorProfileServiceFactory::IsTorDisabled(browser()->GetProfile()));
 }
 
 // Test that Tor settings are hidden in chrome://settings when disabled by
@@ -93,8 +94,8 @@ IN_PROC_BROWSER_TEST_F(TorEnabledPolicyBrowserTest, TorDisabledPrefValueTest) {
 IN_PROC_BROWSER_TEST_F(TorDisabledPolicyBrowserTest,
                        TorSettingsHiddenByPolicy) {
   // Verify Tor is disabled by policy
-  ASSERT_TRUE(TorProfileServiceFactory::IsTorDisabled(browser()->profile()));
-  ASSERT_TRUE(TorProfileServiceFactory::IsTorManaged(browser()->profile()));
+  ASSERT_TRUE(TorProfileServiceFactory::IsTorDisabled(browser()->GetProfile()));
+  ASSERT_TRUE(TorProfileServiceFactory::IsTorManaged(browser()->GetProfile()));
 
   // Navigate to settings page
   ASSERT_TRUE(
@@ -116,8 +117,9 @@ IN_PROC_BROWSER_TEST_F(TorDisabledPolicyBrowserTest,
 IN_PROC_BROWSER_TEST_F(TorEnabledPolicyBrowserTest,
                        TorSettingsVisibleWhenEnabledByPolicy) {
   // Verify Tor is enabled (not disabled) by policy
-  EXPECT_FALSE(TorProfileServiceFactory::IsTorDisabled(browser()->profile()));
-  EXPECT_TRUE(TorProfileServiceFactory::IsTorManaged(browser()->profile()));
+  EXPECT_FALSE(
+      TorProfileServiceFactory::IsTorDisabled(browser()->GetProfile()));
+  EXPECT_TRUE(TorProfileServiceFactory::IsTorManaged(browser()->GetProfile()));
 
   // Navigate to settings page
   ASSERT_TRUE(
@@ -158,13 +160,13 @@ using BrowserAddPersonDisabledPolicyTest = BrowserAddPersonPolicyTest<false>;
 
 IN_PROC_BROWSER_TEST_F(BrowserAddPersonEnabledPolicyTest,
                        AddNewProfileEnabled) {
-  auto* command_controller = browser()->command_controller();
+  auto* command_controller = chrome::BrowserCommandController::From(browser());
   EXPECT_TRUE(command_controller->IsCommandEnabled(IDC_ADD_NEW_PROFILE));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserAddPersonDisabledPolicyTest,
                        AddNewProfileDisabled) {
-  auto* command_controller = browser()->command_controller();
+  auto* command_controller = chrome::BrowserCommandController::From(browser());
   EXPECT_FALSE(command_controller->IsCommandEnabled(IDC_ADD_NEW_PROFILE));
 }
 
@@ -190,13 +192,13 @@ using BrowserGuestModeDisabledPolicyTest = BrowserGuestModePolicyTest<false>;
 
 IN_PROC_BROWSER_TEST_F(BrowserGuestModeEnabledPolicyTest,
                        OpenGuestProfileEnabled) {
-  auto* command_controller = browser()->command_controller();
+  auto* command_controller = chrome::BrowserCommandController::From(browser());
   EXPECT_TRUE(command_controller->IsCommandEnabled(IDC_OPEN_GUEST_PROFILE));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserGuestModeDisabledPolicyTest,
                        OpenGuestProfileDisabled) {
-  auto* command_controller = browser()->command_controller();
+  auto* command_controller = chrome::BrowserCommandController::From(browser());
   EXPECT_FALSE(command_controller->IsCommandEnabled(IDC_OPEN_GUEST_PROFILE));
 }
 

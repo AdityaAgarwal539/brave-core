@@ -5,17 +5,15 @@
 
 #include "chrome/browser/component_updater/registration.h"
 
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 
-#define RegisterComponentsForUpdate RegisterComponentsForUpdate_ChromiumImpl
-
-#include <chrome/browser/component_updater/registration.cc>
-
-#undef RegisterComponentsForUpdate
-
 #include "brave/browser/brave_browser_process.h"
+#include "brave/browser/brave_global_features.h"
+#include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
 #include "brave/components/brave_user_agent/browser/brave_user_agent_component_installer.h"
 #include "brave/components/brave_wallet/common/buildflags/buildflags.h"
+#include "brave/components/extension_malware_blocklist/browser/extension_malware_blocklist_component_installer.h"
 #include "brave/components/local_ai/buildflags/buildflags.h"
 #include "brave/components/p3a/component_installer.h"
 #include "brave/components/p3a/p3a_service.h"
@@ -23,9 +21,16 @@
 #include "brave/components/query_filter/browser/query_filter_component_installer.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/component_updater_utils.h"
+#include "extensions/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_PSST)
 #include "brave/components/psst/core/browser/psst_component_installer.h"
+#endif
+
+#if BUILDFLAG(ENABLE_AI_CHAT)
+#include "brave/components/ai_chat/core/common/features.h"
+#include "brave/components/web_mcp/core/browser/web_mcp_component_installer.h"
+#include "third_party/blink/public/common/features.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -43,8 +48,9 @@
 
 namespace component_updater {
 
-void RegisterComponentsForUpdate() {
-  RegisterComponentsForUpdate_ChromiumImpl();
+namespace {
+
+void RegisterBraveComponentsForUpdate() {
   ComponentUpdateService* cus = g_browser_process->component_updater();
 #if BUILDFLAG(ENABLE_BRAVE_WALLET)
   brave_wallet::WalletDataFilesInstaller::GetInstance()
@@ -54,18 +60,38 @@ void RegisterComponentsForUpdate() {
 #if BUILDFLAG(ENABLE_PSST)
   psst::RegisterPsstComponent(cus);
 #endif
+#if BUILDFLAG(ENABLE_AI_CHAT)
+  // Only fetch WebMCP tool scripts when AI Chat is enabled and the WebMCP
+  // feature is enabled. Note: this is the process-wide feature/policy state,
+  // not per-profile as components are shared across all profiles.
+  if (ai_chat::features::IsAIChatEnabled() &&
+      base::FeatureList::IsEnabled(blink::features::kWebMCP)) {
+    web_mcp::RegisterWebMcpComponent(cus);
+  }
+#endif
   p3a::MaybeToggleP3AComponent(cus, g_brave_browser_process->p3a_service());
 #if BUILDFLAG(IS_ANDROID)
   // Currently behind !BUILDFLAG(IS_ANDROID) in upstream.
   RegisterZxcvbnDataComponent(cus);
 #endif  // BUILDFLAG(IS_ANDROID)
   brave_user_agent::RegisterBraveUserAgentComponent(cus);
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extension_malware_blocklist::RegisterExtensionMalwareBlocklistComponent(
+      cus,
+      BraveGlobalFeatures::FromGlobalFeatures(g_browser_process->GetFeatures())
+          ->extension_malware_blocklist());
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 #if BUILDFLAG(ENABLE_LOCAL_AI)
   local_ai::ManageLocalModelsComponentRegistration(
       cus, g_browser_process->local_state());
-  local_ai::RegisterOnDeviceSpeechModelsComponent(cus);
+  local_ai::ManageOnDeviceSpeechModelsComponentRegistration(
+      cus, g_browser_process->local_state());
 #endif
   RegisterQueryFilterComponent(cus);
 }
 
+}  // namespace
+
 }  // namespace component_updater
+
+#include <chrome/browser/component_updater/registration.cc>

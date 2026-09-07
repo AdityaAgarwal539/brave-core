@@ -20,10 +20,31 @@
 <translation id="2361906291514218784">Leo AI</translation>
 <translation id="8275068909952022340">Več…</translation>
 <translation id="71316462802471551">E-poštni vzdevki</translation>
-<translation id="209130971304928953">Shrani zavihke kot delovni prostor …</translation>
-<translation id="877984331511007834">Odpri delovni prostor …</translation>
-<translation id="1310182651927031327">Shrani zavihke kot delovni prostor …</translation>
-<translation id="3588277741646479444">Odpri delovni prostor …</translation>
+<translation id="8350985546648269694">Shrani trenutna okna in zavihke kot prostor</translation>
+<translation id="5327248766486351172">Ime</translation>
+<translation id="6379791766023874417">Vnesite ime svojega prostora</translation>
+<translation id="9174724474418499472">Moj prostor</translation>
+<translation id="5317780077021120954">Shrani</translation>
+<translation id="7658239707568436148">Prekliči</translation>
+<translation id="196342407904926436">Možnosti prostora</translation>
+<translation id="2806407377752719586">Izbriši prostor</translation>
+<translation id="1844931500883490339">Ali ste prepričani, da želite izbrisati ta prostor? Shranjeni prostor bo trajno odstranjen. Tega dejanja ni mogoče razveljaviti.</translation>
+<translation id="8261506727792406068">Izbriši</translation>
+<translation id="8428213095426709021">Nastavitve</translation>
+<translation id="1212321046099128987">Ni ustvarjenih prostorov</translation>
+<translation id="3524567389166933243">Ustvarite svoj prvi prostor s klikom na gumb Shrani spodaj.</translation>
+<translation id="6632569090444863135">{TAB_COUNT,plural, =1{1 zavihek}one{# zavihek}two{# zavihka}few{# zavihki}other{# zavihkov}}</translation>
+<translation id="3719033730609396016"><ph name="WINDOW_COUNT"/> oken</translation>
+<translation id="1680377529024357662">Shrani trenutna okna in zavihke kot prostor</translation>
+<translation id="5561829325295347472">Vnesite ime svojega prostora</translation>
+<translation id="2028520494010039812">Možnosti prostora</translation>
+<translation id="1580775521202322063">Izbriši prostor</translation>
+<translation id="3004759399777164093">Ali ste prepričani, da želite izbrisati ta prostor? Shranjeni prostor bo trajno odstranjen. Tega dejanja ni mogoče razveljaviti.</translation>
+<translation id="7563692436589408797">Ni ustvarjenih prostorov</translation>
+<translation id="3945077125173636695">Ustvarite svoj prvi prostor s klikom na gumb Shrani spodaj.</translation>
+<translation id="4731210674738654452">{TAB_COUNT,plural, =1{1 zavihek}one{# zavihek}two{# zavihka}few{# zavihki}other{# zavihkov}}</translation>
+<translation id="1310330626680091210"><ph name="WINDOW_COUNT"/> oken</translation>
+<translation id="3326655241685890930">Prostori</translation>
 <translation id="1990886731975529483">Namesti in zaženi Google Widevine</translation>
 <translation id="8926389886865778422">Ne sprašuj več</translation>
 <translation id="4900351245762303149">Namesti Google Widevine</translation>
@@ -38,7 +59,7 @@ To lahko spremenite tudi pozneje na <ph name="SETTINGS_EXTENIONS_LINK"/>.</trans
 <translation id="3218385319396786393">Samodejno predvajanje je blokirano na tej strani</translation>
 <translation id="4988333904713528597">Vedno dovoli samodejno predvajanje na <ph name="HOST"/></translation>
 <translation id="4150684676757176434">Nadaljuj z blokiranjem samodejnega predvajanja</translation>
-<translation id="3477357195688115718">Brave ne vrši pregledov razširitev zaradi varnosti in zaščite. Namestite to razširitev le, če zaupate razvijalcu.</translation>
+<translation id="2201935460386712655">Brave ne vrši pregledov razširitev zaradi varnosti in zaščite. Namestite »<ph name="EXTENSION_NAME"/>« le, če zaupate razvijalcu.</translation>
 <translation id="2928844661231356557">Odobritev dostopa do naprave Bluetooth bo spletnemu mestu omogočila branje identifikacijskih in potencialno občutljivih podatkov o vas. Samo spletnim mestom, ki jim zaupate, dovolite dostop do naprav Bluetooth.
 <ph name="LEARN_MORE"/></translation>
 <translation id="9005883459983913482">Okna Tor</translation>
@@ -65,7 +86,6 @@ To lahko spremenite tudi pozneje na <ph name="SETTINGS_EXTENIONS_LINK"/>.</trans
 <translation id="3211174446914979436">Upravljaj filtre</translation>
 <translation id="3108584651298176909">Prikaži pravila</translation>
 <translation id="5156986655891520787">Skrij pravila</translation>
-<translation id="7658239707568436148">Prekliči</translation>
 <translation id="7398397225367092613">.onion</translation>
 <translation id="2269780537090240241">Odpiranje s pomočjo naslova .onion: <ph name="ADDRESS"/></translation>
 <translation id="4759098689276706664">Vseeno prilepi</translation>
@@ -89,6 +109,11 @@ To lahko spremenite tudi pozneje na <ph name="SETTINGS_EXTENIONS_LINK"/>.</trans
 <translation id="3295805221342028003">Odpri orodje Leo AI v stranski vrstici</translation>
 <translation id="7400808612454224939">Upravljanje nastavitev Leo AI</translation>
 <translation id="5385064007245738696">O storitvi Leo AI</translation>
+<translation id="334252345105450327">Zajemi posnetek zaslona</translation>
+<translation id="191886777375280620">Zajem posnetka zaslona</translation>
+<translation id="3114478090884951591">Vidno območje</translation>
+<translation id="2026367923222947564">Celotna stran</translation>
+<translation id="4218885227032158909">Izbrano območje</translation>
 <translation id="4928988318462976765">Trgovina s spletnimi razširitvami</translation>
 <translation id="9181207987584064303">Ogled v trgovini s spletnimi razširitvami</translation>
 <translation id="3161744659507801211">Opozorilo: Brave ne more preprečiti, da bi razširitve beležile zgodovino brskanja.</translation>
@@ -287,14 +312,12 @@ Preberete si lahko <ph name="BEGIN_LINK_BUILD_INSTRUCTIONS"/>navodila o tem, kak
 <translation id="55252794453047936">Premakni medije</translation>
 <translation id="4418985925423678811">Nov seznam predvajanja</translation>
 <translation id="385051799172605136">Nazaj</translation>
-<translation id="5317780077021120954">Shrani</translation>
 <translation id="7930125899031086027">Ustvari in premakni</translation>
 <translation id="2860159216666546928">Izberite mapo, v katero želite premakniti ta medij</translation>
 <translation id="9130105487623071247">Ime seznama predvajanja</translation>
 <translation id="1857042171340443373"><ph name="NUM_ITEMS"/> izbrani elementi</translation>
 <translation id="3596306474342941843">Izbriši seznam predvajanja</translation>
 <translation id="7110726588168439924">Ali ste prepričani, da želite izbrisati ta seznam predvajanja in vso njegovo vsebino? Tega dejanja ni mogoče razveljaviti.</translation>
-<translation id="8261506727792406068">Izbriši</translation>
 <translation id="8152485753254079984">Nov seznam predvajanja</translation>
 <translation id="5397019762993984652">Dodajte iz mape Predvajaj pozneje</translation>
 <translation id="7525067979554623046">Ustvari</translation>
@@ -349,6 +372,9 @@ se lahko izteče. Ali ga želite obnoviti?</translation>
 <translation id="3435896845095436175">Omogoči</translation>
 <translation id="9031526219709160683">Brave vam lahko pomaga optimizirati nastavitve zasebnosti te strani. Želite pregledati predloge Brave?</translation>
 <translation id="5739953050957336013">Predlogi iskanja</translation>
+<translation id="515462386448976244">Orodje za predloge nastavitev zasebnosti</translation>
+<translation id="6911328085206170823">Ne prikaži za to stran</translation>
+<translation id="6157507628047001360">Onemogoči prilagoditev nastavitev zasebnosti</translation>
 <translation id="9082792303833649978">To nastavitev upravlja vaš skrbnik ali drug Brave pravilnik.</translation>
 <translation id="1940221956626514677">Prilagodi orodno vrstico</translation>
 <translation id="6501807887341963552">Tema in barve</translation>
@@ -356,6 +382,8 @@ se lahko izteče. Ali ga želite obnoviti?</translation>
 <translation id="3575561030014162610">Če želite uvoziti gesla <ph name="BRAND"/> v tej napravi, izberite datoteko CSV.</translation>
 <translation id="8570228839666486945">Umetna inteligenca na napravi</translation>
 <translation id="3456536577668402695">Vaša iskanja in vsebine strani se obdelujejo na tej napravi. Nič se ne pošlje Brave ali ne vidijo človeški pregledovalci.</translation>
+<translation id="4751537843966994505">Pomensko iskanje po zgodovini</translation>
+<translation id="6175973371938222040">Lokalno indeksiraj strani, ki jih obiščete, da lahko po zgodovini iščete po pomenu. Vsa obdelava ostane v tej napravi.</translation>
 <translation id="9156965752763025780">Spremembe bodo začele veljati ob naslednjem zagonu Bravea.</translation>
 <translation id="7179921470347911571">Znova zaženite zdaj</translation>
 <translation id="1426410128494586442">Da</translation>
@@ -387,7 +415,6 @@ se lahko izteče. Ali ga želite obnoviti?</translation>
 <translation id="8900907990448657776">Uredite vsebnik</translation>
 <translation id="7900511996284443779">Izbrišite vsebnik</translation>
 <translation id="2738687336989232152">Ste prepričani, da želite izbrisati vsebnik <ph name="CONTAINER_NAME"/>? S tem boste odstranili vse podatke, povezane z njim.</translation>
-<translation id="5327248766486351172">Ime</translation>
 <translation id="104766043551382253">Ikona</translation>
 <translation id="5431318178759467895">Barva</translation>
 <translation id="4328541188421002379">Poimenujte vsebnik, na primer Delovno ali Osebno</translation>
@@ -418,6 +445,7 @@ se lahko izteče. Ali ga želite obnoviti?</translation>
 <translation id="2396127686705429331">Prikaži gumb za zaznamke</translation>
 <translation id="443318149139185498">Uporabi logo obrisane črte na gumbu glavnega menija</translation>
 <translation id="2814998458708016836">Uporabi široko naslovno vrstico</translation>
+<translation id="536791223757510666">Uporabi strnjen način</translation>
 <translation id="4749586705247636385">Prikaži zaobljene vogale na glavnih področjih vsebine</translation>
 <translation id="4109670531935487117">Prikaz predlogov za samodejno dokončanje v naslovni vrstici</translation>
 <translation id="4579877808890085926">Predlogi v napravi</translation>
@@ -535,10 +563,12 @@ se lahko izteče. Ali ga želite obnoviti?</translation>
 <translation id="4590997608186539865">Seznam predvajanja</translation>
 <translation id="1199170151481311646">Analitika, ki ohranja zasebnost</translation>
 <translation id="5990642573624858459">Poročanje o statističnih podatkih</translation>
+<translation id="6560669651825861597">Vpliva na vse profile brskalnika</translation>
 <translation id="2441719842399509963">Ponastavitev na privzete nastavitve</translation>
 <translation id="2587535830241068901">Prilagodite svoj brskalnik in hkrati podprite Brave</translation>
 <translation id="123297831435065577">Brave Origin je plačana različica brskalnika za uporabnike, ki ne potrebujejo vseh funkcij, ki podpirajo Brave kot podjetje, vendar še vedno želijo zasebnost, ki jo nudi samo Brave. Uporabniki Origin bodo še naprej imeli koristi od naše vrhunske zasebnosti, blokatorja oglasov in hitrosti (prek Ščiti), ter rednih posodobitev programske opreme, Chromium popravkov ter izboljšav varnosti in zasebnosti.</translation>
 <translation id="7984508421152399880">Kupi zdaj</translation>
+<translation id="1882724423074862793">Obnovi nakup</translation>
 <translation id="5567412479632285879">Brave Rewards je onemogočen</translation>
 <translation id="413570371620795359">Odprite ploščo z nagradami in začnite</translation>
 <translation id="1051600834033686945">Odprite celotne nastavitve Brave Nagrade</translation>
@@ -562,9 +592,21 @@ se lahko izteče. Ali ga želite obnoviti?</translation>
 <translation id="5825943197137337319">Samo privzeti javni vmesnik</translation>
 <translation id="1689062823386843231">Onemogoči UDP, ki ne poteka prek strežnika proxy</translation>
 <translation id="3540231253392253941">Za potisna sporočila uporabite Googlove storitve</translation>
+<translation id="5813105074916486721">Lokalna hramba zgodovine</translation>
+<translation id="5671611745062206644">Kako dolgo Brave lokalno shranjuje vašo zgodovino brskanja</translation>
+<translation id="7184510058087008090">1 dan</translation>
+<translation id="8097397186614425669">1 teden</translation>
+<translation id="1600157116238060201">1 mesec</translation>
+<translation id="6774350394520543146">3 meseci</translation>
+<translation id="2268310966956852466">6 meseci</translation>
+<translation id="5353781333882815543">1 leto</translation>
+<translation id="6796569320325473726">5 let</translation>
+<translation id="1658834457013045127">Za vedno</translation>
 <translation id="933652931229970927">Samodejno pošiljanje diagnostičnih poročil</translation>
 <translation id="8868426106596092089">Pomagajte izboljšati stabilnost izdelka Brave s samodejnim pošiljanjem diagnostičnih poročil, ko se brskalnik Brave zruši ali zamrzne</translation>
 <translation id="4891600875049212418">Ko obiščete občutljiva spletna mesta, preklopite v Nezabeleženi način</translation>
+<translation id="1022603984240541480">Pokaži obvestilo o prilagajanju nastavitev zasebnosti na združljivih spletnih mestih</translation>
+<translation id="3528176629974273019">Omogoča Brave, da samodejno predlaga (in prilagodi) nastavitve zasebnosti, specifične za spletno mesto.</translation>
 <translation id="509873765238158442">Blokiraj Microsoft Recall</translation>
 <translation id="4763421121695677716">Preprečite, da bi funkcija Recall v računalnikih Microsoft Windows samodejno naredila posnetke zaslona vseh odprtih zavihkov brskalnika Brave.</translation>
 <translation id="1968895725257436430">Zbiranje podatkov</translation>
@@ -685,6 +727,7 @@ ponovno uporabo sinhronizacije, boste morali ustvariti nov račun in posamično 
 <translation id="4908081302669157000">Telefonske številke, e-pošta in naslovi</translation>
 <translation id="294985549514492876">Spletne aplikacije (PWAs)</translation>
 <translation id="7029809446516969842">Gesla</translation>
+<translation id="1571419474754278280">Pogovori Leo AI</translation>
 <translation id="6011308810877101166">Izboljšani predlogi za iskanje</translation>
 <translation id="2332576387809612040">Ko je funkcija vklopljena, Brave pošlje tisto, kar vnesete v naslovno vrstico ali iskalno polje, privzetemu iskalniku, da dobite boljše predloge. Ko je izklopljena, Brave prikazuje samo predloge, ustvarjene v vaši napravi. V zasebnih oknih je ta funkcija vedno izklopljena.</translation>
 <translation id="5522403133543437426">Spletni iskalnik, ki se uporablja v naslovni vrstici.</translation>
@@ -719,6 +762,7 @@ ponovno uporabo sinhronizacije, boste morali ustvariti nov račun in posamično 
 <translation id="4425607417590286548">Uporabi spremembe</translation>
 <translation id="2128143836897950793">Kliknite na 'Zahtevaj nov most ...', da dobite mostove</translation>
 <translation id="3314921753580327793">Vnesite naslov:vrata (eden na vrstico)</translation>
+<translation id="7002083631026466886">Tor ne more uporabiti tega mostu. Preverite ga glede na most, ki ste ga prejeli, in poskusite znova:</translation>
 <translation id="3755189300481406891">Zahtevaj most</translation>
 <translation id="6924425739431382319">Vzpostavljanje stika z BridgeDB. Prosim počakaj.</translation>
 <translation id="811745063252080651">Rešite CAPTCHA, da zahtevate most.</translation>
@@ -896,7 +940,6 @@ ponovno uporabo sinhronizacije, boste morali ustvariti nov račun in posamično 
 <translation id="1838374766361614909">Počisti iskanje</translation>
 <translation id="5126255551970171328">Išči spomin</translation>
 <translation id="7402116145895962069">Sinhronizirajte svoje lokalne modele Ollama</translation>
-<translation id="4835154437390745810">Upravlja Ollama</translation>
 <translation id="5985516785067818307">Sodelujoči v anketi</translation>
 <translation id="8347743943525229984">Omogočite ankete Brave</translation>
 <translation id="3204080538332044581">Brave lahko na strani z novim zavihkom prikaže povezave do zasebnih anket. Ankete nam pomagajo pri ustvarjanju boljših funkcij in merjenju učinkovitosti oglaševalskih kampanj v brskalniku. <ph name="BEGIN_LINK"/>Več informacij<ph name="END_LINK"/></translation>

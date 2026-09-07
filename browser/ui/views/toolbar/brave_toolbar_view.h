@@ -43,8 +43,12 @@ class BraveToolbarView : public ToolbarView,
   BraveBookmarkButton* bookmark_button() const { return bookmark_; }
   WalletButton* wallet_button() const { return wallet_; }
   SidePanelButton* side_panel_button() const { return side_panel_; }
+  ScreenshotButton* screenshot_button() const { return screenshot_button_; }
   ToolbarButton* vertical_tab_toggle_button() const {
     return vertical_tab_toggle_;
+  }
+  ToolbarButton* workspaces_button_for_testing() const {
+    return workspaces_button_;
   }
   TabStripComboButton* combo_button() const { return combo_button_; }
 #if BUILDFLAG(ENABLE_AI_CHAT)
@@ -82,6 +86,10 @@ class BraveToolbarView : public ToolbarView,
   void UpdateVerticalTabTogglePlacement();
   void UpdateVerticalTabToggleState();
   void OnVerticalTabTogglePressed();
+  void CreateWorkspaceButtonIfNeeded();
+  void OnWorkspacesButtonPressed();
+  void UpdateWorkspaceButtonVisibility();
+  void UpdateWorkspaceButtonPlacement();
   void OnCompactModePrefChanged();
   void UpdateComboButtonState();
   bool IsFocusModeOverlayActive() const;
@@ -101,6 +109,7 @@ class BraveToolbarView : public ToolbarView,
   raw_ptr<TabStripComboButton> combo_button_ = nullptr;
 
   raw_ptr<ToolbarButton> vertical_tab_toggle_ = nullptr;
+  raw_ptr<ToolbarButton> workspaces_button_ = nullptr;
   raw_ptr<BraveBookmarkButton> bookmark_ = nullptr;
   // Tracks the preference to determine whether bookmark editing is allowed.
   BooleanPrefMember edit_bookmarks_enabled_;
@@ -136,6 +145,7 @@ class BraveToolbarView : public ToolbarView,
   BooleanPrefMember show_title_bar_on_vertical_tabs_;
   BooleanPrefMember vertical_tabs_collapsed_;
   BooleanPrefMember vertical_tabs_on_right_;
+  BooleanPrefMember show_vertical_tab_toggle_button_;
 #if BUILDFLAG(IS_LINUX)
   BooleanPrefMember use_custom_chrome_frame_;
 #endif  // BUILDFLAG(IS_LINUX)

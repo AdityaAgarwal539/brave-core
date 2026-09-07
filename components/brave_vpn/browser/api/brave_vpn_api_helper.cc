@@ -24,6 +24,13 @@
 
 namespace brave_vpn {
 
+using v1::endpoints::kSupportTicketEmailKey;
+using v1::endpoints::kSupportTicketPartnerClientIdKey;
+using v1::endpoints::kSupportTicketPaymentValidationMethodKey;
+using v1::endpoints::kSupportTicketSubjectKey;
+using v1::endpoints::kSupportTicketSubscriberCredential;
+using v1::endpoints::kSupportTicketSupportTicketKey;
+
 std::unique_ptr<Hostname> PickBestHostname(
     const std::vector<Hostname>& hostnames) {
   std::vector<Hostname> filtered_hostnames;
@@ -99,7 +106,7 @@ base::DictValue GetValueWithTicketInfos(
   // add subscriber credential to the email body.
   std::string body_with_credential =
       body + "\n\nsubscriber-credential: " + subscriber_credential +
-      "\npayment-validation-method: brave-premium";
+      "\npayment-validation-method: brave-premium\ntimezone: " + timezone;
 
   base::TrimWhitespaceASCII(email, base::TRIM_ALL, &email_trimmed);
   base::TrimWhitespaceASCII(subject, base::TRIM_ALL, &subject_trimmed);
@@ -111,7 +118,8 @@ base::DictValue GetValueWithTicketInfos(
   dict.Set(kSupportTicketSubjectKey, subject_trimmed);
   dict.Set(kSupportTicketSupportTicketKey, base::Base64Encode(body_trimmed));
   dict.Set(kSupportTicketPartnerClientIdKey, "com.brave.browser");
-  dict.Set(kSupportTicketTimezoneKey, timezone);
+  dict.Set(kSupportTicketSubscriberCredential, subscriber_credential);
+  dict.Set(kSupportTicketPaymentValidationMethodKey, "brave-premium");
 
   return dict;
 }

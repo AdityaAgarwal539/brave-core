@@ -5,6 +5,7 @@
 
 import * as React from 'react'
 import { useHistory, useLocation } from 'react-router'
+import Checkbox from '@brave/leo/react/checkbox'
 
 // Types
 import { WalletRoutes } from '../../../constants/types'
@@ -20,7 +21,6 @@ import { useSafeWalletSelector } from '../../../common/hooks/use-safe-selector'
 import { BackButton } from '../../../components/shared/back-button'
 import { PasswordInput } from '../../../components/shared/password-input'
 import { NavButton } from '../../../components/extension/buttons/nav-button/index'
-import { Checkbox } from 'brave-ui'
 
 // Styles
 import {
@@ -29,13 +29,11 @@ import {
   Description,
   RecoveryPhraseInput,
   ErrorText,
-  CheckboxRow,
-  LegacyCheckboxRow,
   FormWrapper,
   InputColumn,
   FormText,
 } from './restore-wallet.style'
-import { Column } from '../../../components/shared/style'
+import { Column, Row, Text } from '../../../components/shared/style'
 
 // hooks
 import { usePasswordStrength } from '../../../common/hooks/use-password-strength'
@@ -158,24 +156,6 @@ export const RestoreWallet = () => {
     [onSubmitRestore, isDisabled],
   )
 
-  const onShowRecoveryPhrase = React.useCallback(
-    (key: string, selected: boolean) => {
-      if (key === 'showPhrase') {
-        setShowRecoveryPhrase(selected)
-      }
-    },
-    [],
-  )
-
-  const onSetIsLegacyWallet = React.useCallback(
-    (key: string, selected: boolean) => {
-      if (key === 'isLegacy') {
-        setIsLegacyWallet(selected)
-      }
-    },
-    [],
-  )
-
   const onClearClipboard = React.useCallback(() => {
     copyToClipboard('')
   }, [])
@@ -195,19 +175,19 @@ export const RestoreWallet = () => {
           textColor='primary'
           variant='heading.h3'
         >
-          {getLocale('braveWalletRestoreTite')}
+          {getLocale(S.BRAVE_WALLET_RESTORE_TITE)}
         </Title>
         <Description
           textColor='secondary'
           variant='default.regular'
         >
-          {getLocale('braveWalletRestoreDescription')}
+          {getLocale(S.BRAVE_WALLET_RESTORE_DESCRIPTION)}
         </Description>
 
         <FormWrapper>
           <RecoveryPhraseInput
             autoFocus={true}
-            placeholder={getLocale('braveWalletRestorePlaceholder')}
+            placeholder={getLocale(S.BRAVE_WALLET_RESTORE_PLACEHOLDER)}
             onChange={handleRecoveryPhraseChanged}
             value={recoveryPhrase}
             type={showRecoveryPhrase ? 'text' : 'password'}
@@ -220,60 +200,73 @@ export const RestoreWallet = () => {
               textColor='error'
               variant='small.regular'
             >
-              {getLocale('braveWalletRestoreError')}
+              {getLocale(S.BRAVE_WALLET_RESTORE_ERROR)}
             </ErrorText>
           )}
 
-          {recoveryPhrase.split(' ').length === 24 && (
-            <LegacyCheckboxRow>
-              <Checkbox
-                value={{ isLegacy: isLegacyWallet }}
-                onChange={onSetIsLegacyWallet}
-              >
-                <div data-key='isLegacy'>
-                  {getLocale('braveWalletRestoreLegacyCheckBox')}
-                </div>
-              </Checkbox>
-            </LegacyCheckboxRow>
-          )}
+          <Column
+            gap='10px'
+            margin='0px 0px 50px 0px'
+            alignItems='flex-start'
+            justifyContent='flex-start'
+          >
+            {recoveryPhrase.split(' ').length === 24 && (
+              <Row justifyContent='flex-start'>
+                <Checkbox
+                  checked={isLegacyWallet}
+                  onChange={(e) => setIsLegacyWallet(e.checked)}
+                >
+                  <Text
+                    textColor='secondary'
+                    variant='default.regular'
+                  >
+                    {getLocale(S.BRAVE_WALLET_RESTORE_LEGACY_CHECK_BOX)}
+                  </Text>
+                </Checkbox>
+              </Row>
+            )}
 
-          <CheckboxRow>
-            <Checkbox
-              value={{ showPhrase: showRecoveryPhrase }}
-              onChange={onShowRecoveryPhrase}
-            >
-              <div data-key='showPhrase'>
-                {getLocale('braveWalletRestoreShowPhrase')}
-              </div>
-            </Checkbox>
-          </CheckboxRow>
+            <Row justifyContent='flex-start'>
+              <Checkbox
+                checked={showRecoveryPhrase}
+                onChange={(e) => setShowRecoveryPhrase(e.checked)}
+              >
+                <Text
+                  textColor='secondary'
+                  variant='default.regular'
+                >
+                  {getLocale(S.BRAVE_WALLET_RESTORE_SHOW_PHRASE)}
+                </Text>
+              </Checkbox>
+            </Row>
+          </Column>
 
           <FormText
             textColor='primary'
             isBold={true}
           >
-            {getLocale('braveWalletRestoreFormText')}
+            {getLocale(S.BRAVE_WALLET_RESTORE_FORM_TEXT)}
           </FormText>
           <Description
             textAlign='left'
             textColor='secondary'
             variant='default.regular'
           >
-            {getLocale('braveWalletCreatePasswordDescription')}
+            {getLocale(S.BRAVE_WALLET_CREATE_PASSWORD_DESCRIPTION)}
           </Description>
           <InputColumn>
             <PasswordInput
-              placeholder={getLocale('braveWalletCreatePasswordInput')}
+              placeholder={getLocale(S.BRAVE_WALLET_CREATE_PASSWORD_INPUT)}
               onChange={handlePasswordChanged}
               hasError={hasPasswordError}
-              error={getLocale('braveWalletCreatePasswordError')}
+              error={getLocale(S.BRAVE_WALLET_CREATE_PASSWORD_ERROR)}
               onKeyDown={handleKeyDown}
             />
             <PasswordInput
-              placeholder={getLocale('braveWalletConfirmPasswordInput')}
+              placeholder={getLocale(S.BRAVE_WALLET_CONFIRM_PASSWORD_INPUT)}
               onChange={handleConfirmPasswordChanged}
               hasError={hasConfirmedPasswordError}
-              error={getLocale('braveWalletConfirmPasswordError')}
+              error={getLocale(S.BRAVE_WALLET_CONFIRM_PASSWORD_ERROR)}
               onKeyDown={handleKeyDown}
             />
           </InputColumn>
@@ -282,7 +275,7 @@ export const RestoreWallet = () => {
         <NavButton
           disabled={isDisabled}
           buttonType='primary'
-          text={getLocale('braveWalletWelcomeRestoreButton')}
+          text={getLocale(S.BRAVE_WALLET_WELCOME_RESTORE_BUTTON)}
           onSubmit={onSubmitRestore}
         />
       </StyledWrapper>

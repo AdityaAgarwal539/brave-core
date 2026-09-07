@@ -13,6 +13,10 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.BraveRewardsHelper;
 import org.chromium.chrome.browser.preferences.BravePref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.EmptyTabObserver;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.ui.messages.snackbar.BraveSnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -35,58 +39,113 @@ public class BraveNewTabTakeoverInfobar {
             "https://support.brave.app/hc/en-us/articles/35182999599501";
     private final Profile mProfile;
 
+    // The tab the notice belongs to, observed only while the notice is outstanding so it can be
+    // dismissed once that tab stops being visible (see mTabObserver). Both are null otherwise.
+    private @Nullable Tab mTab;
+    private @Nullable TabObserver mTabObserver;
+
     public BraveNewTabTakeoverInfobar(Profile profile) {
         mProfile = profile;
     }
 
-    public void maybeDisplayAndIncrementCounter(Activity activity, WebContents webContents) {
+    public void maybeDisplayAndIncrementCounter(Activity activity, Tab tab) {
         if (!shouldDisplayInfobar()) {
             return;
         }
 
+        WebContents webContents = tab.getWebContents();
+        if (webContents == null) return;
+
         WindowAndroid windowAndroid = webContents.getTopLevelNativeWindow();
         if (windowAndroid == null) return;
         SnackbarManager snackbarManager = SnackbarManagerProvider.from(windowAndroid);
-        if (snackbarManager == null) return;
+        if (!(snackbarManager instanceof BraveSnackbarManager)) return;
+        BraveSnackbarManager braveSnackbarManager = (BraveSnackbarManager) snackbarManager;
 
-        recordInfobarWasDisplayed();
+        // Bail out if the snackbar cannot be shown right now (e.g. the activity is not in the
+        // foreground); leave the counter untouched so a later NTP can retry.
+        if (!braveSnackbarManager.canShowSnackbar()) return;
+
+        // Only ever show one New Tab Takeover notice at a time across all tabs. The notice lives at
+        // the window level while each NTP owns its own BraveNewTabTakeoverInfobar, so without this
+        // guard every new NTP would queue another one; closing the visible one would then merely
+        // reveal the next, making the close button appear broken. The (window-scoped) manager
+        // remembers the live notice, so we ask it instead of tracking that state ourselves.
+        if (braveSnackbarManager.hasNewTabTakeoverInfobar()) {
+            return;
+        }
 
         SnackbarController controller =
                 new SnackbarController() {
                     @Override
                     public void onAction(@Nullable Object actionData) {
+                        braveSnackbarManager.clearNewTabTakeoverInfobar();
+                        stopObservingTab();
                         // Pressing `Learn more` opens the support page and stops the notice from
                         // showing again.
                         suppressInfobar();
                         TabUtils.openUrlInNewTab(/* isIncognito= */ false, LEARN_MORE_URL);
                     }
+
+                    @Override
+                    public void onDismissNoAction(@Nullable Object actionData) {
+                        // Single choke point for every non-action dismissal: close button, swipe,
+                        // replacement, queue overflow, and the activity stop/destroy clears.
+                        braveSnackbarManager.clearNewTabTakeoverInfobar();
+                        stopObservingTab();
+                    }
                 };
 
+        // The snackbar is window-scoped while the notice belongs to this NTP, so it would keep
+        // showing on top of whatever replaces the NTP on screen: another tab, or the tab switcher.
+        // Dismiss it as soon as the tab stops being visible. The display was already counted, so
+        // the notice simply gets its next chance on a later NTP.
+        mTab = tab;
+        mTabObserver =
+                new EmptyTabObserver() {
+                    @Override
+                    public void onHidden(Tab hiddenTab, @TabHidingType int type) {
+                        // Dismissing invokes controller.onDismissNoAction(), which removes this
+                        // observer.
+                        braveSnackbarManager.dismissSnackbars(controller);
+                    }
+                };
+        mTab.addObserver(mTabObserver);
+
+        String actionLabel =
+                activity.getString(R.string.new_tab_takeover_infobar_learn_more_opt_out_choices);
         Snackbar snackbar =
                 Snackbar.make(
                                 activity.getString(R.string.new_tab_takeover_infobar_message),
                                 controller,
                                 Snackbar.TYPE_PERSISTENT,
                                 Snackbar.UMA_UNKNOWN)
-                        .setAction(
-                                activity.getString(
-                                        R.string
-                                                .new_tab_takeover_infobar_learn_more_opt_out_choices),
-                                /* actionData= */ null)
+                        .setAction(actionLabel, /* actionData= */ null)
                         .setDefaultLines(false);
 
-        snackbarManager.showSnackbar(snackbar);
+        braveSnackbarManager.showNewTabTakeoverInfobar(snackbar);
+        recordInfobarWasDisplayed();
 
         // Move the long action label onto its own line below the message, with a trailing close
-        // button. Closing just dismisses the snackbar and does not suppress future displays, so the
-        // notice can still be shown up to its remaining display count.
-        if (snackbarManager instanceof BraveSnackbarManager) {
-            BraveSnackbarManager braveSnackbarManager = (BraveSnackbarManager) snackbarManager;
-            braveSnackbarManager.setActionBelowMessage(
-                    R.drawable.ic_close,
-                    activity.getString(R.string.close),
-                    () -> braveSnackbarManager.dismissSnackbars(controller));
-        }
+        // button. Like the old infobar, closing dismisses the snackbar and suppresses future
+        // displays so the notice is not shown again.
+        braveSnackbarManager.setActionBelowMessage(
+                snackbar,
+                R.drawable.ic_close,
+                activity.getString(R.string.close),
+                () -> {
+                    suppressInfobar();
+                    // Dismissing invokes controller.onDismissNoAction(), which releases the
+                    // remembered notice from the manager.
+                    braveSnackbarManager.dismissSnackbars(controller);
+                });
+    }
+
+    private void stopObservingTab() {
+        if (mTab == null || mTabObserver == null) return;
+        mTab.removeObserver(mTabObserver);
+        mTab = null;
+        mTabObserver = null;
     }
 
     private boolean shouldDisplayInfobar() {

@@ -27,9 +27,9 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.accessibility.BraveAccessibilitySettings;
-import org.chromium.chrome.browser.autofill.options.BraveAutofillOptionsSearchIndex;
-import org.chromium.chrome.browser.autofill.options.BraveAutofillOptionsSearchIndex.SettingsRoutes;
-import org.chromium.chrome.browser.autofill.settings.HomeOfTransactionsFragment;
+import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.BraveAutofillOptionsSearchIndex;
+import org.chromium.chrome.browser.autofill.settings.options.BraveAutofillOptionsSearchIndex.SettingsRoutes;
 import org.chromium.chrome.browser.brave_leo.BraveLeoPrefUtils;
 import org.chromium.chrome.browser.brave_news.BraveNewsPolicy;
 import org.chromium.chrome.browser.brave_origin.BraveOriginPlansActivity;
@@ -66,6 +66,7 @@ import org.chromium.components.browser_ui.site_settings.BraveSiteSettingsPrefere
 import org.chromium.components.browser_ui.site_settings.SiteSettings;
 import org.chromium.components.policy.PolicyService;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -402,6 +403,12 @@ public abstract class BraveMainPreferencesBase extends BravePreferenceFragment
             removePreferenceIfPresent(PREF_BRAVE_ORIGIN);
         }
 
+        // Only present when the upstream default browser entry point is enabled.
+        Preference defaultBrowser = findPreference(MainSettings.PREF_DEFAULT_BROWSER);
+        if (defaultBrowser != null) {
+            defaultBrowser.setOrder(++generalOrder);
+        }
+
         int displaySectionOrder = generalOrder;
         setPreferenceOrder(PREF_DISPLAY_SECTION, ++displaySectionOrder);
 
@@ -502,6 +509,8 @@ public abstract class BraveMainPreferencesBase extends BravePreferenceFragment
         updatePreferenceIcon(MainSettings.PREF_DEVELOPER, R.drawable.ic_code);
         updatePreferenceIcon(MainSettings.PREF_HOMEPAGE, R.drawable.ic_browser_home);
         updatePreferenceIcon(MainSettings.PREF_TABS, R.drawable.ic_browser_mobile_tabs);
+        // Same icon as the "Set as default browser" main menu item.
+        updatePreferenceIcon(MainSettings.PREF_DEFAULT_BROWSER, R.drawable.ic_set_as_default);
         updatePreferenceIcon(
                 MainSettings.PREF_ADDRESS_BAR,
                 BottomToolbarConfiguration.isToolbarTopAnchored()
@@ -767,6 +776,26 @@ public abstract class BraveMainPreferencesBase extends BravePreferenceFragment
         mFeaturePolicyServiceObserver = null;
     }
 
+    // Handles Settings-search results that have no android:fragment and therefore reach
+    // MainSettings.openSearchResult(). Bytecode redirects that call here (see
+    // BraveMainPreferenceBaseClassAdapter) so Brave-only keys can be handled before delegating the
+    // rest back to the upstream implementation.
+    public static boolean openSearchResult(
+            Context context,
+            Profile profile,
+            String key,
+            Bundle extras,
+            ModalDialogManager modalDialogManager) {
+        if (PREF_HOME_SCREEN_WIDGET.equals(key)) {
+            // The Home screen widget entry has no sub-screen to open; it triggers a system
+            // "pin widget" request. Keep the search state as is, like the other external-activity
+            // results handled upstream.
+            BraveSearchWidgetUtils.requestPinAppWidget();
+            return false;
+        }
+        return MainSettings.openSearchResult(context, profile, key, extras, modalDialogManager);
+    }
+
     // Wraps MainSettings.SEARCH_INDEX_DATA_PROVIDER and additionally removes upstream preferences
     // that BraveMainPreferencesBase hides from the Brave main settings UI.
     private static final SettingsRoutes AUTOFILL_OPTIONS_SEARCH_INDEX_ROUTES =
@@ -774,10 +803,10 @@ public abstract class BraveMainPreferencesBase extends BravePreferenceFragment
                     MainSettings.class.getName(),
                     MainSettings.PREF_AUTOFILL_AND_PASSWORDS,
                     MainSettings.PREF_AUTOFILL_OPTIONS,
-                    HomeOfTransactionsFragment.class.getName(),
-                    HomeOfTransactionsFragment.PREF_AUTOFILL_SETTINGS,
-                    HomeOfTransactionsFragment.EXTRA_REFERRER,
-                    HomeOfTransactionsFragment.AutofillSettingsReferrer.SETTINGS_MENU);
+                    AutofillAndPasswordsFragment.class.getName(),
+                    AutofillAndPasswordsFragment.PREF_AUTOFILL_SETTINGS,
+                    AutofillAndPasswordsFragment.EXTRA_REFERRER,
+                    AutofillAndPasswordsFragment.AutofillSettingsReferrer.SETTINGS_MENU);
 
     public static final ChromeBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new ChromeBaseSearchIndexProvider(MainSettings.class.getName(), 0) {

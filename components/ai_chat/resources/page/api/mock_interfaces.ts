@@ -71,6 +71,7 @@ export const defaultConversationState: Mojom.ConversationState & {
 
 const emptyTurn: Mojom.ConversationTurn = {
   uuid: '',
+  threadUuid: undefined,
   text: '',
   characterType: Mojom.CharacterType.HUMAN,
   actionType: Mojom.ActionType.UNSPECIFIED,
@@ -84,6 +85,7 @@ const emptyTurn: Mojom.ConversationTurn = {
   skill: undefined,
   modelKey: '',
   nearVerificationStatus: undefined,
+  childThreadUuids: [],
 }
 
 /**
@@ -115,6 +117,7 @@ export function createMockConversationHandler(
     getIsRequestInProgress: () =>
       Promise.resolve({ isRequestInProgress: false }),
     getAssociatedContentInfo: () => Promise.resolve({ associatedContent: [] }),
+    getContentTools: () => Promise.resolve({ tools: [] }),
 
     // Mutation methods - return empty/default results
     getScreenshots: () => Promise.resolve({ screenshots: [] }),
@@ -169,10 +172,13 @@ export function createMockService(
     conversationExists: () => Promise.resolve({ exists: true }),
     shareConversation: () =>
       Promise.resolve({
-        sharedConversationViewer: {
-          url: 'https://leo-ai.brave.app/sharing/mock-share-id',
+        sharedConversationUrl: {
+          url: 'https://leo-ai.brave.app/sharing/mock-share-id#mock-key',
         },
       }),
+    getConversationShares: () => Promise.resolve({ shares: [] }),
+    deleteConversationShare: () => Promise.resolve({ success: true }),
+    copyConversationShareLink: () => {},
     createSkill: () => {},
     updateSkill: () => {},
     deleteSkill: () => {},
@@ -233,7 +239,9 @@ export function createMockUIHandler(
         },
       }),
     getPluralString: () => Promise.resolve({ pluralString: '' }),
+    getFaviconDataURL: () => Promise.resolve({ dataUrl: null }),
     setChatUI: () => Promise.resolve({ isStandalone: false }),
+    showWorkspaceFolderPicker: () => Promise.resolve({ selectedPath: null }),
 
     // Action methods - fire and forget stubs
     newConversation: () => {},

@@ -5,21 +5,22 @@
 
 #include "base/debug/debugging_buildflags.h"
 #include "base/feature_list.h"
-#include "base/feature_override.h"
 #include "base/features.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/policy/policy_util.h"
 #include "chrome/browser/preloading/preloading_features.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
-#include "components/aggregation_service/features.h"
 #include "components/attribution_reporting/features.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/browser_actuator/internal/features.h"
+#include "components/browser_actuator/public/features.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/compose/core/browser/compose_features.h"
 #include "components/content_settings/core/common/features.h"
@@ -33,21 +34,25 @@
 #include "components/lens/lens_features.h"
 #include "components/manta/features.h"
 #include "components/metrics/metrics_features.h"
-#include "components/metrics/private_metrics/private_insights/private_insights_features.h"
 #include "components/metrics/private_metrics/private_metrics_features.h"
 #include "components/metrics/structured/structured_metrics_features.h"
 #include "components/multistep_filter/core/features.h"
 #include "components/network_time/network_time_tracker.h"
+#include "components/ntp_tiles/features.h"
+#include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/one_time_tokens/core/common/one_time_token_features.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/page_info/core/features.h"
 #include "components/passage_embeddings/core/passage_embeddings_features.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/performance_manager/public/features.h"
 #include "components/permissions/features.h"
 #include "components/personal_context/core/personal_context_features.h"
 #include "components/plus_addresses/core/common/features.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/private_ai/features.h"
+#include "components/private_insights/private_insights_features.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/search/ntp_features.h"
 #include "components/segmentation_platform/public/features.h"
@@ -66,6 +71,7 @@
 #include "gpu/config/gpu_finch_features.h"
 #include "media/base/media_switches.h"
 #include "net/base/features.h"
+#include "pdf/buildflags.h"
 #include "services/network/public/cpp/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -85,6 +91,7 @@
 #include "components/device_signals/core/common/signals_features.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/translate/core/common/translate_util.h"
+#include "extensions/common/extension_features.h"
 #include "services/device/public/cpp/device_features.h"
 #endif
 
@@ -96,15 +103,18 @@
 #include "chrome/browser/media/webrtc/display_media_access_handler.h"
 #endif
 
+#if BUILDFLAG(ENABLE_PDF)
+#include "pdf/pdf_features.h"
+#endif
+
 TEST(FeatureDefaultsTest, DisabledFeatures) {
   // Please, keep alphabetized
   const base::Feature* disabled_features[] = {
-      &aggregation_service::kAggregationServiceMultipleCloudProviders,
       &attribution_reporting::features::kConversionMeasurement,
       &autofill::features::kAutofillAiServerModel,
+      &autofill::features::kAutofillAiWithDataSchema,
       &autofill::features::kAutofillEnableAmountExtraction,
       &autofill::features::kAutofillEnableBuyNowPayLater,
-      &autofill::features::kYourSavedInfoSettingsPage,
       &autofill::features::debug::kAutofillServerCommunication,
       &blink::features::kAdInterestGroupAPI,
       &blink::features::kAIProofreadingAPI,
@@ -118,18 +128,20 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &blink::features::kControlledFrame,
       &blink::features::kFencedFrames,
       &blink::features::kFledge,
-      &blink::features::kFledgeBiddingAndAuctionServer,
-      &blink::features::kFledgeConsiderKAnonymity,
-      &blink::features::kFledgeEnforceKAnonymity,
       &blink::features::kLanguageDetectionAPI,
       &blink::features::kParakeet,
       &blink::features::kPrerender2,
       &blink::features::kPreloadingEagerViewportHeuristics,
-      &blink::features::kPrivateAggregationApi,
       &blink::features::kTranslationAPI,
       &blink::features::kUserMediaElement,
+      &browser_actuator::kBrowserActuator,
+      &browser_actuator::kBrowserActuatorProtoStreamTransport,
 #if BUILDFLAG(IS_ANDROID)
       &chrome::android::kAndroidPageInfoAsAppMenuItem,
+#endif
+#if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
+      &chrome_pdf::features::kPdfSaveToDrive,
+      &chrome_pdf::features::kPdfSaveToDriveSurvey,
 #endif
       &commerce::kCommerceAllowOnDemandBookmarkUpdates,
       &commerce::kCommerceDeveloper,
@@ -139,23 +151,28 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &commerce::kShoppingPDPMetrics,
       &commerce::kRetailCoupons,
       &compose::features::kEnableCompose,
-      &content_settings::features::kUserBypassUI,
       &contextual_tasks::kContextualTasks,
+      &contextual_tasks::kContextualTasksCookiePrefetch,
 #if !BUILDFLAG(IS_ANDROID)
       &enterprise_data_protection::kEnableForceDownloadToCloud,
       &enterprise_data_protection::kEnableForceDownloadToOneDrive,
+      &extensions_features::kApiGlicPrivate,
 #endif
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX)
       &feature_engagement::kIPHAutofillAccountNameEmailSuggestionFeature,
       &feature_engagement::kIPHDiscardRingFeature,
       &feature_engagement::kIPHGMCCastStartStopFeature,
       &feature_engagement::kIPHPasswordsManagementBubbleAfterSaveFeature,
+      &feature_engagement::kIPHPdfInkSignaturesFeature,
       &feature_engagement::kIPHReadingListInSidePanelFeature,
       &feature_engagement::kIPHSideBySidePinnableFeature,
       &feature_engagement::kIPHSideBySideTabSwitchFeature,
+      &feature_engagement::kIPHTabGroupsSaveV2IntroFeature,
+      &feature_engagement::kIPHVerticalTabstripTutorialFeature,
 #endif
       &features::kBookmarkTriggerForPrefetch,
       &features::kChromeStructuredMetrics,
+      &features::kDestroyProfileOnBrowserClose,
       &features::kDevToolsAiAssistanceContextSelectionAgent,
       &features::kDevToolsAiCodeCompletion,
       &features::kDevToolsAiCodeGeneration,
@@ -182,6 +199,7 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
       &features::kPdfInfoBar,
 #endif
+      &features::kPrefetchProxy,
       &features::kPrivacySandboxAdsAPIsOverride,
       &features::kPrivacySandboxAdsAPIsM1Override,
 #if !BUILDFLAG(IS_ANDROID)
@@ -200,6 +218,8 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &features::kWebOTP,
 #if BUILDFLAG(IS_ANDROID)
       &feed::kAndroidOpenIncognitoAsWindow,
+      &feed::kFeedContainment,
+      &feed::kInterestFeedV2,
 #endif
       &heap_profiling::kHeapProfilerReporting,
       &history::kOrganicRepeatableQueries,
@@ -214,6 +234,7 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &history_embeddings::kHistoryEmbeddingsAnswers,
       &history_embeddings::kLaunchedHistoryEmbeddings,
       &lens::features::kLensOverlay,
+      &lens::features::kLensOverlayOmniboxEntryPoint,
       &lens::features::kLensStandalone,
       &media::kLiveCaption,
       &metrics::features::kStructuredMetrics,
@@ -221,22 +242,31 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &metrics::structured::kPhoneHubStructuredMetrics,
       &multistep_filter::kMultistepFilter,
       &net::features::kEnableWebTransportDraft07,
+      &net::features::kTLSTrustAnchorIDs,
       &network::features::kBrowsingTopics,
-      &network::features::kInterestGroupStorage,
-      &network::features::kSharedStorageAPI,
       &network_time::kNetworkTimeServiceQuerying,
       &ntp_features::kCustomizeChromeSidePanelExtensionsCard,
       &ntp_features::kCustomizeChromeWallpaperSearch,
       &ntp_features::kNtpAlphaBackgroundCollections,
       &ntp_features::kNtpBackgroundImageErrorDetection,
+      &ntp_features::kNtpCalendarModule,
       &ntp_features::kNtpChromeCartModule,
+      &ntp_features::kNtpDriveModule,
+      &ntp_features::kNtpDriveModuleLink,
+      &ntp_tiles::kNtpMostLikelyFaviconsFromServerFeature,
+      &ntp_tiles::kPopularSitesBakedInContentFeature,
+      &omnibox::internal::kWebUIOmniboxPopup,
+      &omnibox::internal::kWebUIOmniboxAimPopup,
+      &omnibox::kAimEnabled,
       &omnibox::kMlUrlScoring,
 #if BUILDFLAG(IS_ANDROID)
       &omnibox::kOmniboxMobileParityUpdateV2,
 #endif
       &omnibox::kRichAutocompletion,
       &omnibox::kStarterPackExpansion,
+      &one_time_tokens::features::kGmailOtpRetrievalService,
       &optimization_guide::features::kOptimizationGuideFetchingForSRP,
+      &optimization_guide::features::kOptimizationGuideModelExecution,
       &optimization_guide::features::kOptimizationHints,
       &passage_embeddings::kPassageEmbedder,
       &permissions::features::kCpssUseTfliteSignatureRunner,
@@ -248,7 +278,6 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &personal_context::features::kPersonalContext,
       &plus_addresses::features::kPlusAddressesEnabled,
       &privacy_sandbox::kEnforcePrivacySandboxAttestations,
-      &privacy_sandbox::kPrivacySandboxSettings4,
 #if !BUILDFLAG(IS_ANDROID)
       &private_ai::kPrivateAi,
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -264,8 +293,11 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
       &segmentation_platform::features::kSegmentationPlatformFeature,
       &segmentation_platform::features::kSegmentationPlatformTimeDelaySampling,
       &subresource_filter::kAdTagging,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+      &switches::kFirstRunDesktopRefresh,
+#endif
       &switches::kSyncEnableBookmarksInTransportMode,
-      &syncer::kSyncDetermineAccountManagedStatus,
+      &syncer::kSyncAutofillValuableMetadata,
 #if !BUILDFLAG(IS_ANDROID)
       &tabs::kVerticalTabsLaunch,
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -280,6 +312,7 @@ TEST(FeatureDefaultsTest, DisabledFeatures) {
 TEST(FeatureDefaultsTest, EnabledFeatures) {
   const base::Feature* enabled_features[] = {
       &omnibox::kAblateSearchProviderWarmup,
+      &blink::features::kMixedContentAutoupgrade,
       &blink::features::kReducedReferrerGranularity,
       &blink::features::kReduceUserAgentMinorVersion,
       &blink::features::kUACHOverrideBlank,
@@ -293,6 +326,10 @@ TEST(FeatureDefaultsTest, EnabledFeatures) {
       &history::kHistoryMoreSearchResults,
       &media::kEnableTabMuting,
       &net::features::kPartitionConnectionsByNetworkIsolationKey,
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
+      &password_manager::features::kSkipUndecryptablePasswords,
+#endif
 #if !BUILDFLAG(IS_ANDROID)
       &sharing_hub::kDesktopScreenshots,
 #endif

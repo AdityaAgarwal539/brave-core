@@ -52,19 +52,19 @@ bool IsZCashEnabled() {
 }
 
 bool IsZCashShieldedTransactionsEnabled() {
-#if BUILDFLAG(IS_IOS)
-  bool is_zcash_enabled = IsZCashEnabled();
-  bool is_shielded_tx_enabled =
-      features::kZCashShieldedTransactionsEnabled.Get();
-  bool is_wallet_webui_enabled = IsWalletWebUIEnabled();
-  return is_zcash_enabled && is_shielded_tx_enabled && is_wallet_webui_enabled;
-#else
   return IsZCashEnabled() && features::kZCashShieldedTransactionsEnabled.Get();
-#endif
+}
+
+bool IsZCashIronwoodEnabled() {
+  return IsZCashEnabled() && features::kZCashIronwoodEnabled.Get();
 }
 
 bool IsPolkadotEnabled() {
   return base::FeatureList::IsEnabled(features::kBraveWalletPolkadotFeature);
+}
+
+bool IsPolkadotAssetDiscoveryEnabled() {
+  return IsPolkadotEnabled() && features::kPolkadotAssetDiscovery.Get();
 }
 
 bool IsWalletDebugEnabled() {
@@ -73,6 +73,11 @@ bool IsWalletDebugEnabled() {
 #else
   return false;
 #endif
+}
+
+bool IsMojoForHardwareWalletEnabled() {
+  return base::FeatureList::IsEnabled(
+      features::kBraveWalletMojoForHardwareWalletFeature);
 }
 
 bool IsAnkrBalancesEnabled() {
@@ -90,11 +95,13 @@ bool IsAccountHidingEnabled() {
       features::kBraveWalletAccountHidingFeature);
 }
 
-#if BUILDFLAG(IS_IOS)
-bool IsWalletWebUIEnabled() {
-  return base::FeatureList::IsEnabled(features::kBraveWalletWebUIFeature);
-}
+bool IsSnapsFeatureEnabled() {
+#if BUILDFLAG(ENABLE_SNAPS)
+  return base::FeatureList::IsEnabled(features::kBraveWalletSnapsFeature);
+#else
+  return false;
 #endif
+}
 
 bool IsEthereumKeyring(mojom::KeyringId keyring_id) {
   return keyring_id == mojom::KeyringId::kDefault;
@@ -127,8 +134,7 @@ bool IsFilecoinAccount(const mojom::AccountIdPtr& account_id) {
 mojom::KeyringId GetFilecoinKeyringId(const std::string& network) {
   if (network == mojom::kFilecoinMainnet) {
     return mojom::KeyringId::kFilecoin;
-  } else if (network == mojom::kFilecoinTestnet ||
-             network == mojom::kLocalhostChainId) {
+  } else if (network == mojom::kFilecoinTestnet) {
     return mojom::KeyringId::kFilecoinTestnet;
   }
   NOTREACHED() << "Unsupported chain id for filecoin " << network;

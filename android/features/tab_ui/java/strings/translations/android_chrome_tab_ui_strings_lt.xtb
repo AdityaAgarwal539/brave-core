@@ -14,6 +14,7 @@
 <translation id="1321004960118052490">Neaktyvūs elementai nebus kaupiami</translation>
 <translation id="1329584516321524826">Ką tik atnaujinta</translation>
 <translation id="1340839264183302272">Išeiti iš grupės</translation>
+<translation id="1386966479075994683">Išskleisti skirtukus</translation>
 <translation id="1403729629346559879">{NUMBER_OF_TABS,plural, =1{Išskleisti bendrinamą skirtukų grupę „<ph name="TITLE_OF_GROUP"/>“ su <ph name="TABS_COUNT_ONE"/> skirtuku. Spalva: <ph name="COLOR_NAME"/>, etiketė: „<ph name="CARD_LABEL"/>“.}one{Išskleisti bendrinamą skirtukų grupę „<ph name="TITLE_OF_GROUP"/>“ su <ph name="TABS_COUNT_MANY"/> skirtuku. Spalva: <ph name="COLOR_NAME"/>, etiketė: „<ph name="CARD_LABEL"/>“.}few{Išskleisti bendrinamą skirtukų grupę „<ph name="TITLE_OF_GROUP"/>“ su <ph name="TABS_COUNT_MANY"/> skirtukais. Spalva: <ph name="COLOR_NAME"/>, etiketė: „<ph name="CARD_LABEL"/>“.}many{Išskleisti bendrinamą skirtukų grupę „<ph name="TITLE_OF_GROUP"/>“ su <ph name="TABS_COUNT_MANY"/> skirtuko. Spalva: <ph name="COLOR_NAME"/>, etiketė: „<ph name="CARD_LABEL"/>“.}other{Išskleisti bendrinamą skirtukų grupę „<ph name="TITLE_OF_GROUP"/>“ su <ph name="TABS_COUNT_MANY"/> skirtukų. Spalva: <ph name="COLOR_NAME"/>, etiketė: „<ph name="CARD_LABEL"/>“.}}</translation>
 <translation id="1486715732399361704">Visas skirtukų grupes rasite čia</translation>
 <translation id="149054111719651807">{NUM_MINS,plural, =1{Sukurta prieš <ph name="NUM_MINS_ONE"/> minutę}one{Sukurta prieš <ph name="NUM_MINS_MANY"/> minutę}few{Sukurta prieš <ph name="NUM_MINS_MANY"/> minutes}many{Sukurta prieš <ph name="NUM_MINS_MANY"/> minutės}other{Sukurta prieš <ph name="NUM_MINS_MANY"/> minučių}}</translation>
@@ -44,6 +45,7 @@
 <translation id="22623456902492423">{TABS_COUNT,plural, =1{Išgrupuoti skirtuką}one{Išgrupuoti skirtukus}few{Išgrupuoti skirtukus}many{Išgrupuoti skirtukus}other{Išgrupuoti skirtukus}}</translation>
 <translation id="2271452184061378400">Čia išsaugomos skirtukų grupės</translation>
 <translation id="2277224997687551299">Redaguoti grupės pavadinimą</translation>
+<translation id="2289567621059034186">Naujas skirtukas apačioje</translation>
 <translation id="2330212241471632770">{TABS_COUNT,plural, =1{Pažymėti skirtuką}one{Pažymėti skirtukus}few{Pažymėti skirtukus}many{Pažymėti skirtukus}other{Pažymėti skirtukus}}</translation>
 <translation id="2359808026110333948">Tęskite</translation>
 <translation id="2371084566192454134">Skirtukai ir skirtukų grupės</translation>
@@ -78,6 +80,7 @@
 <translation id="3152596030350326139">Rodyti skirtukus horizontaliai</translation>
 <translation id="31806439105337256">Rodyti skirtukus vertikaliai</translation>
 <translation id="3194464645767632461">įvertinimas</translation>
+<translation id="3228962656492373217">Uždaryti skirtukus apačioje</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{Pridėti <ph name="TABS_COUNT_ONE"/> skirtuką prie grupės}one{Pridėti <ph name="TABS_COUNT_MANY"/> skirtuką prie grupės}few{Pridėti <ph name="TABS_COUNT_MANY"/> skirtukus prie grupės}many{Pridėti <ph name="TABS_COUNT_MANY"/> skirtuko prie grupės}other{Pridėti <ph name="TABS_COUNT_MANY"/> skirtukų prie grupės}}</translation>
 <translation id="3328308545011660196">Pasiūlymas: skirtukai (iš viso: <ph name="NUMBER_OF_TABS"/>) atrodo susiję. Grupuoti juos?</translation>
 <translation id="3330595302841061275">{DAY_COUNT,plural, =1{Po vienos neaktyvumo dienos}one{Po <ph name="DAY_COUNT_MANY"/> neaktyvumo dienos}few{Po <ph name="DAY_COUNT_MANY"/> neaktyvumo dienų}many{Po <ph name="DAY_COUNT_MANY"/> neaktyvumo dienos}other{Po <ph name="DAY_COUNT_MANY"/> neaktyvumo dienų}}</translation>
@@ -124,7 +127,9 @@
 <translation id="5042769431350623987">{WINDOW_COUNT,plural, =1{Perkelti skirtukus į naują langą}one{Perkelti skirtukus į kitą langą}few{Perkelti skirtukus į kitą langą}many{Perkelti skirtukus į kitą langą}other{Perkelti skirtukus į kitą langą}}</translation>
 <translation id="5073204694187207510">Slėpti viso ekrano tinklelį</translation>
 <translation id="5076161749301278626">Peržiūrėti parduotuvės apžvalgas?</translation>
+<translation id="5093447877601682598">Siųsti atsiliepimą apie skirtukų juostelę</translation>
 <translation id="5161254044473106830">Būtina nurodyti pavadinimą</translation>
+<translation id="5204584298075822291">Sutraukti skirtukus</translation>
 <translation id="1600515547518251664">{AUTO_DELETE_DELAY,plural, =1{„Brave“ automatiškai uždaro neaktyvius skirtukus ir skirtukų grupes po <ph name="AUTO_DELETE_DELAY_ONE"/> mėnesio. Tai galite keisti nustatymų skiltyje.}one{„Brave“ automatiškai uždaro neaktyvius skirtukus ir skirtukų grupes po <ph name="AUTO_DELETE_DELAY_MANY"/> mėnesio. Tai galite keisti nustatymų skiltyje.}few{„Brave“ automatiškai uždaro neaktyvius skirtukus ir skirtukų grupes po <ph name="AUTO_DELETE_DELAY_MANY"/> mėnesių. Tai galite keisti nustatymų skiltyje.}many{„Brave“ automatiškai uždaro neaktyvius skirtukus ir skirtukų grupes po <ph name="AUTO_DELETE_DELAY_MANY"/> mėnesio. Tai galite keisti nustatymų skiltyje.}other{„Brave“ automatiškai uždaro neaktyvius skirtukus ir skirtukų grupes po <ph name="AUTO_DELETE_DELAY_MANY"/> mėnesių. Tai galite keisti nustatymų skiltyje.}}</translation>
 <translation id="5254233580564156835">Atminties sąnaudos: <ph name="MEMORY_USAGE"/></translation>
 <translation id="5339733443032484186">Jūsų paskutinis skirtukas</translation>
@@ -181,7 +186,6 @@
 <translation id="7129458170538955174">Informacija apie šią parduotuvę atidaryta iki pusės ekrano aukščio</translation>
 <translation id="7204204600596740190">Kelių elementų pasirinkimo režimas</translation>
 <translation id="7211038039686180558">Skirtukų grupės automatiškai išsaugomos ir atnaujinamos visuose įrenginiuose, kuriuose esate prisijungę</translation>
-<translation id="731648547091221002">Pasirinkta: <ph name="COLOR_NAME"/></translation>
 <translation id="7326879924029668159">Peržiūrėkite grąžinimo politiką ir kt.</translation>
 <translation id="7352298686197644113">Žr., kurio elemento jūsų atidarytuose skirtukuose kaina žemesnė</translation>
 <translation id="7369451074646620503">Skirtukų grupė „<ph name="TAB_GROUP_NAME"/>“ nebepasiekiama</translation>
@@ -207,7 +211,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Įvertinimas: <ph name="CURRENT_RATING"/> iš <ph name="RATING_BASELINE"/>, <ph name="REVIEWS_COUNT_ONE"/> atsiliepimas}one{Įvertinimas: <ph name="CURRENT_RATING"/> iš <ph name="RATING_BASELINE"/>, <ph name="REVIEWS_COUNT_MANY"/> atsiliepimas}few{Įvertinimas: <ph name="CURRENT_RATING"/> iš <ph name="RATING_BASELINE"/>, <ph name="REVIEWS_COUNT_MANY"/> atsiliepimai}many{Įvertinimas: <ph name="CURRENT_RATING"/> iš <ph name="RATING_BASELINE"/>, <ph name="REVIEWS_COUNT_MANY"/> atsiliepimo}other{Įvertinimas: <ph name="CURRENT_RATING"/> iš <ph name="RATING_BASELINE"/>, <ph name="REVIEWS_COUNT_MANY"/> atsiliepimų}}</translation>
 <translation id="7885132941432959125">Perkelti skirtuką į dešinę</translation>
 <translation id="7887334752153342268">Dubliuoti</translation>
-<translation id="7939917283308035850">Nepasirinkta: <ph name="COLOR_NAME"/></translation>
 <translation id="7961015016161918242">Niekada</translation>
 <translation id="7966321538264951561">Atsisakyti pasiūlymo.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Skirtuko perkėlimas į naują langą}one{Skirtuko perkėlimas į kitą langą}few{Skirtuko perkėlimas į kitą langą}many{Skirtuko perkėlimas į kitą langą}other{Skirtuko perkėlimas į kitą langą}}</translation>

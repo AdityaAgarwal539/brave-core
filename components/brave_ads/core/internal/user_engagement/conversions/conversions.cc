@@ -5,9 +5,11 @@
 
 #include "brave/components/brave_ads/core/internal/user_engagement/conversions/conversions.h"
 
+#include <ranges>
+
 #include "base/check.h"
-#include "base/containers/adapters.h"
 #include "base/functional/bind.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "brave/components/brave_ads/core/internal/common/logging_util.h"
 #include "brave/components/brave_ads/core/internal/common/time/time_formatting_util.h"
@@ -81,9 +83,11 @@ void Conversions::GetCreativeSetConversionsCallback(
 void Conversions::GetAdEvents(
     const std::vector<GURL>& redirect_chain,
     const CreativeSetConversionList& creative_set_conversions) {
-  ad_events_database_table_.GetUnexpired(base::BindOnce(
-      &Conversions::GetAdEventsCallback, weak_factory_.GetWeakPtr(),
-      redirect_chain, creative_set_conversions));
+  ad_events_database_table_.GetUnexpired(
+      kAdEventsTimeWindow.Get(),
+      base::BindOnce(&Conversions::GetAdEventsCallback,
+                     weak_factory_.GetWeakPtr(), redirect_chain,
+                     creative_set_conversions));
 }
 
 void Conversions::GetAdEventsCallback(
@@ -137,7 +141,7 @@ void Conversions::CheckForConversions(
   // Conversions are based on the last touch attribution model.
   bool did_convert = false;
 
-  for (const auto& ad_event : base::Reversed(ad_events)) {
+  for (const auto& ad_event : std::views::reverse(ad_events)) {
     // Do we have creative set conversions for this ad event?
     const auto iter =
         creative_set_conversion_buckets.find(ad_event.creative_set_id);

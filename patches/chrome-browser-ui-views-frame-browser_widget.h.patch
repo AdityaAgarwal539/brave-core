@@ -1,0 +1,21 @@
+diff --git a/chrome/browser/ui/views/frame/browser_widget.h b/chrome/browser/ui/views/frame/browser_widget.h
+index 8d886fa1501b48ae487b36cb70dd7d5f0c028e87..0ca395a6d23b31d72921ae17cd5b8a6cddd41967 100644
+--- a/chrome/browser/ui/views/frame/browser_widget.h
++++ b/chrome/browser/ui/views/frame/browser_widget.h
+@@ -129,7 +129,7 @@ class BrowserWidget : public views::Widget,
+     return browser_native_widget_;
+   }
+ 
+-  void SetTabDragKind(TabDragKind tab_drag_kind);
++  virtual void SetTabDragKind(TabDragKind tab_drag_kind);
+   TabDragKind tab_drag_kind() const { return tab_drag_kind_; }
+ 
+  protected:
+@@ -138,6 +138,7 @@ class BrowserWidget : public views::Widget,
+   ui::ColorProviderKey GetColorProviderKey() const override;
+ 
+  private:
++  friend class BraveBrowserWidget;
+   const ui::ThemeProvider* GetBaseThemeProvider() const;
+ 
+   void OnTouchUiChanged();

@@ -167,7 +167,7 @@ export const signingEndpoints = ({
               false,
               arg.request.id,
               null,
-              getLocale('braveWalletHardwareAccountNotFound'),
+              getLocale(S.BRAVE_WALLET_HARDWARE_ACCOUNT_NOT_FOUND_ERROR),
             )
 
             const hasPendingRequests = await getHasPendingRequests()
@@ -196,18 +196,6 @@ export const signingEndpoints = ({
           )
 
           if (!signed.success && signed.code) {
-            if (signed.code === 'unauthorized') {
-              store.dispatch(
-                PanelActions.setHardwareWalletInteractionError(signed.code),
-              )
-              return {
-                data: {
-                  success: false,
-                  hardwareWalletInteractionError: signed.code,
-                },
-              }
-            }
-
             const deviceError =
               info.vendor === BraveWallet.HardwareVendor.kTrezor
                 ? dialogErrorFromTrezorErrorCode(signed.code)

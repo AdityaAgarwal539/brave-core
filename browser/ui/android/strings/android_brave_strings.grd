@@ -180,9 +180,6 @@ This file contains all "about" strings.  It is set to NOT be translated, in tran
       <message name="IDS_ADD_YOUR_SUGGESTIONS"  desc="Text for Add your suggestions">
         Add your suggestions
       </message>
-      <message name="IDS_BRAVE_OPTIONAL"  desc="Text for Optional">
-        Optional
-      </message>
       <message name="IDS_IN_ONE_EMOJI_EXPERIENCE_WITH_BRAVE"  desc="Text for In one emoji, how's your experience with Brave?">
         In one emoji, how's your experience with Brave?
       </message>
@@ -204,8 +201,20 @@ This file contains all "about" strings.  It is set to NOT be translated, in tran
       <message name="IDS_THANKS_FOR_YOUR_FEEDBACK"  desc="Text for Thanks for your feedback!">
         Thanks for your feedback!
       </message>
-      <message name="IDS_LET_US_KNOW_HOW_WE_CAN_IMPROVE_BRAVE"  desc="Text for Let us know how we can improve Brave.">
-        Let us know how we can improve Brave.
+      <message name="IDS_LET_US_KNOW_HOW_WE_CAN_IMPROVE_BRAVE"  desc="Text for Let us know how we can improve Brave">
+        Let us know how we can improve Brave
+      </message>
+      <message name="IDS_BRAVE_RATING_SEND_FEEDBACK" desc="Label for the button that submits written feedback from the rating prompt.">
+        Send
+      </message>
+      <message name="IDS_BRAVE_RATING_ADD_SUGGESTIONS_OPTIONAL" desc="Floating label for the optional free-text field on the rating feedback prompt.">
+        Add your suggestions (Optional)
+      </message>
+      <message name="IDS_BRAVE_RATING_FEEDBACK_SENT" desc="Confirmation shown after the user submits written feedback from the rating prompt.">
+        Feedback sent. Thank you!
+      </message>
+      <message name="IDS_BRAVE_RATING_DONT_SHOW_AGAIN" desc="Label for the checkbox on the rating prompt that stops the prompt from being shown again.">
+        Don't show again
       </message>
       <message name="IDS_BRAVE_NOTIFICATION_PERMISSION_RATIONALE_DIALOG_TITLE" desc="The title of a dialog shown to users before asking for notification permission.">
         Brave notifications make it easier
@@ -484,13 +493,13 @@ This file contains all "about" strings.  It is set to NOT be translated, in tran
         Today’s top stories in a private feed, just for you.
       </message>
       <message name="IDS_BRAVE_NEWS_SETTINGS_OPTIN_TITLE" desc="Text for opt in card title in settings">
-        Turn on Brave News, and never miss a story
+        Turn on Brave News and never miss a story
       </message>
       <message name="IDS_BRAVE_NEWS_OPTIN_SUBTITLE" desc="Text for opt in card subtitle">
         Brave News is ad-supported with private and anonymized ads matched on your device.
       </message>
       <message name="IDS_BRAVE_NEWS_SETTINGS_OPTIN_SUBTITLE" desc="Text for opt in card subtitle in settings">
-        Follow your favorite sources, in a single feed. Just open a tab in Brave, scroll down, and... voila!\nBrave News is ad-supported with private, anonymized ads.
+        Follow your favorite sources in a single feed. Just open a tab in Brave, scroll down, and… voila!
       </message>
       <message name="IDS_TURN_ON_BRAVE_NEWS" desc="Text for opt in card button in settings">
         Turn on Brave News
@@ -732,6 +741,12 @@ This file contains all "about" strings.  It is set to NOT be translated, in tran
       <message name="IDS_BRAVE_STATS_TEXT_TIME" desc="Title for the estimated saved time">
         Est. Time\nSaved
       </message>
+      <message name="IDS_SPONSORED_ADS_ENABLED_TITLE" desc="Title of the settings toggle that enables Sponsored Ads">
+        Enable Sponsored Ads
+      </message>
+      <message name="IDS_SPONSORED_ADS_ENABLED_SUMMARY" desc="Description under the settings toggle that enables Sponsored Ads">
+        Help support Brave's mission to build an independent, user-first Web with Sponsored Ads. We measure ad performance privately, without identifying you.
+      </message>
       <message name="IDS_SURVEY_PANELIST_TITLE" desc="Title for enable/disable brave survey panelist toggle.">
         Allow Brave surveys
       </message>
@@ -886,11 +901,8 @@ This file contains all "about" strings.  It is set to NOT be translated, in tran
       <message name="IDS_SEND_P3A_TITLE" desc="Title for sending anonymous product insight during onboarding phase">
         Private product insights
       </message>
-      <message name="IDS_SHIELD_ONBOARDING" desc="Text for shield tooltip onboarding">
-        Tap to view Brave Shields
-      </message>
       <message name="IDS_SHIELD_TOOLTIP_DESC" desc="Text for shield tooltip description onboarding">
-        See all the bad stuff Brave blocked, on every page, with Shields.
+        See all the bad stuff Brave blocked on every page with Shields. Tap to view
       </message>
       <message name="IDS_SHIELD_TRACKER_BLOCKED" desc="Text for shield tracker blocked tooltip onboarding">
         <ph name="TRACKER_COUNT">%1$s<ex>1</ex></ph> ads &amp; trackers blocked
@@ -996,9 +1008,6 @@ This file contains all "about" strings.  It is set to NOT be translated, in tran
       </message>
         <message name="IDS_WEBAPP" desc="WebApp placeholder used in menu item customization preferences">
         WebApp
-      </message>
-      <message name="IDS_BRAVE_UI_SETTINGS" desc="Settings button text">
-        Settings
       </message>
       <message name="IDS_BRAVE_ADS_EXISTING_USER_OFFER_TITLE" desc="Title for Brave Ads offer.">
         Brave Ads are here!
@@ -1689,6 +1698,12 @@ Are you sure you want to do this?
       <message name="IDS_NIGHT_MODE_SUMMARY" desc="Summary for Night Mode, which forces web content into dark mode.">
         Force dark mode for web content
       </message>
+      <message name="IDS_BRAVE_ANDROID_DYNAMIC_COLORS_TITLE" desc="Title for the Android Appearance preference that enables dynamic colors.">
+        Dynamic colors
+      </message>
+      <message name="IDS_BRAVE_ANDROID_DYNAMIC_COLORS_SUMMARY" desc="Summary for the Android Appearance preference that enables dynamic colors.">
+        App theme matches wallpaper colors
+      </message>
       <message name="IDS_ACCESSIBILITY_TOOLBAR_BTN_SEARCH_ACCELERATOR" desc="Content description for the search accelerator button">
         Search
       </message>
@@ -1995,9 +2010,6 @@ Are you sure you want to do this?
     </message>
     <message name="IDS_BRAVE_WALLET_SHIELDING" desc="Shielding label">
       Shielding
-    </message>
-    <message name="IDS_BRAVE_WALLET_TOOLBAR_LOCK" desc="Title for brave wallet toolbar lock option.">
-      Lock
     </message>
     <message name="IDS_BRAVE_WALLET_HELP_CENTER" desc="Title for help center link">
       Help center
@@ -2331,6 +2343,12 @@ If you don't accept this request, VPN will not reconnect and your internet conne
     <message name="IDS_BRAVE_WALLET_CONFIRM_TRANSACTION_AMOUNT_FEE" desc="Confirm transaction panel total fee label">
       Amount + fee
     </message>
+    <message name="IDS_BRAVE_WALLET_INSUFFICIENT_BALANCE" desc="Confirm transaction panel error shown when the account balance does not cover the transaction">
+      Insufficient balance
+    </message>
+    <message name="IDS_BRAVE_WALLET_INSUFFICIENT_FUNDS_FOR_GAS" desc="Confirm transaction panel error shown when the account balance does not cover the network fee">
+      Insufficient funds for gas
+    </message>
     <message name="IDS_TRANSACTION" desc="Brave crypto wallet transaction title">
       Transaction
     </message>
@@ -2645,6 +2663,18 @@ If you don't accept this request, VPN will not reconnect and your internet conne
     </message>
     <message name="IDS_TAB_GROUPS_ENABLE_TITLE" desc="Title for a setting that enables or disables tab groups.">
       Enable tab groups
+    </message>
+    <message name="IDS_TAB_GROUPS_DISABLE_DIALOG_TITLE" desc="Title of the dialog that asks the user to confirm turning off the tab groups setting.">
+      Disable tab groups?
+    </message>
+    <message name="IDS_TAB_GROUPS_DISABLE_DIALOG_MESSAGE" desc="Body of the dialog that asks the user to confirm turning off the tab groups setting. It explains that the existing tab groups are removed and their tabs stay open on their own.">
+      Any existing groups will be deleted, and the tabs within those groups will become open, ungrouped tabs in your browser window. Are you sure you want to continue?
+    </message>
+    <message name="IDS_TAB_GROUPS_DISABLE_DIALOG_CONFIRM_BUTTON" desc="Label of the button that confirms turning off the tab groups setting.">
+      Disable
+    </message>
+    <message name="IDS_TAB_GROUPS_SHOW_SYNCED_TITLE" desc="Title for a setting that controls whether the tab groups synced from the user's other devices are shown in this browser.">
+      Show synced tab groups
     </message>
     <message name="IDS_TAB_GROUPS_BAR_TITLE" desc="Title for a setting that enables the tab groups bottom bar.">
       Tab groups bar

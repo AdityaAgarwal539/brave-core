@@ -25,6 +25,7 @@ struct ReaderModeUtils {
       let tmplPath = Bundle.module.url(forResource: "Reader", withExtension: "html"),
       let tmpl = await AsyncFileManager.default.utf8Contents(at: tmplPath)
     else { return nil }
+    let languageCode = Locale.LanguageCode(readabilityResult.documentLanguage)
 
     // This MUST be the first line/replacement!
     return tmpl.replacingOccurrences(of: "%READER-TITLE-NONCE%", with: titleNonce)
@@ -35,8 +36,7 @@ struct ReaderModeUtils {
       .replacingOccurrences(of: "%READER-URL%", with: readabilityResult.url)
       .replacingOccurrences(
         of: "%READER-PAGE-LANGUAGE%",
-        with: readabilityResult.documentLanguage.javaScriptEscapedString?.unquotedIfNecessary
-          ?? ""
+        with: languageCode.isISOLanguage ? languageCode.identifier : ""
       )
       .replacingOccurrences(
         of: "%READER-TITLE%",
@@ -50,8 +50,7 @@ struct ReaderModeUtils {
       )
       .replacingOccurrences(
         of: "%READER-DIRECTION%",
-        with: readabilityResult.direction.javaScriptEscapedString?.unquotedIfNecessary
-          ?? readabilityResult.direction.htmlEntityEncodedString
+        with: readabilityResult.direction.htmlEntityEncodedString
       )
       .replacingOccurrences(of: "%READER-MESSAGE%", with: "")
 
@@ -60,9 +59,7 @@ struct ReaderModeUtils {
         of: "%READER-ORIGINAL-PAGE-META-TAGS%",
         with: readabilityResult.cspMetaTags
           .map {
-            let content =
-              $0.javaScriptEscapedString?.unquotedIfNecessary ?? $0.htmlEntityEncodedString
-            return "<meta http-equiv=\"Content-Security-Policy\" content=\"\(content)\">"
+            "<meta http-equiv=\"Content-Security-Policy\" content=\"\($0.htmlEntityEncodedString)\">"
           }
           .joined(separator: "\n")
       )

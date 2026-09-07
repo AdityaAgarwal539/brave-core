@@ -7,7 +7,7 @@ import * as React from 'react'
 import { render } from '@testing-library/react'
 
 // Utils
-import BraveCoreThemeProvider from '../../../../common/BraveCoreThemeProvider'
+import { WalletTestThemeProvider } from '../../../utils/test-utils'
 
 // Components
 import { AdvancedTransactionSettings } from './advanced_transaction_settings'
@@ -15,20 +15,20 @@ import { AdvancedTransactionSettings } from './advanced_transaction_settings'
 describe('AdvancedTransactionSettings', () => {
   it('should render the component', () => {
     const { container } = render(
-      <BraveCoreThemeProvider>
+      <WalletTestThemeProvider>
         <AdvancedTransactionSettings
           nonce='5'
           onCancel={jest.fn()}
           onSave={jest.fn()}
         />
-      </BraveCoreThemeProvider>,
+      </WalletTestThemeProvider>,
     )
 
     // Check locale
     expect(container).toBeInTheDocument()
-    expect(container).toHaveTextContent('braveWalletEditNonce')
-    expect(container).toHaveTextContent('braveWalletAccountSettingsSave')
-    expect(container).toHaveTextContent('braveWalletButtonCancel')
+    expect(container).toHaveTextContent(S.BRAVE_WALLET_EDIT_NONCE)
+    expect(container).toHaveTextContent(S.BRAVE_WALLET_ACCOUNT_SETTINGS_SAVE)
+    expect(container).toHaveTextContent(S.BRAVE_WALLET_BUTTON_CANCEL)
 
     // Check input
     const input = container.querySelector('input')
@@ -42,11 +42,11 @@ describe('AdvancedTransactionSettings', () => {
     // Check Cancel button
     const cancelButton = buttons[0]
     expect(cancelButton).toBeInTheDocument()
-    expect(cancelButton).toHaveTextContent('braveWalletButtonCancel')
+    expect(cancelButton).toHaveTextContent(S.BRAVE_WALLET_BUTTON_CANCEL)
 
     // Check Save button
     const saveButton = buttons[1]
     expect(saveButton).toBeInTheDocument()
-    expect(saveButton).toHaveTextContent('braveWalletAccountSettingsSave')
+    expect(saveButton).toHaveTextContent(S.BRAVE_WALLET_ACCOUNT_SETTINGS_SAVE)
   })
 })

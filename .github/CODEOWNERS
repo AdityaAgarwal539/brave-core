@@ -5,7 +5,14 @@ script/audit_deps.py @brave/sec-team
 /README.md @bsclifton
 script/deps.py @brave/deps-reviewers
 package*.json @brave/js-deps-reviewers
+# Explicit rule for the root package.json to be owned by both js-deps-reviewers
+# and build-commands-reviewers as it is used by the build system. Any team can
+# approve changes to this file.
+/package.json @brave/js-deps-reviewers @brave/build-commands-reviewers
+pnpm*.yaml @brave/js-deps-reviewers
 rewrite/ @brave/brave-core-owners
+rewrite/**/*.h.yaml @brave/brave-core-owners @brave/chromium-src-reviewers
+rewrite/**/*.cc.yaml @brave/brave-core-owners @brave/chromium-src-reviewers
 
 # Views
 # Do not add to BRAVE_VIEW_OWNED_BY_CLIENT_PASS_KEY
@@ -111,6 +118,7 @@ browser/net/brave_network_audit_search_ad_browsertest.cc @brave/sec-team
 # Chromium and Toolchains
 tools/cr/ @brave/chromium-rebase-team
 tools/recipes/ @brave/chromium-rebase-team
+infra/ @brave/chromium-rebase-team
 
 # Android tests
 android/android_browser_tests.gni @brave/android-tests-reviewers
@@ -124,7 +132,7 @@ android/java/res @brave/Android
 android/java/org/chromium/chrome/browser/preferences/BravePrefServiceBridge.java @AlexeyBarabash @samartnik @SergeyZhukovsky
 
 # GitHub configuration
-/.github/ @brave/devops-team
+/.github/ @brave/devops-team @brave/brave-core-owners
 /.github/CODEOWNERS @brave/codeowners
 /.github/PULL_REQUEST_TEMPLATE.md @bsclifton
 
@@ -133,8 +141,6 @@ android/java/org/chromium/chrome/browser/preferences/BravePrefServiceBridge.java
 
 # Deprecated android util directory
 android/java/org/chromium/chrome/browser/util @bridiver
-# This file should be removed once our UI is adjusted to Dynamic Colors
-android/java/org/chromium/chrome/browser/util/BraveDynamicColors.java @brave/Android
 
 # mojo interfaces should be implemented directly by the underlying classes
 browser/ai_chat/ai_chat_settings_helper.* @bridiver @petemill
@@ -194,7 +200,6 @@ components/skus/common/skus_utils.h @brave/sec-team
 # for brave_exec_script_allowlist
 build/dotfile_settings.gni @brave/brave-core-owners
 
-docs/gni_sources.md @bridiver
 docs/keyed_services.md @bridiver
 
 build/commands/lib/branding.js @brave/branding-code-reviewer
@@ -208,3 +213,8 @@ content_settings_types.mojom @brave/content-settings-reviewers
 # These rules are last to take precedence over directory rules. Do not add any
 # new rules at the end of this file or below the comment above that indicates
 # the start of this list
+
+# BraveProxyingURLLoaderFactory and BraveProxyingWebSocket are deprecated.
+# New functionality should use URLLoaderThrottle, NavigationThrottle or
+# rule sets that can be applied with DocumentSubresourceFilter
+brave/browser/net/brave_request_handler.cc @brave/brave-core-owners

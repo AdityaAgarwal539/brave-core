@@ -25,7 +25,10 @@ import { useExplorer } from '../../../../../common/hooks/explorer'
 // Utils
 import Amount from '../../../../../utils/amount'
 import { reduceAddress } from '../../../../../utils/reduce-address'
-import { isNativeAsset } from '../../../../../utils/asset-utils'
+import {
+  isNativeAsset,
+  isShieldedToken,
+} from '../../../../../utils/asset-utils'
 import { getLocale } from '../../../../../../common/locale'
 import {
   getPriceRequestsForTokens,
@@ -99,7 +102,11 @@ export const TokenDetails = (props: Props) => {
     ? Number(spotPrice.percentageChange24h) < 0
     : false
 
-  const tokenName = token.isShielded ? token.name + '(shielded)' : token.name
+  const tokenName = isShieldedToken(token)
+    ? token.zcashTokenType === BraveWallet.ZCashTokenType.kIronwood
+      ? token.name + ' (ironwood)'
+      : token.name + ' (shielded)'
+    : token.name
 
   return (
     <Column
@@ -143,7 +150,7 @@ export const TokenDetails = (props: Props) => {
               textColor='secondary'
               isBold={false}
             >
-              {getLocale('braveWalletMarketPrice')}
+              {getLocale(S.BRAVE_WALLET_MARKET_PRICE)}
             </Text>
             {isLoadingSpotPrice ? (
               <Column>
@@ -162,7 +169,7 @@ export const TokenDetails = (props: Props) => {
                   textColor='primary'
                   isBold={true}
                 >
-                  {new Amount(spotPrice?.price ?? '').formatAsFiat(
+                  {new Amount(spotPrice?.price ?? '').compactAsSpotPrice(
                     defaultFiatCurrency,
                   )}
                 </Text>
@@ -195,7 +202,7 @@ export const TokenDetails = (props: Props) => {
             textColor='secondary'
             isBold={false}
           >
-            {getLocale('braveWalletAllowAddNetworkNetworkPanelTitle')}
+            {getLocale(S.BRAVE_WALLET_ALLOW_ADD_NETWORK_PANEL_TITLE)}
           </Text>
           <Text
             textSize='14px'
@@ -212,7 +219,7 @@ export const TokenDetails = (props: Props) => {
               textColor='secondary'
               isBold={false}
             >
-              {getLocale('braveWalletNFTDetailTokenID')}
+              {getLocale(S.BRAVE_WALLET_NFT_DETAIL_TOKEN_ID)}
             </Text>
             <CopyTooltip text={formattedTokenId}>
               <Row
@@ -238,7 +245,7 @@ export const TokenDetails = (props: Props) => {
               textColor='secondary'
               isBold={false}
             >
-              {getLocale('braveWalletNFTDetailTokenStandard')}
+              {getLocale(S.BRAVE_WALLET_NFT_DETAIL_TOKEN_STANDARD)}
             </Text>
             <Text
               textSize='14px'
@@ -256,7 +263,7 @@ export const TokenDetails = (props: Props) => {
               textColor='secondary'
               isBold={false}
             >
-              {getLocale('braveWalletContract')}
+              {getLocale(S.BRAVE_WALLET_CONTRACT)}
             </Text>
             <CopyTooltip text={token.contractAddress}>
               <Row
@@ -290,7 +297,7 @@ export const TokenDetails = (props: Props) => {
             }
             size='large'
           >
-            {getLocale('braveWalletTransactionExplorer')}
+            {getLocale(S.BRAVE_WALLET_TRANSACTION_EXPLORER)}
           </Button>
         </Row>
       )}

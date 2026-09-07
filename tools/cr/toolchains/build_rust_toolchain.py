@@ -54,21 +54,17 @@ including rebuilds against a different Chromium version with the same upstream
 Rust+Clang stack, since the Chromium version is no longer encoded in the
 filename.
 
-Alongside the archive, a sibling YAML index is also written to `--out-dir`:
+Alongside the archive, a sibling YAML index sharing its name stem is also
+written to `--out-dir`:
 
     <platform>-rust-toolchain-<RUST_REVISION>-<RUST_SUB_REVISION>
-        -llvmorg-<CLANG_REVISION>.yaml
+        -llvmorg-<CLANG_REVISION>-<BRAVE_SUB_REVISION>.yaml
 
-The index aggregates every build for the same platform and upstream Rust+Clang
-combination — i.e. every distinct `<BRAVE_SUB_REVISION>` tarball under a single
-file. The script downloads the existing index from the public toolchain bucket
-(`TOOLCHAIN_BUCKET_URL`) or starts fresh if no prior index is published, appends
-a new entry for the just-built tarball with the relevant metadata, and writes
-the updated index to `--out-dir` for CI to upload back to the same path. Entries
-are appended in chronological order. The last list element is the latest build
-for the combo. The index has been introduced to preserve important information
-about the toolchain build and reproducibility. It also can be used to query how
-many versions we have for a given toolchain.
+The index records the just-built tarball's metadata (bucket URL, SHA-256, size,
+Chromium/brave-core provenance). Publishing refuses if an index already exists
+for this exact `<BRAVE_SUB_REVISION>` (bump `--brave-subrevision` for a fresh
+respin instead). With `--upload`, the archive and its sibling index are
+published to `TOOLCHAIN_BUCKET_URL`.
 
 The build is driven by two scripts that live in `tools/rust/` inside the
 Chromium source tree:
@@ -110,14 +106,13 @@ import tarfile
 import tempfile
 import tomllib
 from types import ModuleType
-import urllib.error
-import urllib.request
-
-import yaml
 
 # This is necessary because these scripts are used by brockit too.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from cherry_picks import (  # pylint: disable=wrong-import-position
+    _check_call, cherry_picks)
+import toolchain_publish  # pylint: disable=wrong-import-position
 from upload import sha256_file  # pylint: disable=wrong-import-position
 
 # Executable suffix for host tools on the current platform.
@@ -127,8 +122,8 @@ EXE_SUFFIX = '.exe' if sys.platform == 'win32' else ''
 LLD = 'lld' + EXE_SUFFIX
 
 # Basenames of the prebuilt host tools used as bootstrap's stage-1 compiler in
-# `--no-full-toolchain` mode (see USE_PREBUILT_RUSTC_FOR_WASM_STD). They live
-# under `RUST_TOOLCHAIN_OUT_DIR/bin/` and carry the platform's executable suffix.
+# `--no-full-toolchain` mode (see `--use-prebuilt-rustc`). They live under
+# `RUST_TOOLCHAIN_OUT_DIR/bin/` and carry the platform's executable suffix.
 RUSTC = f'rustc{EXE_SUFFIX}'
 CARGO = f'cargo{EXE_SUFFIX}'
 
@@ -195,17 +190,6 @@ STAGE1_RUSTLIB = Path('stage1') / 'lib' / 'rustlib'
 STAGE0_STD = Path('stage0-std')
 STAGE0_RUSTLIB = Path('stage0-sysroot') / 'lib' / 'rustlib'
 
-# When True, the `--no-full-toolchain` build compiles only the wasm32 standard
-# library against the prebuilt `rustc` that gclient already syncs to
-#
-# Only affects `--no-full-toolchain`: the full-toolchain build ships its own
-# freshly built `rustc`, so its wasm std must come from that same build (which
-# already reuses the compiler incrementally rather than rebuilding it).
-#
-# This is the default; override it per-invocation with
-# `--use-prebuilt-rustc` / `--no-use-prebuilt-rustc`.
-USE_PREBUILT_RUSTC_FOR_WASM_STD = True
-
 # vpython3 that is selected by `depot_tools` from `$PATH`.
 # This little Windows specific quirk is only needed when calling this script on
 # Windows using git bash.
@@ -216,42 +200,15 @@ VPYTHON_PATH = Path('third_party/depot_tools') / (
 # it is one of those reliable files that are always present in any version.
 CHROME_VERSION_FILE = Path('chrome/VERSION')
 
-# Upstream cherry-picks applied onto the checkout for the build's duration (see
-# `_cherry_picks`). Each is skipped automatically if the active Chromium ref
-# already contains it, so commits can stay listed here across version bumps
-# until they age out of the picks we still need.
-#
-#   * a710d2e1475f4c224290ce22f1a21c42d5fad900 — upstream's reproducibility fix
-#     for the committer details used in a cherry-pick commit. See
-#     https://crrev.com/c/7914461. This CL was provided once we reported to them
-#     mismatches on the `rustc` hash between our toolchain and theirs due to
-#     cherry-picks.
-#   * 0210b44659fd7251672077e9ab83b5324db0c08e — adds `--skip-test` to
-#     `package_rust.py` (plumbed into `build_rust.py`) so the packaging step can
-#     skip the rustc/libstd test suites. See https://crrev.com/c/7984649.
-CLANG_CHERRY_PICK_COMMITS = [
-    'a710d2e1475f4c224290ce22f1a21c42d5fad900',
-    '0210b44659fd7251672077e9ab83b5324db0c08e',
-]
+# Upstream cherry-picks applied onto the checkout for the build's duration.
+# Empty for now.
+CLANG_CHERRY_PICK_COMMITS = []
 
-# Fixed git author/committer metadata applied when we cherry-pick onto the
-# checkout. A commit's hash includes this metadata, and `rustc` encodes the
-# Chromium `HEAD` it was built from, so pinning it (together with `--no-gpg-sign`
-# on the cherry-pick) keeps the resulting HEAD — and the toolchain hash —
-# identical regardless of the local git config. Mirrors the override upstream's
-# `tools/clang/scripts/build.py` uses for its own cherry-picks.
-GIT_METADATA_OVERRIDES = {
-    'GIT_AUTHOR_NAME': 'Dummy Author',
-    'GIT_AUTHOR_EMAIL': 'none@none.com',
-    'GIT_AUTHOR_DATE': '2099-01-01 10:10:10',
-    'GIT_COMMITTER_NAME': 'Dummy Committer',
-    'GIT_COMMITTER_EMAIL': 'none@none.com',
-    'GIT_COMMITTER_DATE': '2099-01-01 10:10:10',
-}
-
-# The bucket in our infra where the rust toolchain is archived.
+# The bucket + key prefix in our infra where the rust toolchain is archived.
+TOOLCHAIN_BUCKET = 'brave-build-deps-public'
+TOOLCHAIN_BUCKET_PREFIX = 'rust-toolchain-aux'
 TOOLCHAIN_BUCKET_URL = (
-    'https://brave-build-deps-public.s3.brave.com/rust-toolchain-aux')
+    f'https://{TOOLCHAIN_BUCKET}.s3.brave.com/{TOOLCHAIN_BUCKET_PREFIX}')
 
 # Every platform a Rust/WASM toolchain is published for, mapped to the gclient
 # host condition `install_extra_deps.py` uses to select the matching
@@ -290,93 +247,43 @@ if sys.platform == 'win32':
     GIT_SH_PRESUMED_BIN_PATH = Path(r'C:\Program Files\Git\bin\sh.exe')
 
 
-def _check_call(*command,
-                cwd=None,
-                env=None,
-                check=True,
-                capture_output=False):
-    """Run *command* as a subprocess, logging the invocation.
+def toolchain_index_name(platform_prefix: str, upstream_stem: str,
+                         brave_subrevision: int) -> str:
+    """`<platform>-<upstream_stem>-<brave_subrevision>.yaml`.
 
-    Logs the full command string at INFO level before executing it.  Stdout
-    and stderr are inherited from the parent process (so subprocess output
-    streams directly to the terminal) unless `capture_output` is set.
+    The sibling YAML index for one platform's archive, sharing its name stem.
+    """
+    return f'{platform_prefix}-{upstream_stem}-{brave_subrevision}.yaml'
 
-    Args:
-        *command: The program and its arguments (passed as positional args,
-            not as a list).
-        cwd: Optional working directory for the subprocess.  Defaults to the
-            caller's current working directory when `None`.
-        env: Optional environment mapping for the subprocess.  Inherits the
-            parent process environment when `None`.
-        check: Raise `CalledProcessError` on a non-zero exit when True.
-        capture_output: Capture stdout/stderr (as text) instead of inheriting
-            the parent's streams.
 
-    Returns:
-        The `subprocess.CompletedProcess` for the invocation.
+def _fetch_index_object(index_url: str, expected_object_name: str) -> dict:
+    """Download one platform's sibling YAML index and return its entry.
+
+    Returns the mapping `ToolchainBuilder._write_index` published (`url`,
+    `sha256sum`, `size_bytes`, ...). `expected_object_name` is the archive
+    basename the index must point at -- a mismatch means the index was
+    fetched from the wrong key, and is treated as a hard error rather than
+    silently trusted.
 
     Raises:
-        subprocess.CalledProcessError: If `check` is True and the process exits
-            with a non-zero return code.
-        RuntimeError: On Windows, if the command cannot be resolved to an
-        executable path.
+        RuntimeError: if the index cannot be fetched or is malformed.
     """
-    logging.info(' >>>> %s', ' '.join(str(a) for a in command))
-
-    if platform.system() == 'Windows':
-        # On Windows, resolve the command to an absolute path to avoid issues
-        # with bat files not matching the command name (e.g. `gclient` vs
-        # `gclient.bat`). This avoids the use of `shell=True`.
-        resolved = shutil.which(command[0])
-        if resolved is None:
-            raise RuntimeError(f'Command not found: {command[0]}')
-        if resolved != command[0]:
-            command = [resolved] + list(command[1:])
-
-    return subprocess.run(command,
-                          cwd=cwd,
-                          env=env,
-                          check=check,
-                          capture_output=capture_output,
-                          text=True)
-
-
-def _latest_index_object(index_url: str,
-                         expected_stem: str) -> tuple[str, str]:
-    """Download a platform's YAML index and return its latest archive.
-
-    The index lists builds in chronological order, so the last element is the
-    most recent archive for that platform + revision. Returns
-    `(object_name, sha256sum)`, where `object_name` is the archive's basename.
-
-    `expected_stem` is the `<platform>-<upstream-stem>` the archive name must
-    start with. A mismatch means the index was fetched from the wrong key or is
-    cross-contaminated with another platform's builds, and is treated as a hard
-    error rather than silently trusted.
-    """
-    try:
-        with urllib.request.urlopen(index_url) as response:
-            entries = yaml.safe_load(response) or []
-    except urllib.error.URLError as e:
+    entry = toolchain_publish.fetch_index(index_url, 'rust toolchain')
+    if (not isinstance(entry, dict) or 'url' not in entry
+            or 'sha256sum' not in entry or 'size_bytes' not in entry):
         raise RuntimeError(
-            f'Failed to fetch toolchain index {index_url}: {e}') from e
-    if not entries:
-        raise RuntimeError(f'Published toolchain index is empty: {index_url}')
-    latest = entries[-1]
-    if (not isinstance(latest, dict) or 'url' not in latest
-            or 'sha256sum' not in latest):
+            f'Malformed toolchain index {index_url}: expected a mapping with '
+            f'"url", "sha256sum", and "size_bytes", got {entry!r}')
+    object_name = entry['url'].rsplit('/', 1)[-1]
+    if object_name != expected_object_name:
         raise RuntimeError(
-            f'Malformed entry in toolchain index {index_url}: expected a '
-            f'mapping with "url" and "sha256sum", got {latest!r}')
-    object_name = latest['url'].rsplit('/', 1)[-1]
-    if not object_name.startswith(f'{expected_stem}-'):
-        raise RuntimeError(
-            f'Toolchain index {index_url} yielded {object_name!r}, which does '
-            f'not start with the expected {expected_stem!r} stem.')
-    return object_name, latest['sha256sum']
+            f'Toolchain index {index_url} yielded {object_name!r}, expected '
+            f'{expected_object_name!r}.')
+    return entry
 
 
-def rust_toolchain_extra_dep(upstream_stem: str) -> dict[str, dict]:
+def rust_toolchain_extra_dep(upstream_stem: str,
+                             brave_subrevision: int) -> dict[str, dict]:
     """Assemble the complete `EXTRA_DEPS` entry for the published toolchain.
 
     This function composes a Python dictionary representing the full
@@ -388,7 +295,7 @@ def rust_toolchain_extra_dep(upstream_stem: str) -> dict[str, dict]:
             'bucket': '<bucket>/',
             'condition': 'not rust_force_head_revision',
             'objects': [
-              {'object_name': ..., 'sha256sum': ...,
+              {'object_name': ..., 'sha256sum': ..., 'size_bytes': ...,
                'overlayed_on': ..., 'condition': ...},
               ...
             ],
@@ -402,19 +309,25 @@ def rust_toolchain_extra_dep(upstream_stem: str) -> dict[str, dict]:
         upstream_stem: The upstream toolchain package stem (i.e.
             `package_rust.RUST_TOOLCHAIN_PACKAGE_NAME` without the `.tar.xz`
             suffix).
+        brave_subrevision: The exact Brave respin counter to pin, naming each
+            platform's sibling index (see `toolchain_index_name`).
 
     Raises:
-        RuntimeError: if any platform's index is missing or empty.
+        RuntimeError: if any platform's index is missing or malformed.
     """
     objects = []
     for platform_prefix, condition in SUPPORTED_PLATFORM_CONDITIONS.items():
         stem = f'{platform_prefix}-{upstream_stem}'
-        index_url = f'{TOOLCHAIN_BUCKET_URL}/{stem}.yaml'
-        object_name, sha256sum = _latest_index_object(index_url, stem)
+        object_name = f'{stem}-{brave_subrevision}.tar.xz'
+        index_name = toolchain_index_name(platform_prefix, upstream_stem,
+                                          brave_subrevision)
+        index_url = f'{TOOLCHAIN_BUCKET_URL}/{index_name}'
+        entry = _fetch_index_object(index_url, object_name)
         host_os = PLATFORM_PREFIX_TO_CHROMIUM_HOST_OS[platform_prefix]
         objects.append({
             'object_name': object_name,
-            'sha256sum': sha256sum,
+            'sha256sum': entry['sha256sum'],
+            'size_bytes': entry['size_bytes'],
             # Upstream Chromium-built Rust toolchain this archive overlays; see
             # `sync_deps.GetRustObjectNames` for the matching naming scheme.
             'overlayed_on': f'{host_os}/{upstream_stem}.tar.xz',
@@ -458,11 +371,8 @@ class ToolchainBuilder:
     `config.toml.template` (inherited from the host stanza).
     """
 
-    def __init__(self,
-                 chromium_src: str,
-                 out_dir: str,
-                 brave_subrevision: int,
-                 no_index_download: bool = False):
+    def __init__(self, chromium_src: str, out_dir: str,
+                 brave_subrevision: int):
         """ Initialses the builder fields.
 
         Args:
@@ -471,9 +381,6 @@ class ToolchainBuilder:
             brave_subrevision: Integer respin counter encoded as the last
                 section of the output archive name.  See
                 `_package_name` for the full naming schema.
-            no_index_download: If True, the publishing step looks for the
-                prior index as a sibling file under `out_dir` instead of
-                downloading it from the bucket.
         """
         # The absolute path to the Chromium source directory.
         self._chromium_src: Path = Path(chromium_src).expanduser().resolve()
@@ -501,10 +408,6 @@ class ToolchainBuilder:
         # Integer respin counter encoded as the last section of the
         # output archive name.
         self._brave_subrevision: int = brave_subrevision
-
-        # When True, `_publish_archive_index` reads the prior index
-        # from `self._out_dir` instead of fetching it from the bucket.
-        self._no_index_download: bool = no_index_download
 
     def _native_target_stanza(self) -> dict[str, str | bool]:
         """Return the `[target.<native-triple>]` table from the template.
@@ -706,16 +609,6 @@ class ToolchainBuilder:
 
     def _assemble_stage0_wasm_sysroot(self) -> Path:
         """Assemble a wasm32 sysroot from the prebuilt stage-0 build output.
-
-        `x.py build library --stage 0` (the `--no-full-toolchain` path) compiles
-        the wasm32 std with the synced stage-0 compiler, so the rlibs are
-        byte-compatible with the toolchain we overlay, but leaves them in
-        cargo's output dir instead of assembling a `lib/rustlib/<target>/lib/`
-        sysroot.  This copies the compiled `.rlib`/`.rmeta` crates plus the
-        `self-contained/` linker directory into a freshly built sysroot under the
-        build tree and returns its `wasm32-unknown-unknown` directory (laid out
-        so `_create_archive` can add it as `WASM32_ARCNAME` unchanged).
-
         Raises:
             RuntimeError: if the stage-0 std output cannot be found.
         """
@@ -723,17 +616,18 @@ class ToolchainBuilder:
         build_dir = Path(
             self._build_rust_module.RUST_BUILD_DIR) / target_triple
 
-        # Compiled crates: stage0-std/<wasm>/<profile>/deps/*.{rlib,rmeta}. The
-        # profile dir name (e.g. `dist`) is matched with a glob; pick the one
-        # that actually holds rlibs.
         std_out = build_dir / STAGE0_STD / WASM32_UNKNOWN_UNKNOWN
-        deps_dir = next(
-            (d
-             for d in sorted(std_out.glob('*/deps')) if any(d.glob('*.rlib'))),
+        profile_dir = next(
+            (d for d in sorted(std_out.glob('*')) if any(d.glob('*.rlib'))),
             None)
-        if deps_dir is None:
+        if profile_dir is None:
             raise RuntimeError(
                 f'No stage-0 wasm32 std crates found under {std_out}; did the '
+                f'`build library --stage 0` step run?')
+        stamp = profile_dir / '.libstd-stamp'
+        if not stamp.is_file():
+            raise RuntimeError(
+                f'No stage-0 wasm32 std stamp file found at {stamp}; did the '
                 f'`build library --stage 0` step run?')
 
         # Assemble into a clean sysroot so stale crates from a prior run cannot
@@ -745,9 +639,13 @@ class ToolchainBuilder:
         lib_dir = wasm_dir / 'lib'
         lib_dir.mkdir(parents=True)
 
-        crates = list(deps_dir.glob('*.rlib')) + list(deps_dir.glob('*.rmeta'))
+        crates = [
+            Path(part[1:].decode('utf-8'))
+            for part in stamp.read_bytes().split(b'\0')
+            if part and chr(part[0]) == 't'
+        ]
         logging.info('Assembling %d wasm32 std crates from %s into %s',
-                     len(crates), deps_dir, lib_dir)
+                     len(crates), stamp, lib_dir)
         for crate in crates:
             shutil.copy2(crate, lib_dir / crate.name)
 
@@ -784,19 +682,6 @@ class ToolchainBuilder:
                            cwd=self._chromium_src,
                            capture_output=True).stdout.strip()
 
-    def _brave_core_commit(self) -> str:
-        """Return the brave-core HEAD commit this builder was run from.
-
-        The builder lives in brave-core, so its repository HEAD identifies the
-        exact version of this script that produced the archive — recorded in the
-        index for provenance and reproducibility.
-        """
-        return _check_call('git',
-                           'rev-parse',
-                           'HEAD',
-                           cwd=Path(__file__).resolve().parent,
-                           capture_output=True).stdout.strip()
-
     @staticmethod
     def _command_line() -> str:
         """Return the shell-quoted command line this script was invoked with.
@@ -808,12 +693,18 @@ class ToolchainBuilder:
         """
         return shlex.join(sys.argv)
 
+    def _upstream_stem(self) -> str:
+        """Upstream toolchain package stem, i.e.
+        `package_rust.RUST_TOOLCHAIN_PACKAGE_NAME` without the `.tar.xz`
+        suffix.
+        """
+        return self._package_rust_module.RUST_TOOLCHAIN_PACKAGE_NAME.removesuffix(
+            '.tar.xz')
+
     def _toolchain_name_stem(self) -> str:
         """Shared filename stem identifying this platform + Rust + Clang combo.
         """
-        upstream_stem = (self._package_rust_module.RUST_TOOLCHAIN_PACKAGE_NAME.
-                         removesuffix('.tar.xz'))
-        return f'{self._platform_prefix()}-{upstream_stem}'
+        return f'{self._platform_prefix()}-{self._upstream_stem()}'
 
     def _package_name(self) -> str:
         """Return the filename for the output archive.
@@ -867,33 +758,40 @@ class ToolchainBuilder:
         return 'linux-x64'
 
     def _index_name(self) -> str:
-        """Filename of the sibling YAML index for this Rust+Clang combo.
+        """Filename of the sibling YAML index for this exact build.
 
-        Naming:
-
-            <platform>-rust-toolchain-<RUST_REVISION>-<RUST_SUB_REVISION>
-                -llvmorg-<CLANG_REVISION>.yaml
+        Sibling of the output archive: shares `_package_name`'s full stem
+        (including `<BRAVE_SUB_REVISION>`), so every respin gets its own index
+        rather than all of them updating one shared file. See
+        `toolchain_index_name`.
         """
-        return f'{self._toolchain_name_stem()}.yaml'
+        return toolchain_index_name(self._platform_prefix(),
+                                    self._upstream_stem(),
+                                    self._brave_subrevision)
 
-    def _publish_archive_index(self,
-                               archive_path: Path,
-                               force_overwrite: bool = False) -> None:
-        """Update the sibling YAML index after archive creation.
+    def _precheck_publishable(self) -> None:
+        """Fail fast if this exact build's sibling index is already published.
 
-        This function is responsible for retrieving the existing index from the
-        bucket, and updating it based on what we have for the current build. It
-        also enforces the uniqueness of the archive, and preserves the relevant
-        details for its reproducibility.
+        Guards against clobbering a toolchain already in use in the wild.
+        Bump `--brave-subrevision` to publish a new respin instead.
+        """
+        index_url = f'{TOOLCHAIN_BUCKET_URL}/{self._index_name()}'
+        if toolchain_publish.remote_url_exists(index_url):
+            raise RuntimeError(
+                f'{index_url} already exists; a toolchain for this exact '
+                '--brave-subrevision is already published.')
 
-        The previous existing archive is downloaded, and the new updated archive
-        is placed under `self._out_dir`, to be uploaded back to the bucket.
+    def _write_index(self, archive_path: Path) -> None:
+        """Write the sibling YAML index describing the just-built archive.
 
-        Each entry in the index has these fields:
+        Writes one index per build, sharing the archive's name stem
+        (`_index_name`) and holding a single mapping. The mapping has these
+        fields:
 
           * `url`              — full bucket URL the tarball will be served at.
           * `timestamp`        — ISO 8601 UTC time of this build.
           * `sha256sum`        — hex SHA-256 of the tarball bytes.
+          * `size_bytes`       — exact size of the tarball in bytes.
           * `chromium_version` — `MAJOR.MINOR.BUILD.PATCH` parsed from
                                  `chrome/VERSION`.
           * `chromium_commit`  — HEAD commit hash in the Chromium checkout.
@@ -901,125 +799,29 @@ class ToolchainBuilder:
                                  invoked with (from `sys.argv`).
           * `brave_core_commit` — brave-core HEAD commit this builder ran from.
 
-        This function accepts `force_overwrite` for when we want to suspend
-        certain rules, but the normal and preferred use of it will enforce these
-        rules:
-
-          - The produced toolchain should be unique. If the archive has another
-            byte-identical toolchain already, a failure occurs.
-          - The resulting URL must be unique. If the archive already contains a
-            different toolchain at the same URL, a failure occurs.
-
-        With `force_overwrite=True` (passed as `--force-overwrite`),
-        both checks are bypassed: any entry at the same URL is
-        removed before the new one is appended, and any matching
-        `sha256sum` elsewhere in the index is tolerated — the index
-        may end up with duplicate hashes if the operator deliberately
-        publishes the same bytes twice.
-
-        Collision matrix:
-
-        +------------+---------------+--------------+---------------------+
-        | URL match? | sha256 match? | Default      | --force-overwrite   |
-        +============+===============+==============+=====================+
-        | yes        | yes           | RuntimeError | replace old entry   |
-        +------------+---------------+--------------+---------------------+
-        | yes        | no            | RuntimeError | replace old entry   |
-        +------------+---------------+--------------+---------------------+
-        | no         | yes           | RuntimeError | allow duplicate     |
-        +------------+---------------+--------------+---------------------+
-        | no         | no            | append       | append              |
-        +------------+---------------+--------------+---------------------+
-
-        Entries are appended in chronological order. The newest entry for any
-        tarball URL is always at the tail, so consumers can treat the last list
-        element as the latest build for the given toolchain stem.
-
-        NOTICE: This function relies on CI not running concurrent jobs for the
-        same platform, and violating that will result in race conditions when
-        updating the index.
+        The "already published" guard lives in `_precheck_publishable`, which
+        `run()` calls early.
         """
-        index_name = self._index_name()
-        local_index = self._out_dir / index_name
-        archive_url = f'{TOOLCHAIN_BUCKET_URL}/{archive_path.name}'
+        index_path = self._out_dir / self._index_name()
 
-        if self._no_index_download:
-            if local_index.is_file():
-                entries = yaml.safe_load(local_index.read_bytes()) or []
-                logging.info(
-                    'Loaded existing local index from %s (%d entries)',
-                    local_index, len(entries))
-            else:
-                entries = []
-                logging.info('No existing local index at %s; starting fresh',
-                             local_index)
-        else:
-            index_url = f'{TOOLCHAIN_BUCKET_URL}/{index_name}'
-            logging.info('Fetching %s', index_url)
-            try:
-                with urllib.request.urlopen(index_url) as response:
-                    entries = yaml.safe_load(response) or []
-                logging.info('Loaded existing index from %s (%d entries)',
-                             index_url, len(entries))
-            except urllib.error.HTTPError as e:
-                # Unfortunately cloudfront seems to return 403 for cases where
-                # it should have returned 404.
-                if e.code not in (403, 404):
-                    raise
-                entries = []
-                logging.info('No existing index at %s; starting fresh',
-                             index_url)
-
-        archive_sha256 = sha256_file(archive_path)
-        sha_match = next(
-            (e for e in entries if e.get('sha256sum') == archive_sha256), None)
-        url_match = next((e for e in entries if e.get('url') == archive_url),
-                         None)
-
-        # Collision is a hard failure: a byte-identical entry already exists
-        # (sha256 match), or the target URL is already taken by different bytes
-        # (URL match).
-        if not force_overwrite:
-            if sha_match is not None:
-                raise RuntimeError(
-                    f'Refusing to publish: a toolchain with sha256 '
-                    f'{archive_sha256} is already in the index at '
-                    f'{sha_match.get("url")!r}.  The just-built tarball '
-                    f'is byte-identical; nothing new to publish.  Pass '
-                    f'--force-overwrite to publish anyway.')
-            if url_match is not None:
-                raise RuntimeError(
-                    f'Refusing to publish: an entry for {archive_url!r} '
-                    f'already exists in the index (sha256 '
-                    f'{url_match.get("sha256sum")!r}).  Pass '
-                    f'--force-overwrite to replace it.')
-
-        # With `--force-overwrite`, drop any prior entry at the same URL so the
-        # new one cleanly replaces it.
-        if force_overwrite and url_match is not None:
-            logging.info(
-                'Replacing existing index entry for %s '
-                '(--force-overwrite in effect)', archive_url)
-            entries = [e for e in entries if e.get('url') != archive_url]
-
-        entry = {
-            'url': archive_url,
+        index = {
+            'url': f'{TOOLCHAIN_BUCKET_URL}/{archive_path.name}',
             'timestamp': datetime.now(timezone.utc).isoformat(),
-            'sha256sum': archive_sha256,
+            'sha256sum': sha256_file(archive_path),
+            'size_bytes': archive_path.stat().st_size,
             'chromium_version': self._chromium_version(),
             'chromium_commit': self._chromium_commit(),
             'command_line': self._command_line(),
         }
-        entry['brave_core_commit'] = self._brave_core_commit()
-        entries.append(entry)
+        index['brave_core_commit'] = toolchain_publish.brave_core_commit()
 
-        index_yaml = yaml.safe_dump(entries,
-                                    sort_keys=False,
-                                    default_flow_style=False)
-        local_index.write_text(index_yaml, encoding='utf-8', newline='')
-        logging.info('Wrote toolchain index to %s (%d entries)', local_index,
-                     len(entries))
-        logging.info('Toolchain index contents:\n%s', index_yaml)
+        toolchain_publish.write_index_file(index_path, index)
+
+    def _upload(self, archive_path: Path) -> None:
+        """Upload the archive and its sibling index to the public bucket."""
+        toolchain_publish.upload_files(
+            TOOLCHAIN_BUCKET, TOOLCHAIN_BUCKET_PREFIX,
+            (archive_path, self._out_dir / self._index_name()))
 
     def _package_full_rust(self) -> Path:
         """Build and package the full Rust toolchain via `package_rust.py`.
@@ -1231,106 +1033,16 @@ class ToolchainBuilder:
 
         return True
 
-    def _run_git(self,
-                 *args,
-                 check: bool = True,
-                 capture_output: bool = False,
-                 env: dict | None = None) -> subprocess.CompletedProcess:
-        """Run `git -C <chromium_src> <args...>` via `_check_call`.
-
-        Thin wrapper that prepends the `git -C <checkout>` prefix so git
-        operations on the Chromium source tree share one code path. See
-        `_check_call` for the argument semantics and return value.
-        """
-        return _check_call('git',
-                           '-C',
-                           str(self._chromium_src),
-                           *args,
-                           check=check,
-                           capture_output=capture_output,
-                           env=env)
-
-    @contextlib.contextmanager
-    def _cherry_picks(self, commits: list[str]):
-        """Context manager: apply upstream cherry-picks for the build's
-        duration.
-
-        Ensures every commit in *commits* is in the checkout's history while the
-        build runs, then restores the original HEAD afterwards. Used to pull in
-        upstream fixes the active Chromium ref may predate — see
-        `CLANG_CHERRY_PICK_COMMITS`, which includes the commit that pins the git
-        author/committer metadata `tools/clang/scripts/build.py` stamps onto its
-        LLVM cherry-picks so the toolchain hash is reproducible across the
-        full-toolchain and wasm32 builds.
-
-        Protocol:
-        1. For each commit, fetch it if its object is missing (the ref may have
-           branched before it landed), then skip it if it is already reachable
-           from HEAD.
-        2. If nothing needs applying, `yield` immediately and leave the checkout
-           untouched — there is nothing to clean up.
-        3. Otherwise cherry-pick the remaining commits — with
-           `GIT_METADATA_OVERRIDES` and `--no-gpg-sign` so the resulting HEAD is
-           deterministic — `yield`, and unconditionally restore the checkout to
-           its original HEAD in a `finally` block. Build outputs are untracked,
-           so the reset leaves them in place.
-        """
-        to_apply = []
-        for commit in commits:
-            object_present = self._run_git('cat-file',
-                                           '-e',
-                                           f'{commit}^{{commit}}',
-                                           check=False,
-                                           capture_output=True).returncode == 0
-            if not object_present:
-                logging.info('Fetching cherry-pick %s.', commit)
-                self._run_git('fetch', 'origin', commit)
-
-            already_applied = self._run_git(
-                'merge-base',
-                '--is-ancestor',
-                commit,
-                'HEAD',
-                check=False,
-                capture_output=True).returncode == 0
-            if already_applied:
-                logging.info('Cherry-pick %s already present; skipping.',
-                             commit)
-            else:
-                to_apply.append(commit)
-
-        if not to_apply:
-            yield
-            return
-
-        original_head = self._run_git('rev-parse', 'HEAD',
-                                      capture_output=True).stdout.strip()
-        logging.info('Cherry-picking %s.', ', '.join(to_apply))
-        self._run_git('cherry-pick',
-                      '--keep-redundant-commits',
-                      '--no-gpg-sign',
-                      *to_apply,
-                      env={
-                          **os.environ,
-                          **GIT_METADATA_OVERRIDES
-                      })
-        try:
-            yield
-        finally:
-            logging.info('Restoring checkout to %s after cherry-picks.',
-                         original_head)
-            self._run_git('reset', '--hard', original_head)
-
-    def run(self,
-            clear: bool = False,
-            force_overwrite: bool = False,
-            full_toolchain: bool = False,
-            use_prebuilt_rustc: bool = (USE_PREBUILT_RUSTC_FOR_WASM_STD)):
+    def run(self, *, clear: bool, upload: bool, full_toolchain: bool,
+            use_prebuilt_rustc: bool):
         """Execute the full build-and-package pipeline.
 
         Coordinates the phases in order:
 
-        1. Within `_cherry_picks` (which applies `CLANG_CHERRY_PICK_COMMITS`
+        1. `_precheck_publishable` — fail fast if this exact
+           `--brave-subrevision` is already published, before any of the
+           (expensive) build steps below run.
+        2. Within `cherry_picks` (which applies `CLANG_CHERRY_PICK_COMMITS`
            so both builds cherry-pick to identical hashes):
            a. `_package_full_rust` (only when `full_toolchain`) — build and
               package the complete Rust toolchain via `package_rust.py`.
@@ -1338,16 +1050,19 @@ class ToolchainBuilder:
               - `_prepare_run_xpy` — clone, build LLVM, generate config.toml.
               - `_run_xpy` — compile the wasm32 stdlib via x.py, either building
                 a stage-1 `rustc` or reusing the prebuilt one (see
-                `USE_PREBUILT_RUSTC_FOR_WASM_STD`).
-        2. Resolve the wasm32 sysroot, using `_assemble_stage0_wasm_sysroot` for
+                `--use-prebuilt-rustc`).
+        3. Resolve the wasm32 sysroot, using `_assemble_stage0_wasm_sysroot` for
            the prebuilt path, `_stage1_wasm_stdlib_dir` otherwise, and assemble
            the output .tar.xz:
            * `_create_full_archive` when `full_toolchain` — overlay the wasm32
              sysroot onto the full-toolchain archive from step 1.
            * `_create_archive` otherwise — the minimal rust-lld + wasm32 subset.
-        3. `_smoke_test_wasm` — compile a wasm32 crate against the packaged
+        4. `_smoke_test_wasm` — compile a wasm32 crate against the packaged
            toolchain so a rustc/std mismatch fails before publishing.
-        4. `_publish_archive_index` — record the build in the sibling index.
+        5. `_write_index` — write the sibling YAML index for the just-built
+           archive.
+        6. `_upload` (only with `--upload`) — publish the archive and its
+           sibling index to `TOOLCHAIN_BUCKET_URL`.
 
         `config.toml.template` is returned to its original state always.
 
@@ -1355,24 +1070,23 @@ class ToolchainBuilder:
             clear: If True, delete every entry under `self._out_dir` at the
                 start of the run so the build produces output into a
                 guaranteed-clean directory.
-            force_overwrite: If True, the publishing step bypasses both
-                index-collision checks: an entry at the same URL is
-                replaced rather than raising, and a matching `sha256sum`
-                elsewhere is tolerated.  See `_publish_archive_index`.
+            upload: If True, upload the archive and its sibling index to
+                `TOOLCHAIN_BUCKET_URL` after building (see `_upload`).
             full_toolchain: If True, package the whole Rust toolchain with
                 `package_rust.py` and overlay the wasm32 sysroot onto it. If
                 False (the default), package only the minimal rust-lld + wasm32
                 subset via `_create_archive`.
-            use_prebuilt_rustc: When True (the default, from
-                `USE_PREBUILT_RUSTC_FOR_WASM_STD`), the `--no-full-toolchain`
-                build compiles the wasm32 std against the prebuilt `rustc`
-                gclient synced instead of building one from scratch. Ignored
-                when `full_toolchain` is True, which always builds its own
-                `rustc`.
+            use_prebuilt_rustc: When True (the default), the
+                `--no-full-toolchain` build compiles the wasm32 std against
+                the prebuilt `rustc` gclient synced instead of building one
+                from scratch. Ignored when `full_toolchain` is True, which
+                always builds its own `rustc`.
         Raises:
             RuntimeError: If --chromium-src does not point at a valid Chromium
             checkout.
             RuntimeError: If tools_rust directory is not found.
+            RuntimeError: If a toolchain for this exact `--brave-subrevision`
+                is already published.
             RuntimeError: On Windows, if Git sh.exe is not in path and no
             installation for it can be found with Git.
             subprocess.CalledProcessError: If any subprocess command fails
@@ -1403,6 +1117,10 @@ class ToolchainBuilder:
         if not self._package_rust_module:
             self._package_rust_module: ModuleType = importlib.import_module(
                 'package_rust')
+
+        # Fail fast, before any of the expensive build steps below, if this
+        # exact respin is already published.
+        self._precheck_publishable()
 
         # Build process
         if sys.platform == 'win32' and shutil.which('sh') is None:
@@ -1436,13 +1154,13 @@ class ToolchainBuilder:
 
         # In `--no-full-toolchain` mode, compile only the wasm32 std against the
         # prebuilt `rustc` gclient already synced rather than building one from
-        # scratch (see USE_PREBUILT_RUSTC_FOR_WASM_STD). The full-toolchain build
-        # ships its own `rustc` and so must build the wasm std alongside it.
+        # scratch (see `--use-prebuilt-rustc`). The full-toolchain build ships
+        # its own `rustc` and so must build the wasm std alongside it.
         use_prebuilt_rustc = (use_prebuilt_rustc and not full_toolchain)
 
         # Cherry picks upstream commits (committership reproducibility fix and
         # any others) that the active Chromium ref may predate.
-        with self._cherry_picks(CLANG_CHERRY_PICK_COMMITS):
+        with cherry_picks(self._chromium_src, CLANG_CHERRY_PICK_COMMITS):
             # Build and package the full Rust toolchain first, the overlay the
             # wasm32 sysroot onto it.
             base_archive = None
@@ -1469,8 +1187,9 @@ class ToolchainBuilder:
         # Verify the packaged toolchain compiles wasm32 before publishing.
         self._smoke_test_wasm(archive_path)
 
-        self._publish_archive_index(archive_path,
-                                    force_overwrite=force_overwrite)
+        self._write_index(archive_path)
+        if upload:
+            self._upload(archive_path)
 
         logging.info('Tarball download URL (once published): %s',
                      f'{TOOLCHAIN_BUCKET_URL}/{archive_path.name}')
@@ -1493,20 +1212,14 @@ def main():
         help='Integer respin counter, used to publish a sibling distinct '
         'archive.')
     parser.add_argument(
-        '--no-index-download',
-        action='store_true',
-        help='Does not attempt to download the index from the bucket, but'
-        'rather attempts to retrieve it from the output directory.')
-    parser.add_argument(
         '--clear',
         action='store_true',
         help='Makes sure the output directory is empty before building.')
     parser.add_argument(
-        '--force-overwrite',
+        '--upload',
         action='store_true',
-        help='Bypasses the uniqueness checks for the toolchain being published '
-        'and overwrites any entry on the index that collide with the toolchain '
-        'being built.')
+        help=f'Upload the archive and its sibling index to the public '
+        f'build-deps bucket ({TOOLCHAIN_BUCKET}) after building.')
     # `--full-toolchain` / `--no-full-toolchain` are expressed as a pair of
     # store_true/store_false actions on a shared dest rather than
     # `argparse.BooleanOptionalAction`, which the presubmit's pylint does not
@@ -1529,7 +1242,7 @@ def main():
         '--use-prebuilt-rustc',
         dest='use_prebuilt_rustc',
         action='store_true',
-        default=USE_PREBUILT_RUSTC_FOR_WASM_STD,
+        default=True,
         help='In --no-full-toolchain mode, compile the wasm32 std against the '
         'prebuilt rustc gclient synced rather than building one from scratch '
         '(default).')
@@ -1553,10 +1266,9 @@ def main():
 
     ToolchainBuilder(args.chromium_src,
                      args.out_dir,
-                     brave_subrevision=args.brave_subrevision,
-                     no_index_download=args.no_index_download).run(
+                     brave_subrevision=args.brave_subrevision).run(
                          clear=args.clear,
-                         force_overwrite=args.force_overwrite,
+                         upload=args.upload,
                          full_toolchain=args.full_toolchain,
                          use_prebuilt_rustc=(args.use_prebuilt_rustc))
     return 0

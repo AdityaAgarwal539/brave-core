@@ -14,6 +14,8 @@
 
 #include "base/barrier_callback.h"
 #include "base/check.h"
+#include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/strings/utf_string_conversions.h"
@@ -23,12 +25,15 @@
 #include "brave/browser/misc_metrics/profile_misc_metrics_service.h"
 #include "brave/browser/misc_metrics/profile_misc_metrics_service_factory.h"
 #include "brave/browser/ui/side_panel/ai_chat/ai_chat_side_panel_utils.h"
+#include "brave/browser/ui/webui/ai_chat/workspace_folder_chooser.h"
 #include "brave/components/ai_chat/content/browser/associated_url_content.h"
+#include "brave/components/ai_chat/content/browser/workspace_associated_content.h"
 #include "brave/components/ai_chat/core/browser/ai_chat_service.h"
 #include "brave/components/ai_chat/core/browser/constants.h"
 #include "brave/components/ai_chat/core/browser/utils.h"
 #include "brave/components/ai_chat/core/common/ai_chat_urls.h"
 #include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
+#include "brave/components/ai_chat/core/common/constants.h"
 #include "brave/components/ai_chat/core/common/features.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom.h"
 #include "brave/components/ai_chat/core/common/mojom/common.mojom.h"
@@ -39,7 +44,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "components/favicon/core/favicon_service.h"
+#include "components/favicon_base/favicon_types.h"
 #include "components/grit/brave_components_webui_strings.h"
+#include "components/keyed_service/core/service_access_type.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_controller.h"
@@ -54,6 +61,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/size.h"
 
@@ -180,6 +188,18 @@ void ProcessImageData(
       data_decoder, image_data, data_decoder::mojom::ImageCodec::kDefault, true,
       data_decoder::kDefaultMaxSizeInBytes, gfx::Size(),
       base::BindOnce(&OnImageDecoded, std::move(callback)));
+}
+
+void OnFaviconRawBitmapAvailable(
+    mojom::AIChatUIHandler::GetFaviconDataURLCallback callback,
+    const favicon_base::FaviconRawBitmapResult& result) {
+  if (!result.is_valid()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  // Favicons are always stored as PNG (see FaviconSource::GetMimeType).
+  std::move(callback).Run(
+      webui::GetPngDataUrl(base::span<const uint8_t>(*result.bitmap_data)));
 }
 
 }  // namespace
@@ -362,6 +382,68 @@ void AIChatUIPageHandler::GetPluralString(const std::string& key,
   std::move(callback).Run(l10n_util::GetPluralStringFUTF8(iter->id, count));
 }
 
+void AIChatUIPageHandler::GetFaviconDataURL(
+    const GURL& page_url,
+    GetFaviconDataURLCallback callback) {
+  favicon::FaviconService* favicon_service =
+      FaviconServiceFactory::GetForProfile(profile_,
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  if (!favicon_service) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  favicon_service->GetRawFaviconForPageURL(
+      page_url, {favicon_base::IconType::kFavicon}, kFaviconDataURLSizeInPixels,
+      // Matches what the UI displays, which comes from the local-storage-only
+      // path of FaviconSource (see FaviconSource::StartDataRequest).
+      /*fallback_to_host=*/true,
+      base::BindOnce(&OnFaviconRawBitmapAvailable, std::move(callback)),
+      &favicon_task_tracker_);
+}
+
+void AIChatUIPageHandler::ShowWorkspaceFolderPicker(
+    const std::string& conversation_uuid,
+    ShowWorkspaceFolderPickerCallback callback) {
+  if (!base::FeatureList::IsEnabled(features::kAIChatWorkspaceTools) ||
+      !owner_web_contents_ || !profile_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  workspace_folder_chooser_ =
+      std::make_unique<WorkspaceFolderChooser>(*owner_web_contents_, *profile_);
+  workspace_folder_chooser_->ShowDialog(base::BindOnce(
+      &AIChatUIPageHandler::OnWorkspaceFolderChosen,
+      weak_ptr_factory_.GetWeakPtr(), conversation_uuid, std::move(callback)));
+}
+
+void AIChatUIPageHandler::OnWorkspaceFolderChosen(
+    std::string conversation_uuid,
+    ShowWorkspaceFolderPickerCallback callback,
+    std::optional<base::FilePath> selected) {
+  workspace_folder_chooser_.reset();
+  if (!selected || !owner_web_contents_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  auto* context = owner_web_contents_->GetBrowserContext();
+  auto* service = AIChatServiceFactory::GetForBrowserContext(context);
+  auto* conversation =
+      service ? service->GetConversation(conversation_uuid) : nullptr;
+  if (!conversation) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  // The workspace page is a chrome-untrusted:// content, which isn't in
+  // |kAllowedContentSchemes|, so attach it directly via the manager rather than
+  // AIChatService::AssociateOwnedContent (which would reject the scheme).
+  conversation->associated_content_manager()->AddOwnedContent(
+      std::make_unique<ai_chat::WorkspaceAssociatedContent>(
+          *selected, context,
+          base::BindOnce(&brave::AttachPrivacySensitiveTabHelpers)));
+  std::move(callback).Run(selected->AsUTF8Unsafe());
+}
+
 void AIChatUIPageHandler::OpenAIChatSettings() {
 #if !BUILDFLAG(IS_ANDROID)
   const GURL url(kAIChatSettingsURL);
@@ -387,6 +469,16 @@ void AIChatUIPageHandler::OpenConversationFullPage(
   if (ai_chat_metrics_) {
     ai_chat_metrics_->RecordFullPageSwitch();
   }
+
+  // If this conversation is the live AI Chat hosted in the (global) side panel,
+  // move that live `WebContents` into a full-page tab, preserving its state,
+  // instead of navigating a fresh one. No-op unless the feature is enabled and
+  // the side panel is the standalone global AI Chat; otherwise fall through to
+  // the fresh full-page tab navigation.
+  if (ai_chat::MaybeMoveSidePanelChatToTab(owner_web_contents_)) {
+    return;
+  }
+
   NavigateParams params(profile_, ConversationUrl(conversation_uuid),
                         ui::PAGE_TRANSITION_TYPED);
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
@@ -413,6 +505,18 @@ void AIChatUIPageHandler::OpenURL(const GURL& url) {
     return;
   }
 
+  // A link in the AI Chat UI was clicked. If AI Chat is a full browser tab,
+  // move the live conversation into the side panel and open the link in a tab
+  // in its place. No-op unless the feature is enabled and AI Chat is a full
+  // tab. Neither the links AI Chat opens itself (`GoPremium` and friends, which
+  // use OpenURLInNewTab directly) nor the anchors a conversation renders (which
+  // the browser opens, and `AIChatFullPageLinkObserver` moves for) reach here.
+  ai_chat::MaybeMoveFullPageChatToSidePanel(owner_web_contents_);
+
+  OpenURLInNewTab(url);
+}
+
+void AIChatUIPageHandler::OpenURLInNewTab(const GURL& url) {
 #if BUILDFLAG(IS_ANDROID)
   owner_web_contents_->OpenURL(
       {url, content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
@@ -427,31 +531,31 @@ void AIChatUIPageHandler::OpenURL(const GURL& url) {
 }
 
 void AIChatUIPageHandler::OpenStorageSupportUrl() {
-  OpenURL(GURL(kLeoStorageSupportUrl));
+  OpenURLInNewTab(GURL(kLeoStorageSupportUrl));
 }
 
 void AIChatUIPageHandler::GoPremium() {
 #if !BUILDFLAG(IS_ANDROID)
-  OpenURL(GURL(kLeoGoPremiumUrl));
+  OpenURLInNewTab(GURL(kLeoGoPremiumUrl));
 #else
   ai_chat::GoPremium(owner_web_contents_.get());
 #endif
 }
 
 void AIChatUIPageHandler::RefreshPremiumSession() {
-  OpenURL(GURL(kLeoRefreshPremiumSessionUrl));
+  OpenURLInNewTab(GURL(kLeoRefreshPremiumSessionUrl));
 }
 
 void AIChatUIPageHandler::ManagePremium() {
 #if !BUILDFLAG(IS_ANDROID)
-  OpenURL(GURL(kURLManagePremium));
+  OpenURLInNewTab(GURL(kURLManagePremium));
 #else
   ai_chat::ManagePremium(owner_web_contents_.get());
 #endif
 }
 
 void AIChatUIPageHandler::OpenModelSupportUrl() {
-  OpenURL(GURL(kLeoModelSupportUrl));
+  OpenURLInNewTab(GURL(kLeoModelSupportUrl));
 }
 
 void AIChatUIPageHandler::ChatContextObserver::WebContentsDestroyed() {
@@ -673,6 +777,13 @@ void AIChatUIPageHandler::BindParentUIFrameFromChildFrame(
     return;
   }
   chat_ui_->OnChildFrameBound(std::move(receiver));
+}
+
+void AIChatUIPageHandler::SetDisplayMode(bool is_standalone) {
+  if (!chat_ui_.is_bound()) {
+    return;
+  }
+  chat_ui_->OnDisplayModeChanged(is_standalone);
 }
 
 }  // namespace ai_chat

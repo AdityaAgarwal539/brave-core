@@ -13,11 +13,15 @@ source_set("internals") {
     "ads_internals_handler.h",
   ]
 
-  deps = [ "//brave/components/brave_ads/core/browser/service" ]
+  deps = [
+    "//brave/components/brave_ads/core/browser/service",
+    "//components/variations/service",
+  ]
 
   public_deps = [
     "//base",
     "//brave/components/brave_ads/buildflags",
+    "//brave/components/brave_ads/core/public:headers",
     "//brave/components/brave_rewards/core",
     "//brave/components/services/bat_ads/public/interfaces",
     "//components/prefs",
@@ -34,6 +38,7 @@ source_set("unit_tests") {
     ":internals",
     "//base/test:test_support",
     "//brave/components/brave_ads/core/browser/service:test_support",
+    "//brave/components/brave_ads/core/public:headers",
     "//brave/components/brave_rewards/core",
     "//brave/components/services/bat_ads/public/interfaces",
     "//components/prefs",

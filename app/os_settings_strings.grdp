@@ -440,6 +440,9 @@
   <message name="IDS_OS_SETTINGS_LANGUAGES_OFFER_GOOGLE_TRANSLATE_LABEL" desc="Title for setting that allows the system to offer to translate websites that appear in other languages using Brave Translate.">
     Offer Brave Translate for websites in other languages
   </message>
+  <message name="IDS_OS_SETTINGS_LANGUAGES_OFFER_GOOGLE_TRANSLATE_LABEL_WITH_PDF" desc="Title for setting that allows the system to offer to translate websites and PDFs that appear in other languages using Brave Translate.">
+    Offer Brave Translate for websites and PDFs in other languages
+  </message>
   <message name="IDS_OS_SETTINGS_LANGUAGES_INPUT_METHOD_LIST_TITLE" desc="Title for the list of enabled input methods (keyboard layouts and input method editors).">
     Input methods
   </message>
@@ -2825,26 +2828,26 @@ Press an assigned switch or key to remove assignment.
     Managed by Family Link
   </message>
 
-  <!-- Used by Crostini, Plugin VM and Bruschetta -->
-  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS" desc="Label for managing shared folders for Parallels.">
+  <!-- Used by guest OS settings pages. -->
+  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS" desc="Label for managing folders shared with a guest OS.">
     Manage shared folders
   </message>
   <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_LIST_HEADING" desc="Label for list of shared folders.">
     Shared folders
   </message>
-  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_INSTRUCTIONS_REMOVE" desc="Instructions for removing shared folders in Parallels.">
+  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_INSTRUCTIONS_REMOVE" desc="Instructions for removing folders shared with a guest OS.">
     Removing folders will stop sharing but will not delete files.
   </message>
-  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_STOP_SHARING" desc="Tooltip to show when hovering on the remove icon for a Parallels shared folder.">
+  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_STOP_SHARING" desc="Tooltip to show when hovering on the remove icon for a folder shared with a guest OS.">
     Stop sharing
   </message>
-  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_REMOVE_FAILURE_DIALOG_TITLE" desc="Title of the error dialog shown to a user when unsharing a Parallels shared folder fails.">
+  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_REMOVE_FAILURE_DIALOG_TITLE" desc="Title of the error dialog shown when unsharing a folder from a guest OS fails.">
     Unshare failed
   </message>
-  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_REMOVE_FAILURE_TRY_AGAIN" desc="Button text in the dialog shown when unsharing a Parallels shared folder fails.  Pressing this button will attempt to unshare the folder again.">
+  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_REMOVE_FAILURE_TRY_AGAIN" desc="Button text in the dialog shown when unsharing a folder from a guest OS fails. Pressing this button will try to unshare the folder again.">
     Try again
   </message>
-  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_LIST_EMPTY_MESSAGE" desc="Message shown when the user has not yet shared any folders in Parallels.">
+  <message name="IDS_SETTINGS_GUEST_OS_SHARED_PATHS_LIST_EMPTY_MESSAGE" desc="Message shown when the user has not shared any folders with a guest OS.">
     Shared folders will appear here
   </message>
   <message name="IDS_SETTINGS_GUEST_OS_SHARED_USB_DEVICES_LABEL" desc="Label for managing shared USB devices.">
@@ -3611,6 +3614,9 @@ Press an assigned switch or key to remove assignment.
   </message>
   <message name="IDS_SETTINGS_AUDIO_INPUT_ALLOW_AGC_TITLE" desc="In Device Settings, the title of the allowance of AGC toggle under the input section in audio settings subpage." translateable="false">
     Allow apps to automatically adjust mic volume
+  </message>
+  <message name="IDS_SETTINGS_AUDIO_FOCUS_ENFORCEMENT_TITLE" desc="In Device Settings, the title of the audio focus enforcement (audio ducking) toggle under the audio settings subpage.">
+    Reduce background audio for notifications and alerts
   </message>
   <message name="IDS_SETTINGS_AUDIO_HFP_MIC_SR_TITLE" desc="In Device Settings, the title of the super resolution toggle under the input section in audio settings subpage.">
     Bluetooth Super Resolution
@@ -7084,6 +7090,24 @@ Press &amp; hold keyboard keys to see accent marks and special characters. This 
   </message>
   <message name="IDS_APP_MANAGEMENT_APP_DETAILS_VERSION" desc="Text for application version">
     Version: <ph name="APP_VERSION">$1<ex>17.2</ex></ph>
+  </message>
+  <message name="IDS_APP_MANAGEMENT_APPLY_UPDATE" desc="Button label to apply a downloaded update for an app">
+    Apply update
+  </message>
+  <message name="IDS_APP_MANAGEMENT_CHECKING" desc="Button label while checking for updates">
+    Checking...
+  </message>
+  <message name="IDS_APP_MANAGEMENT_APP_IS_UP_TO_DATE" desc="Status text indicating the app is running the latest version">
+    App is up to date.
+  </message>
+  <message name="IDS_APP_MANAGEMENT_UPDATE_FOUND_DIALOG_TITLE" desc="Title for the dialog indicating that an update has been found for an isolated web app.">
+    Update found
+  </message>
+  <message name="IDS_APP_MANAGEMENT_UPDATE_FOUND_DIALOG_DESCRIPTION" desc="Description for the dialog warning that an update has been found and asking if they want to apply it.">
+    A new version (<ph name="VERSION">$1<ex>1.2.0</ex></ph>) of <ph name="APP_NAME">$2<ex>Kitchen Sink IWA</ex></ph> is available. Would you like to apply it now?
+  </message>
+  <message name="IDS_APP_MANAGEMENT_UPDATE_FOUND_WARNING_DIALOG_DESCRIPTION" desc="Description for the dialog warning that an update has been found, app windows will close, and asking if they want to apply it.">
+    A new version (<ph name="VERSION">$1<ex>1.2.0</ex></ph>) of <ph name="APP_NAME">$2<ex>Kitchen Sink IWA</ex></ph> is available. All open windows will be closed to apply the update. Unsaved data may be lost.
   </message>
   <message name="IDS_APP_MANAGEMENT_APP_DETAILS_STORAGE_TITLE" desc="Text for title of storage section for storage related to the app and its associated files">
     Storage

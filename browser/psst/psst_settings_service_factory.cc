@@ -32,9 +32,7 @@ PsstSettingsServiceFactory::PsstSettingsServiceFactory()
     : ProfileKeyedServiceFactory(
           "PsstSettingsService",
           ProfileSelections::Builder()
-              // this should match HostContentSettingsMapFactory
-              .WithRegular(ProfileSelection::kOwnInstance)
-              .WithGuest(ProfileSelection::kOwnInstance)
+              .WithRegular(ProfileSelection::kOriginalOnly)
               .Build()) {
   DependsOn(HostContentSettingsMapFactory::GetInstance());
 }
@@ -46,5 +44,6 @@ PsstSettingsServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
   auto* profile = Profile::FromBrowserContext(context);
   auto* map = HostContentSettingsMapFactory::GetForProfile(profile);
-  return std::make_unique<psst::PsstSettingsService>(CHECK_DEREF(map));
+  return std::make_unique<psst::PsstSettingsService>(CHECK_DEREF(map),
+                                                     profile->GetPrefs());
 }

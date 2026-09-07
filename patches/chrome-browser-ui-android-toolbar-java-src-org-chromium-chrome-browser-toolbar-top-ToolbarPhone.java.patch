@@ -1,16 +1,27 @@
 diff --git a/chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToolbarPhone.java b/chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToolbarPhone.java
-index 26a1d62bfe17d157027ee49d601842e8f48e1915..cb9a6c048b891e50611390abe9a2b5e55961408a 100644
+index db4a1c7bf90c053daf3ba49961d167bf52ddbfca..be4d8fed9efe9c2280b4f6bf7f0956f72005e494 100644
 --- a/chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToolbarPhone.java
 +++ b/chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToolbarPhone.java
-@@ -595,6 +595,7 @@ public class ToolbarPhone extends ToolbarLayout
-         if (mOptionalButtonCoordinator != null) {
-             mOptionalButtonCoordinator.setBackgroundColorFilter(color);
-         }
-+        BraveToolbarLayout.class.cast(this).updateModernLocationBarColorImpl(color);
-     }
+@@ -284,8 +284,8 @@ public class ToolbarPhone extends ToolbarLayout
+     private @Nullable PhoneCaptureStateToken mPhoneCaptureStateToken;
+     private @Nullable ButtonData mButtonData;
  
-     private void updateModernLocationBarCorners() {
-@@ -1285,6 +1286,7 @@ public class ToolbarPhone extends ToolbarLayout
+-    private final @ColorInt int mToolbarBackgroundColorForNtp;
+-    private final @ColorInt int mLocationBarBackgroundColorForNtp;
++    @ColorInt int mToolbarBackgroundColorForNtp;
++    @ColorInt int mLocationBarBackgroundColorForNtp;
+     private boolean mUseAdjustedTintColorForNtp;
+     private boolean mIsToolbarExpandedOnNtp;
+ 
+@@ -581,6 +581,7 @@ public class ToolbarPhone extends ToolbarLayout
+ 
+     /** Set the background color of the location bar to appropriately match the theme color. */
+     private void updateModernLocationBarColor(@ColorInt int color) {
++        BraveToolbarLayout.class.cast(this).updateModernLocationBarColorImpl(color);
+         if (mCurrentLocationBarColor == color) return;
+         mCurrentLocationBarColor = color;
+         mLocationBarBackground.setBackgroundColor(color);
+@@ -1289,6 +1290,7 @@ public class ToolbarPhone extends ToolbarLayout
       * Tab Page.
       */
      private void updateLocationBarLayoutForExpansionAnimation() {
@@ -18,7 +29,7 @@ index 26a1d62bfe17d157027ee49d601842e8f48e1915..cb9a6c048b891e50611390abe9a2b5e5
          TraceEvent.begin("ToolbarPhone.updateLocationBarLayoutForExpansionAnimation");
          if (isInTabSwitcherMode()) return;
  
-@@ -1702,6 +1704,7 @@ public class ToolbarPhone extends ToolbarLayout
+@@ -1705,6 +1707,7 @@ public class ToolbarPhone extends ToolbarLayout
              }
          }
  
@@ -26,19 +37,28 @@ index 26a1d62bfe17d157027ee49d601842e8f48e1915..cb9a6c048b891e50611390abe9a2b5e5
          // Draw the tab stack button and associated text if necessary.
          ToggleTabStackButtonCoordinator tabSwitcherButtonCoordinator =
                  getTabSwitcherButtonCoordinator();
-@@ -2094,6 +2097,7 @@ public class ToolbarPhone extends ToolbarLayout
+@@ -2097,7 +2100,7 @@ public class ToolbarPhone extends ToolbarLayout
+ 
      @Override
      public void onHomeButtonIsEnabledUpdate(boolean homeButtonEnabled) {
-         mIsHomeButtonEnabled = homeButtonEnabled;
+-        mIsHomeButtonEnabled = homeButtonEnabled;
 +        mIsHomeButtonEnabled = false;
          updateButtonVisibility();
      }
  
-@@ -2503,6 +2507,7 @@ public class ToolbarPhone extends ToolbarLayout
-         } else {
-             populateUrlClearExpansionAnimatorSet(animators);
-         }
+@@ -2503,6 +2506,7 @@ public class ToolbarPhone extends ToolbarLayout
+     }
+ 
+     private void createAndRunFocusAnimatorLegacy(boolean hasFocus, boolean shouldShowKeyboard) {
 +        if (!BraveToolbarLayout.class.cast(this).isLocationBarValid(mLocationBar)) return;
-         mUrlFocusLayoutAnimator = new AnimatorSet();
-         mUrlFocusLayoutAnimator.playTogether(animators);
+         List<Animator> animators = new ArrayList<>();
+         if (hasFocus) {
+             populateUrlExpansionAnimatorSet(animators);
+@@ -3661,6 +3665,7 @@ public class ToolbarPhone extends ToolbarLayout
+      * @return The offset for the location bar when showing the dse icon.
+      */
+     int getLocationBarOffsetForFocusAnimation(boolean hasFocus) {
++        if (!urlHasFocus()) return 0;
+         StatusCoordinator statusCoordinator = mLocationBar.getStatusCoordinator();
+         if (statusCoordinator == null) return 0;
  

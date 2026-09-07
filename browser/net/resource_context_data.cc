@@ -15,6 +15,7 @@
 #include "brave/browser/net/brave_proxying_url_loader_factory.h"
 #include "brave/browser/net/brave_proxying_web_socket.h"
 #include "brave/browser/net/brave_request_handler.h"
+#include "brave/browser/net/brave_request_handler_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "net/cookies/site_for_cookies.h"
 
@@ -39,6 +40,10 @@ void ResourceContextData<T>::StartProxying(
     content::BrowserContext* browser_context,
     content::GlobalRenderFrameHostToken render_frame_token,
     network::URLLoaderFactoryBuilder& factory_builder,
+    content::ContentBrowserClient::URLLoaderFactoryType url_loader_factory_type,
+    const url::Origin& request_initiator,
+    const net::IsolationInfo& isolation_info,
+    std::optional<int64_t> navigation_id,
     scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
@@ -51,12 +56,13 @@ void ResourceContextData<T>::StartProxying(
   }
 
   if (!self->request_handler_) {
-    self->request_handler_ = std::make_unique<BraveRequestHandler<T>>();
+    self->request_handler_ = std::make_unique<BraveRequestHandlerImpl<T>>();
   }
 
   auto proxy = std::make_unique<BraveProxyingURLLoaderFactory<T>>(
       *self->request_handler_, browser_context, render_frame_token,
-      factory_builder, self->request_id_generator_,
+      factory_builder, url_loader_factory_type, request_initiator,
+      isolation_info, navigation_id, self->request_id_generator_,
       base::BindOnce(&ResourceContextData::RemoveProxy,
                      self->weak_factory_.GetWeakPtr()),
       navigation_response_task_runner);
@@ -85,7 +91,7 @@ BraveProxyingWebSocket<T>* ResourceContextData<T>::CreateProxyingWebSocket(
   }
 
   if (!self->request_handler_) {
-    self->request_handler_ = std::make_unique<BraveRequestHandler<T>>();
+    self->request_handler_ = std::make_unique<BraveRequestHandlerImpl<T>>();
   }
 
   network::ResourceRequest request;

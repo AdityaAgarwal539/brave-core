@@ -8,6 +8,7 @@
 #include "brave/browser/ui/tabs/brave_tab_prefs.h"
 #include "brave/common/pref_names.h"
 #include "brave/components/ai_chat/core/common/pref_names.h"
+#include "brave/components/brave_ads/buildflags/buildflags.h"
 #include "brave/components/brave_news/common/buildflags/buildflags.h"
 #include "brave/components/brave_rewards/core/pref_names.h"
 #include "brave/components/brave_shields/core/common/pref_names.h"
@@ -16,15 +17,19 @@
 #include "brave/components/brave_wallet/common/buildflags/buildflags.h"
 #include "brave/components/brave_wayback_machine/buildflags/buildflags.h"
 #include "brave/components/constants/pref_names.h"
+#include "brave/components/containers/buildflags/buildflags.h"
 #include "brave/components/de_amp/common/pref_names.h"
 #include "brave/components/debounce/core/common/pref_names.h"
 #include "brave/components/decentralized_dns/core/pref_names.h"
+#include "brave/components/email_aliases/buildflags/buildflags.h"
 #include "brave/components/ntp_background_images/common/pref_names.h"
 #include "brave/components/omnibox/browser/brave_omnibox_prefs.h"
 #include "brave/components/playlist/core/common/buildflags/buildflags.h"
+#include "brave/components/psst/buildflags/buildflags.h"
 #include "brave/components/request_otr/common/pref_names.h"
 #include "brave/components/speedreader/common/buildflags/buildflags.h"
 #include "brave/components/tor/buildflags/buildflags.h"
+#include "brave/components/traffic_control/buildflags/buildflags.h"
 #include "brave/components/web_discovery/buildflags/buildflags.h"
 #include "brave/components/webcompat_reporter/common/pref_names.h"
 #include "chrome/browser/extensions/api/settings_private/prefs_util.h"
@@ -37,6 +42,10 @@
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "extensions/buildflags/buildflags.h"
 
+#if BUILDFLAG(ENABLE_BRAVE_ADS)
+#include "brave/components/brave_ads/core/public/prefs/pref_names.h"
+#endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
+
 #if BUILDFLAG(ENABLE_BRAVE_TALK)
 #include "brave/components/brave_talk/pref_names.h"
 #endif
@@ -47,6 +56,10 @@
 
 #if BUILDFLAG(ENABLE_BRAVE_WAYBACK_MACHINE)
 #include "brave/components/brave_wayback_machine/pref_names.h"
+#endif
+
+#if BUILDFLAG(ENABLE_CONTAINERS)
+#include "brave/components/containers/core/browser/pref_names.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS)
@@ -73,15 +86,25 @@
 #include "brave/components/playlist/core/common/pref_names.h"
 #endif
 
+#if BUILDFLAG(ENABLE_PSST)
+#include "brave/components/psst/core/browser/pref_names.h"
+#endif
+
 #if BUILDFLAG(IS_WIN)
 #include "brave/components/windows_recall/windows_recall.h"
+#endif
+
+#if BUILDFLAG(ENABLE_EMAIL_ALIASES)
+#include "brave/components/email_aliases/pref_names.h"
+#endif
+
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+#include "brave/components/traffic_control/core/browser/pref_names.h"
 #endif
 
 namespace extensions {
 
 using ntp_background_images::prefs::kNewTabPageShowBackgroundImage;
-using ntp_background_images::prefs::
-    kNewTabPageShowSponsoredImagesBackgroundImage;
 
 namespace settings_api = api::settings_private;
 
@@ -190,8 +213,10 @@ const PrefsUtil::TypedPrefMap& BravePrefsUtil::GetAllowlistedKeys() {
   (*s_brave_allowlist)[debounce::prefs::kDebounceEnabled] =
       settings_api::PrefType::kBoolean;
   // new tab prefs
-  (*s_brave_allowlist)[kNewTabPageShowSponsoredImagesBackgroundImage] =
+#if BUILDFLAG(ENABLE_BRAVE_ADS)
+  (*s_brave_allowlist)[brave_ads::prefs::kSponsoredEnabled] =
       settings_api::PrefType::kBoolean;
+#endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
   (*s_brave_allowlist)[kNewTabPageShowBackgroundImage] =
       settings_api::PrefType::kBoolean;
   (*s_brave_allowlist)[kNewTabPageShowClock] = settings_api::PrefType::kBoolean;
@@ -354,6 +379,8 @@ const PrefsUtil::TypedPrefMap& BravePrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_brave_allowlist)[brave_tabs::kVerticalTabsHideCompletelyWhenCollapsed] =
       settings_api::PrefType::kBoolean;
+  (*s_brave_allowlist)[brave_tabs::kVerticalTabsShowToggleButton] =
+      settings_api::PrefType::kBoolean;
 
   // Horizontal tabs settings
   (*s_brave_allowlist)[brave_tabs::kCompactHorizontalTabs] =
@@ -378,10 +405,33 @@ const PrefsUtil::TypedPrefMap& BravePrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_brave_allowlist)[brave_tabs::kScrollableHorizontalTabStrip] =
       settings_api::PrefType::kBoolean;
+  (*s_brave_allowlist)[brave_tabs::kAlwaysUseMiniAccentIcon] =
+      settings_api::PrefType::kBoolean;
 #endif
 
 #if BUILDFLAG(IS_WIN)
   (*s_brave_allowlist)[windows_recall::prefs::kWindowsRecallDisabled] =
+      settings_api::PrefType::kBoolean;
+#endif
+
+#if BUILDFLAG(ENABLE_PSST)
+  (*s_brave_allowlist)[psst::prefs::kPsstEnabled] =
+      settings_api::PrefType::kBoolean;
+#endif
+
+#if BUILDFLAG(ENABLE_EMAIL_ALIASES)
+  (*s_brave_allowlist)
+      [email_aliases::prefs::kEmailAliasesNewAliasAutofillSuggestionEnabled] =
+          settings_api::PrefType::kBoolean;
+#endif
+
+#if BUILDFLAG(ENABLE_CONTAINERS)
+  (*s_brave_allowlist)[containers::prefs::kContainersEnabled] =
+      settings_api::PrefType::kBoolean;
+#endif
+
+#if BUILDFLAG(ENABLE_TRAFFIC_CONTROL)
+  (*s_brave_allowlist)[traffic_control::prefs::kTrafficControlEnabled] =
       settings_api::PrefType::kBoolean;
 #endif
 

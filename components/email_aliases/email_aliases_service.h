@@ -33,8 +33,9 @@ namespace email_aliases {
 
 // The EmailAliasesService is responsible for managing the email aliases for a
 // user. It is used to request authentication, generate aliases, update aliases,
-// and delete aliases. It also provides a way to observe the authentication
-// state of the user. The service is designed to be used in a multi-profile
+// and delete aliases. Sign-in state is observed via
+// brave_account::mojom::Authentication. The service is
+// designed to be used in a multi-profile
 // environment, where each profile has its own EmailAliasesService instance.
 //
 // The service is used by the EmailAliases UI to respond to user actions.
@@ -68,8 +69,8 @@ class EmailAliasesService : public KeyedService,
   void DeleteAlias(const std::string& alias_email,
                    DeleteAliasCallback callback) override;
 
-  // Registers |observer| to receive authentication state updates. The observer
-  // will immediately receive the current state upon registration.
+  // Registers |observer| to receive alias list updates. When an observer is
+  // added, the current list is refreshed if the user is signed in.
   void AddObserver(mojo::PendingRemote<mojom::EmailAliasesServiceObserver>
                        observer) override;
 
@@ -90,14 +91,16 @@ class EmailAliasesService : public KeyedService,
   // Marks the promo as shown to the user.
   void MarkPromoShown();
 
+  const std::vector<email_aliases::mojom::AliasPtr>& aliases() const {
+    return aliases_;
+  }
+
  private:
   using TokenResult =
       base::expected<brave_account::mojom::GetServiceTokenResultPtr,
                      brave_account::mojom::GetServiceTokenErrorPtr>;
 
   std::string GetAuthEmail() const;
-
-  mojom::AuthenticationStatus GetCurrentStatus();
 
   void OnAuthChanged();
 
@@ -132,7 +135,6 @@ class EmailAliasesService : public KeyedService,
   // Bound Mojo receivers for the EmailAliasesService interface.
   mojo::ReceiverSet<mojom::EmailAliasesService> receivers_;
 
-  // Connected observers that receive authentication state updates.
   mojo::RemoteSet<mojom::EmailAliasesServiceObserver> observers_;
 
   std::optional<EmailAliasesAuth> auth_;
@@ -143,6 +145,8 @@ class EmailAliasesService : public KeyedService,
   const raw_ref<PrefService> pref_service_;
 
   EmailAliasesMetrics metrics_;
+
+  std::vector<email_aliases::mojom::AliasPtr> aliases_;
 
   // WeakPtrFactory to safely bind callbacks across async network operations.
   base::WeakPtrFactory<EmailAliasesService> weak_factory_{this};

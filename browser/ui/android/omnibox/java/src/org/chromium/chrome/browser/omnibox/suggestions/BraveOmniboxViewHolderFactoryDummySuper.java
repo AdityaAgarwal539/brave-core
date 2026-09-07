@@ -21,7 +21,6 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor.ViewBinder;
 @NullMarked
 class BraveOmniboxViewHolderFactoryDummySuper extends OmniboxViewHolderFactory {
     BraveOmniboxViewHolderFactoryDummySuper() {
-        super();
         assert false : "This class usage should be removed in the bytecode!";
     }
 

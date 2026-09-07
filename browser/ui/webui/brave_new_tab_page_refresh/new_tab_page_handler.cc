@@ -5,18 +5,23 @@
 
 #include "brave/browser/ui/webui/brave_new_tab_page_refresh/new_tab_page_handler.h"
 
+#include <optional>
 #include <utility>
 
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/to_address.h"
+#include "brave/browser/brave_stats/first_run_util.h"
 #include "brave/browser/ntp_background/new_tab_takeover_infobar_delegate.h"
 #include "brave/browser/ui/webui/brave_new_tab_page_refresh/background_facade.h"
 #include "brave/browser/ui/webui/brave_new_tab_page_refresh/custom_image_chooser.h"
+#include "brave/browser/ui/webui/brave_new_tab_page_refresh/sponsored_sites_facade.h"
 #include "brave/browser/ui/webui/brave_new_tab_page_refresh/top_sites_facade.h"
 #include "brave/browser/ui/webui/brave_new_tab_page_refresh/vpn_facade.h"
+#include "brave/components/brave_ads/buildflags/buildflags.h"
 #include "brave/components/brave_perf_predictor/common/pref_names.h"
+#include "brave/components/brave_search/common/brave_search_utils.h"
 #include "brave/components/brave_search_conversion/pref_names.h"
 #include "brave/components/brave_talk/buildflags/buildflags.h"
 #include "brave/components/constants/pref_names.h"
@@ -26,15 +31,26 @@
 #include "brave/components/misc_metrics/new_tab_metrics.h"
 #include "brave/components/misc_metrics/page_metrics.h"
 #include "brave/components/ntp_background_images/common/pref_names.h"
+#include "brave/components/search_engines/brave_prepopulated_engines.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/pref_names.h"
+#include "components/omnibox/browser/autocomplete_input.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/web_contents.h"
+#include "third_party/metrics_proto/omnibox_event.pb.h"
+#include "third_party/metrics_proto/omnibox_input_type.pb.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(ENABLE_BRAVE_ADS)
+#include "brave/components/brave_ads/core/public/prefs/pref_names.h"
+#endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
 
 #if BUILDFLAG(ENABLE_BRAVE_TALK)
 #include "brave/components/brave_talk/pref_names.h"
@@ -42,12 +58,32 @@
 
 namespace brave_new_tab_page_refresh {
 
+namespace {
+
+bool IsSponsoredAdsEnabled(const PrefService& pref_service) {
+#if BUILDFLAG(ENABLE_BRAVE_ADS)
+  return pref_service.GetBoolean(brave_ads::prefs::kSponsoredEnabled);
+#else
+  return false;
+#endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
+}
+
+void SetSponsoredAdsEnabled(PrefService& pref_service, bool enabled) {
+#if BUILDFLAG(ENABLE_BRAVE_ADS)
+  pref_service.SetBoolean(brave_ads::prefs::kSponsoredEnabled, enabled);
+#endif  // BUILDFLAG(ENABLE_BRAVE_ADS)
+}
+
+}  // namespace
+
 NewTabPageHandler::NewTabPageHandler(
     mojo::PendingReceiver<mojom::NewTabPageHandler> receiver,
     std::unique_ptr<CustomImageChooser> custom_image_chooser,
     std::unique_ptr<BackgroundFacade> background_facade,
+    std::unique_ptr<SponsoredSitesFacade> sponsored_sites_facade,
     std::unique_ptr<TopSitesFacade> top_sites_facade,
     std::unique_ptr<VPNFacade> vpn_facade,
+    std::unique_ptr<ChromeAutocompleteSchemeClassifier> scheme_classifier,
     content::WebContents& web_contents,
     PrefService& pref_service,
     TemplateURLService& template_url_service,
@@ -58,8 +94,10 @@ NewTabPageHandler::NewTabPageHandler(
       update_observer_(pref_service, top_sites_facade.get()),
       custom_image_chooser_(std::move(custom_image_chooser)),
       background_facade_(std::move(background_facade)),
+      sponsored_sites_facade_(std::move(sponsored_sites_facade)),
       top_sites_facade_(std::move(top_sites_facade)),
       vpn_facade_(std::move(vpn_facade)),
+      scheme_classifier_(std::move(scheme_classifier)),
       web_contents_(web_contents),
       pref_service_(pref_service),
       template_url_service_(template_url_service),
@@ -67,8 +105,10 @@ NewTabPageHandler::NewTabPageHandler(
       was_restored_(was_restored) {
   CHECK(custom_image_chooser_);
   CHECK(background_facade_);
+  CHECK(sponsored_sites_facade_);
   CHECK(top_sites_facade_);
   CHECK(vpn_facade_);
+  CHECK(scheme_classifier_);
 
   if (page_metrics) {
     brave_search_metrics_ = &page_metrics->brave_search_metrics();
@@ -77,6 +117,9 @@ NewTabPageHandler::NewTabPageHandler(
 
   update_observer_.SetCallback(base::BindRepeating(&NewTabPageHandler::OnUpdate,
                                                    weak_factory_.GetWeakPtr()));
+
+  sponsored_sites_facade_->SetSitesUpdatedCallback(base::BindRepeating(
+      &NewTabPageHandler::OnSponsoredSitesUpdate, weak_factory_.GetWeakPtr()));
 }
 
 NewTabPageHandler::~NewTabPageHandler() = default;
@@ -104,18 +147,13 @@ void NewTabPageHandler::SetBackgroundsEnabled(
 
 void NewTabPageHandler::GetSponsoredImagesEnabled(
     GetSponsoredImagesEnabledCallback callback) {
-  bool sponsored_images_enabled = pref_service_->GetBoolean(
-      ntp_background_images::prefs::
-          kNewTabPageShowSponsoredImagesBackgroundImage);
-  std::move(callback).Run(sponsored_images_enabled);
+  std::move(callback).Run(IsSponsoredAdsEnabled(*pref_service_));
 }
 
 void NewTabPageHandler::SetSponsoredImagesEnabled(
     bool enabled,
     SetSponsoredImagesEnabledCallback callback) {
-  pref_service_->SetBoolean(ntp_background_images::prefs::
-                                kNewTabPageShowSponsoredImagesBackgroundImage,
-                            enabled);
+  SetSponsoredAdsEnabled(*pref_service_, enabled);
   std::move(callback).Run();
 }
 
@@ -288,7 +326,14 @@ void NewTabPageHandler::OpenSearch(const std::string& query,
                                    const std::string& engine,
                                    mojom::EventDetailsPtr details,
                                    OpenSearchCallback callback) {
-  auto* template_url = template_url_service_->GetTemplateURLForHost(engine);
+  // GetTemplateURLForHost can resolve the Brave Search host to a starter pack
+  // engine (@ask) because starter packs outrank other engines on host
+  // collisions, so look up the Brave engine by its unique keyword instead.
+  const bool is_brave = engine == kBraveSearchHost;
+  TemplateURL* template_url =
+      is_brave ? template_url_service_->GetTemplateURLForKeyword(
+                     TemplateURLPrepopulateData::brave_search.keyword)
+               : template_url_service_->GetTemplateURLForHost(engine);
   if (!template_url) {
     std::move(callback).Run();
     return;
@@ -296,6 +341,12 @@ void NewTabPageHandler::OpenSearch(const std::string& query,
 
   GURL search_url = template_url->GenerateSearchURL(
       template_url_service_->search_terms_data(), base::UTF8ToUTF16(query));
+
+  if (is_brave) {
+    auto* local_state = g_browser_process->local_state();
+    search_url = brave_search::OverrideWithNewTabSource(
+        search_url, local_state, brave_stats::IsFirstRun(local_state));
+  }
 
   OpenGURL(search_url,
            ui::DispositionFromClick(false, details->alt_key, details->ctrl_key,
@@ -311,6 +362,21 @@ void NewTabPageHandler::OpenURLFromSearch(const std::string& url,
            ui::DispositionFromClick(false, details->alt_key, details->ctrl_key,
                                     details->meta_key, details->shift_key));
   std::move(callback).Run();
+}
+
+void NewTabPageHandler::GetUrlFromSearchInput(
+    const std::string& input,
+    GetUrlFromSearchInputCallback callback) {
+  AutocompleteInput autocomplete_input(
+      base::UTF8ToUTF16(input), metrics::OmniboxEventProto::NTP_REALBOX,
+      *scheme_classifier_,
+      /*should_use_https_as_default_scheme=*/true);
+  if (autocomplete_input.type() != metrics::OmniboxInputType::URL ||
+      !autocomplete_input.canonicalized_url().is_valid()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  std::move(callback).Run(autocomplete_input.canonicalized_url().spec());
 }
 
 void NewTabPageHandler::SetDefaultSearchEngineAsBraveSearch(
@@ -352,6 +418,18 @@ void NewTabPageHandler::GetShowTopSites(GetShowTopSitesCallback callback) {
 void NewTabPageHandler::SetShowTopSites(bool show_top_sites,
                                         SetShowTopSitesCallback callback) {
   top_sites_facade_->SetTopSitesVisible(show_top_sites);
+  std::move(callback).Run();
+}
+
+void NewTabPageHandler::GetShowSponsoredSites(
+    GetShowSponsoredSitesCallback callback) {
+  std::move(callback).Run(IsSponsoredAdsEnabled(*pref_service_));
+}
+
+void NewTabPageHandler::SetShowSponsoredSites(
+    bool show_sponsored_sites,
+    SetShowSponsoredSitesCallback callback) {
+  SetSponsoredAdsEnabled(*pref_service_, show_sponsored_sites);
   std::move(callback).Run();
 }
 
@@ -422,6 +500,10 @@ void NewTabPageHandler::RecordTopSiteClick(
     navigation_source_metrics_->RecordTopSiteNavigation(is_custom);
   }
   std::move(callback).Run();
+}
+
+void NewTabPageHandler::GetSponsoredSites(GetSponsoredSitesCallback callback) {
+  sponsored_sites_facade_->GetSites(std::move(callback));
 }
 
 void NewTabPageHandler::SetCustomTopSitePosition(
@@ -522,7 +604,7 @@ void NewTabPageHandler::SetShowRewardsWidget(
 }
 
 void NewTabPageHandler::GetShowVPNWidget(GetShowVPNWidgetCallback callback) {
-  if (auto pref_name = vpn_facade_->GetWidgetPrefName()) {
+  if (std::optional<std::string> pref_name = vpn_facade_->GetWidgetPrefName()) {
     std::move(callback).Run(pref_service_->GetBoolean(*pref_name));
   } else {
     std::move(callback).Run(false);
@@ -531,7 +613,7 @@ void NewTabPageHandler::GetShowVPNWidget(GetShowVPNWidgetCallback callback) {
 
 void NewTabPageHandler::SetShowVPNWidget(bool show_vpn_widget,
                                          SetShowVPNWidgetCallback callback) {
-  if (auto pref_name = vpn_facade_->GetWidgetPrefName()) {
+  if (std::optional<std::string> pref_name = vpn_facade_->GetWidgetPrefName()) {
     pref_service_->SetBoolean(*pref_name, show_vpn_widget);
   }
   std::move(callback).Run();
@@ -588,6 +670,7 @@ void NewTabPageHandler::OnUpdate(UpdateObserver::Source update_source) {
       break;
     case UpdateObserver::Source::kTopSites:
       page_->OnTopSitesUpdated();
+      page_->OnSponsoredSitesUpdated();
       break;
     case UpdateObserver::Source::kClock:
       page_->OnClockStateUpdated();
@@ -606,6 +689,12 @@ void NewTabPageHandler::OnUpdate(UpdateObserver::Source update_source) {
     case UpdateObserver::Source::kVPN:
       page_->OnVPNStateUpdated();
       break;
+  }
+}
+
+void NewTabPageHandler::OnSponsoredSitesUpdate() {
+  if (page_.is_bound()) {
+    page_->OnSponsoredSitesUpdated();
   }
 }
 

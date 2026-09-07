@@ -40,6 +40,7 @@
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace content {
 class BrowserContext;
@@ -75,6 +76,19 @@ class BraveProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
     ~InProgressRequest() override;
 
     void Restart();
+
+    // Records on the navigation's NavigationHandle (if this request belongs to
+    // one) that its next redirect was authorized by us, so the eventual
+    // navigation loader doesn't reject it as unsafe.
+    void AuthorizeBypassRedirectChecks();
+
+    // True when the redirect we are about to forward was already authorized on
+    // the navigation's NavigationHandle by an inner proxy, i.e. the WebRequest
+    // proxy synthesizing an extension or DNR redirect. Those redirects are
+    // trusted and must not be re-checked here, as the authorization is
+    // consumed further up by the navigation loader.
+    bool IsBypassRedirectChecksAuthorized() const;
+
     // Called when ThrottlingURLLoader disconnects our proxied_loader_receiver_.
     // For redirect-restart disconnects (kFollowRedirectReason), we forward the
     // same disconnect reason to target_loader_ so that any inner proxy layer
@@ -133,6 +147,7 @@ class BraveProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
     T<brave::BraveRequestInfo> ctx_;
     const raw_ref<BraveProxyingURLLoaderFactory> factory_;
     network::ResourceRequest request_;
+    const std::optional<url::Origin> original_initiator_;
     const uint64_t request_id_;
     const int32_t network_service_request_id_;
 
@@ -166,8 +181,6 @@ class BraveProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
     scoped_refptr<net::HttpResponseHeaders> override_headers_;
     GURL redirect_url_;
 
-    bool request_completed_ = false;
-
     // This stores the parameters to FollowRedirect that came from
     // the client. That way we can combine it with any other changes that
     // extensions made to headers in their callbacks.
@@ -197,6 +210,11 @@ class BraveProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
       content::BrowserContext* browser_context,
       content::GlobalRenderFrameHostToken render_frame_token,
       network::URLLoaderFactoryBuilder& factory_builder,
+      content::ContentBrowserClient::URLLoaderFactoryType
+          url_loader_factory_type,
+      const url::Origin& request_initiator,
+      const net::IsolationInfo& isolation_info,
+      std::optional<int64_t> navigation_id,
       scoped_refptr<RequestIDGenerator> request_id_generator,
       DisconnectCallback on_disconnect,
       scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner);
@@ -211,6 +229,11 @@ class BraveProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
       content::BrowserContext* browser_context,
       content::RenderFrameHost* render_frame_host,
       network::URLLoaderFactoryBuilder& factory_builder,
+      content::ContentBrowserClient::URLLoaderFactoryType
+          url_loader_factory_type,
+      const url::Origin& request_initiator,
+      const net::IsolationInfo& isolation_info,
+      std::optional<int64_t> navigation_id,
       scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner);
 
   // network::mojom::URLLoaderFactory:
@@ -238,6 +261,11 @@ class BraveProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
   const raw_ref<BraveRequestHandler<T>> request_handler_;
   raw_ptr<content::BrowserContext> browser_context_ = nullptr;
   const content::GlobalRenderFrameHostToken render_frame_token_;
+  const content::ContentBrowserClient::URLLoaderFactoryType
+      url_loader_factory_type_;
+  const url::Origin request_initiator_;
+  const net::IsolationInfo isolation_info_;
+  const std::optional<int64_t> navigation_id_;
 
   mojo::ReceiverSet<network::mojom::URLLoaderFactory> proxy_receivers_;
   mojo::Remote<network::mojom::URLLoaderFactory> target_factory_;

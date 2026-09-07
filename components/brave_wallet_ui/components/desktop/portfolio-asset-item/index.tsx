@@ -14,7 +14,10 @@ import { BraveWallet } from '../../../constants/types'
 import Amount from '../../../utils/amount'
 import { getLocale } from '../../../../common/locale'
 import { unbiasedRandom } from '../../../utils/random-utils'
-import { checkIfTokenNeedsNetworkIcon } from '../../../utils/asset-utils'
+import {
+  checkIfTokenNeedsNetworkIcon,
+  isShieldedToken,
+} from '../../../utils/asset-utils'
 import {
   getIsRewardsToken,
   getNormalizedExternalRewardsNetwork,
@@ -132,7 +135,7 @@ export const PortfolioAssetItem = ({
     ? new Amount(assetBalance).divideByDecimals(token.decimals).format()
     : new Amount(assetBalance)
         .divideByDecimals(token.decimals)
-        .formatAsAsset(6, token.symbol)
+        .compactAsAsset(6, token.symbol)
 
   const fiatBalance = React.useMemo(() => {
     if (!spotPrice) {
@@ -144,7 +147,7 @@ export const PortfolioAssetItem = ({
       .times(spotPrice)
   }, [spotPrice, assetBalance, token.decimals])
 
-  const formattedFiatBalance = fiatBalance.formatAsFiat(defaultFiatCurrency)
+  const formattedFiatBalance = fiatBalance.compactAsFiat(defaultFiatCurrency)
 
   const isLoading = formattedAssetBalance === '' && !isNonFungibleToken
 
@@ -161,7 +164,7 @@ export const PortfolioAssetItem = ({
 
     if (tokensNetwork && !isPanel) {
       return token.symbol !== ''
-        ? getLocale('braveWalletPortfolioAssetNetworkDescription')
+        ? getLocale(S.BRAVE_WALLET_PORTFOLIO_ASSET_NETWORK_DESCRIPTION)
             .replace('$1', token.symbol)
             .replace('$2', tokensNetwork.chainName ?? '')
         : tokensNetwork.chainName
@@ -232,11 +235,13 @@ export const PortfolioAssetItem = ({
                       <LoadingSkeleton
                         width={assetNameSkeletonWidth}
                         height={18}
+                        inline={true}
                       />
                       <Spacer />
                       <LoadingSkeleton
                         width={assetNetworkSkeletonWidth}
                         height={18}
+                        inline={true}
                       />
                     </>
                   ) : (
@@ -250,9 +255,14 @@ export const PortfolioAssetItem = ({
                           isBold={true}
                           textAlign='left'
                         >
-                          {token.isShielded ? 'Zcash' : token.name}
+                          {isShieldedToken(token)
+                            ? token.zcashTokenType
+                              === BraveWallet.ZCashTokenType.kIronwood
+                              ? 'Zcash (Shielded)'
+                              : 'Zcash (Shielded Legacy)'
+                            : token.name}
                         </AssetName>
-                        {token.isShielded && <ShieldedLabel />}
+                        {isShieldedToken(token) && <ShieldedLabel />}
                       </Row>
                       <NetworkDescriptionText
                         textSize='12px'
@@ -283,6 +293,7 @@ export const PortfolioAssetItem = ({
                       <LoadingSkeleton
                         width={60}
                         height={18}
+                        inline={true}
                       />
                       <Spacer />
                     </>
@@ -301,6 +312,7 @@ export const PortfolioAssetItem = ({
                         <LoadingSkeleton
                           width={60}
                           height={18}
+                          inline={true}
                         />
                       )}
                     </>
@@ -337,7 +349,7 @@ export const PortfolioAssetItem = ({
                   isBold={false}
                   textAlign='left'
                 >
-                  {getLocale('braveWalletUnavailableBalances')}
+                  {getLocale(S.BRAVE_WALLET_UNAVAILABLE_BALANCES)}
                 </InfoText>
               </Row>
               <div>
@@ -346,7 +358,7 @@ export const PortfolioAssetItem = ({
                   size='tiny'
                   onClick={() => setShowBalanceDetailsModal(true)}
                 >
-                  {getLocale('braveWalletAllowSpendDetailsButton')}
+                  {getLocale(S.BRAVE_WALLET_ALLOW_SPEND_DETAILS_BUTTON)}
                 </LeoButton>
               </div>
             </InfoBar>

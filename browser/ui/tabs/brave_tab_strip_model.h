@@ -65,9 +65,31 @@ class BraveTabStripModel : public TabStripModel {
   const tree_tab::TreeTabNodeId* GetTreeTabNodeIdForGroup(
       tab_groups::TabGroupId group_id) const;
 
+  // Returns the recursive tab indices of every tab in the tree tab subtree
+  // rooted at |index|, excluding |index| itself. Returns an empty vector if
+  // tree tabs are disabled or |index|'s tab has no tree tab descendants. Used
+  // by BraveBrowserTabStripController::SelectTab() to expand a mouse click on
+  // a tree-tab parent to select its whole subtree.
+  std::vector<int> GetTreeTabDescendantIndices(int index);
+
+  // Returns true iff the current selection consists of exactly the active
+  // tab and the tree tab descendants returned by
+  // GetTreeTabDescendantIndices() for it (no more, no fewer, no other
+  // tabs/trees). Always false when tree tabs are disabled or the active tab
+  // has no descendants. Used by chrome::CloseTab()/ReloadInternal() to
+  // detect an ordinary subtree-selection-on-activate so those commands can
+  // be scoped to just the active tab, mirroring how they already handle
+  // split tabs.
+  bool IsOnlyActiveTabAndTreeDescendantsSelected();
+
   // TabStripModel:
   void SelectRelativeTab(TabRelativeDirection direction,
                          TabStripUserGestureDetails detail) override;
+
+  std::vector<std::variant<std::unique_ptr<DetachedTab>,
+                           std::unique_ptr<DetachedTabCollection>>>
+  DetachTabsAndCollectionsForInsertion(
+      const std::vector<int>& tab_indices) override;
 
  private:
   friend class TreeTabsBrowserTest;

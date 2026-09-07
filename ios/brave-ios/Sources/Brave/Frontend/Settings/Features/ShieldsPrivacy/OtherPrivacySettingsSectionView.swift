@@ -173,6 +173,25 @@ struct OtherPrivacySettingsSectionView: View {
           toggle: $settings.isStatsReportingEnabled
         )
       }
+      if !settings.isMetricsReportingManaged {
+        ToggleView(
+          title: Strings.Settings.sendCrashReportsTitle,
+          subtitle: Strings.Settings.sendCrashReportsDescription,
+          toggle: $settings.isCrashReportingEnabled
+        )
+      }
+      if settings.isSponsoredAdsSupported {
+        ToggleView(
+          title: Strings.Settings.sponsoredAdsEnabledTitle,
+          subtitle: Strings.Settings.sponsoredAdsEnabledDescription,
+          toggle: Binding(
+            get: { Preferences.NewTabPage.backgroundMediaType.isSponsored },
+            set: {
+              Preferences.NewTabPage.backgroundMediaType = $0 ? .sponsoredImages : .defaultImages
+            }
+          )
+        )
+      }
       if FeatureList.kBraveNTPBrandedWallpaperSurveyPanelist.enabled {
         ToggleView(
           title: Strings.Settings.surveyPanelistTitle,
